@@ -16,6 +16,7 @@
 #include "icons/icons_32x32.h"
 #include "icons/icons_24x24.h"
 #include "icons/icons_128x128.h"
+#include "icons/icons_24x24.h"
 
 // Display buffer
 static UBYTE *imageBuffer = NULL;
@@ -134,7 +135,7 @@ static void drawString(int x, int y, const char* text, sFONT* font, alignment_t 
   if (y < 0) y = 0;
   if (y + font->Height > DISP_HEIGHT) y = DISP_HEIGHT - font->Height;
   
-  Paint_DrawString_EN(drawX, y, text, font, BLACK, WHITE);
+  Paint_DrawString_EN(drawX, y, text, font, WHITE, BLACK);
 }
 
 /* SAFE: Draw point with bounds checking */
@@ -575,7 +576,7 @@ void drawLocationDate(const String &city, const String &date) {
   drawString(HEADER_RIGHT_X, HEADER_DATE_Y, date.c_str(), &FONT_12PT, RIGHT);
 }
 
-/* BUGFIX: drawStatusBar - Fixed position, no overlap, Updated closer to WiFi */
+/* BUGFIX: drawStatusBar - Fixed position, reload icon, battery percentage */
 void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
                    int rssi, uint32_t batVoltage) {
   (void)statusStr;
@@ -583,14 +584,13 @@ void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
   int y = STATUS_BAR_Y;
   char buf[32];
   
-  // Updated time - MOVED CLOSER to WiFi (was x=10, now x=280)
-  // Just show time, no "Updated" text to save space
+  // Left: Refresh icon + time (compact)
   const char* timeOnly = refreshTimeStr.c_str();
-  // Skip "Updated " prefix if present (8 chars)
   if (strncmp(timeOnly, "Updated ", 8) == 0) {
     timeOnly += 8;
   }
-  drawString(280, y, timeOnly, &FONT_8PT, LEFT);
+  drawBitmap(260, y - 4, wi_refresh_alt_24x24, 24, 24);  // reload icon
+  drawString(290, y, timeOnly, &FONT_8PT, LEFT);          // time
   
   // Center: WiFi icon + RSSI
   const uint8_t* wifiIcon = getWiFiIcon(rssi);
@@ -598,12 +598,21 @@ void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
   snprintf(buf, sizeof(buf), "%d dBm", rssi);
   drawString(420, y, buf, &FONT_8PT, LEFT);
   
-  // Right: Battery icon + voltage
-  const uint8_t* batIcon = getBatteryIcon(batVoltage);
-  drawBitmap(720, y - 8, batIcon, 32, 32);
+  // Right: Battery icon + percentage + voltage
+  int batteryPercent = 0;
   if (batVoltage != UINT32_MAX) {
+    if (batVoltage >= 4200) batteryPercent = 100;
+    else if (batVoltage <= 3200) batteryPercent = 0;
+    else batteryPercent = (batVoltage - 3200) / 10;
+  }
+  
+  const uint8_t* batIcon = getBatteryIcon(batVoltage);
+  drawBitmap(560, y - 8, batIcon, 32, 32);
+  if (batVoltage != UINT32_MAX) {
+    snprintf(buf, sizeof(buf), "%d%%", batteryPercent);
+    drawString(598, y, buf, &FONT_8PT, LEFT);
     snprintf(buf, sizeof(buf), "%.2fV", batVoltage / 1000.0f);
-    drawString(758, y, buf, &FONT_8PT, LEFT);
+    drawString(640, y, buf, &FONT_8PT, LEFT);
   }
 }
 
