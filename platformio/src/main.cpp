@@ -37,7 +37,7 @@
 #if defined(SENSOR_BME680)
   #include <Adafruit_BME680.h>
 #endif
-#if defined(USE_HTTPS_WITH_CERT_VERIF) || defined(USE_HTTPS_WITH_CERT_VERIF)
+#if defined(USE_HTTPS_NO_CERT_VERIF) || defined(USE_HTTPS_WITH_CERT_VERIF)
   #include <WiFiClientSecure.h>
 #endif
 #ifdef USE_HTTPS_WITH_CERT_VERIF
@@ -140,9 +140,18 @@ void setup()
   prefs.begin(NVS_NAMESPACE, false);
 
 #if BATTERY_MONITORING
-  uint32_t batteryVoltage = readBatteryVoltage();
+  uint32_t batteryVoltage;
+  #if USING_BATTERY
+  Serial.println("DEBUG: Reading battery voltage...");
+  batteryVoltage = readBatteryVoltage();
   Serial.print(TXT_BATTERY_VOLTAGE);
   Serial.println(": " + String(batteryVoltage) + "mv");
+  #else
+  // When using USB/power supply, report battery as full to show consistent UI
+  batteryVoltage = MAX_BATTERY_VOLTAGE;
+  Serial.println("DEBUG: USB power mode - reporting battery as full (" 
+                 + String(batteryVoltage) + "mv)");
+  #endif
 
   // When the battery is low, the display should be updated to reflect that, but
   // only the first time we detect low voltage. The next time the display will
@@ -150,7 +159,8 @@ void setup()
   // make use of non-volatile storage.
   bool lowBat = prefs.getBool("lowBat", false);
 
-  // low battery, deep sleep now
+  // low battery, deep sleep now (only if using battery)
+  #if USING_BATTERY
   if (batteryVoltage <= LOW_BATTERY_VOLTAGE)
   {
     if (lowBat == false)
@@ -190,6 +200,9 @@ void setup()
     }
     esp_deep_sleep_start();
   }
+  #else
+  Serial.println("DEBUG: Skipping low battery check (USB power mode)");
+  #endif
   // battery is no longer low, reset variable in non-volatile storage
   if (lowBat == true)
   {
@@ -259,7 +272,9 @@ void setup()
   WiFiClientSecure client;
   client.setCACert(cert_Sectigo_RSA_Organization_Validation_Secure_Server_CA);
 #endif
+  Serial.println("DEBUG: Getting OWM One Call...");
   int rxStatus = getOWMonecall(client, owm_onecall);
+  Serial.println("DEBUG: OWM One Call status = " + String(rxStatus));
   if (rxStatus != HTTP_CODE_OK)
   {
     killWiFi();
@@ -273,7 +288,9 @@ void setup()
     powerOffDisplay();
     beginDeepSleep(startTime, &timeInfo);
   }
+  Serial.println("DEBUG: Getting OWM Air Pollution...");
   rxStatus = getOWMairpollution(client, owm_air_pollution);
+  Serial.println("DEBUG: OWM Air Pollution status = " + String(rxStatus));
   if (rxStatus != HTTP_CODE_OK)
   {
     killWiFi();
@@ -290,6 +307,7 @@ void setup()
   killWiFi(); // WiFi no longer needed
 
   // GET INDOOR TEMPERATURE AND HUMIDITY, start BMEx80...
+  Serial.println("DEBUG: Starting BME sensor...");
   pinMode(PIN_BME_PWR, OUTPUT);
   digitalWrite(PIN_BME_PWR, HIGH);
 #if defined(SENSOR_INIT_DELAY_MS) && SENSOR_INIT_DELAY_MS > 0

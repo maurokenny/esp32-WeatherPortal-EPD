@@ -27,20 +27,20 @@
 //       functionality.
 //
 // ADC pin used to measure battery voltage
-const uint8_t PIN_BAT_ADC  = A2; // A0 for micro-usb firebeetle
+const uint8_t PIN_BAT_ADC  = 36; // ADC1_CH0
 // Pins for E-Paper Driver Board
-const uint8_t PIN_EPD_BUSY = 14; // 5 for micro-usb firebeetle
-const uint8_t PIN_EPD_CS   = 13;
-const uint8_t PIN_EPD_RST  = 21;
-const uint8_t PIN_EPD_DC   = 22;
-const uint8_t PIN_EPD_SCK  = 18;
-const uint8_t PIN_EPD_MISO = 19; // 19 Master-In Slave-Out not used, as no data from display
-const uint8_t PIN_EPD_MOSI = 23;
-const uint8_t PIN_EPD_PWR  = 26; // Irrelevant if directly connected to 3.3V
+const uint8_t PIN_EPD_BUSY = 25;
+const uint8_t PIN_EPD_CS   = 15;
+const uint8_t PIN_EPD_RST  = 26;
+const uint8_t PIN_EPD_DC   = 27;
+const uint8_t PIN_EPD_SCK  = 13;
+const uint8_t PIN_EPD_MISO = 19; // Not used for e-paper
+const uint8_t PIN_EPD_MOSI = 14;
+const uint8_t PIN_EPD_PWR  = 0;  // Not used on Waveshare Driver Board (connected to 3.3V)
 // I2C Pins used for BME280
-const uint8_t PIN_BME_SDA = 17;
-const uint8_t PIN_BME_SCL = 16;
-const uint8_t PIN_BME_PWR =  4;   // Irrelevant if directly connected to 3.3V
+const uint8_t PIN_BME_SDA = 21;
+const uint8_t PIN_BME_SCL = 22;
+const uint8_t PIN_BME_PWR =  0;   // Not used (connected to 3.3V)
 const uint8_t BME_ADDRESS = 0x76; // 0x76 if SDO -> GND; 0x77 if SDO -> VCC
 
 // WIFI

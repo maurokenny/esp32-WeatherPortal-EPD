@@ -39,8 +39,8 @@
 // The Waveshare rev2.2 is no longer in production.
 // Users of the Waveshare rev2.3 have reported experiencing low contrast issues.
 // Uncomment the macro that identifies your driver board hardware.
-#define DRIVER_DESPI_C02
-// #define DRIVER_WAVESHARE
+// #define DRIVER_DESPI_C02
+#define DRIVER_WAVESHARE
 
 // INDOOR ENVIRONMENT SENSOR
 // Uncomment the macro that identifies your sensor.
@@ -308,6 +308,11 @@
 //   Low power behavior can be controlled in config.cpp.
 //   If you wish to disable battery monitoring set this macro to 0.
 #define BATTERY_MONITORING 1
+
+// POWER SOURCE
+//   Set to 1 if powering via battery (enables low voltage protection)
+//   Set to 0 if powering via USB/power supply (disables low voltage sleep)
+#define USING_BATTERY 0
 
 // NON-VOLATILE STORAGE (NVS) NAMESPACE
 #define NVS_NAMESPACE "weather_epd"

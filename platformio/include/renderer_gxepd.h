@@ -1,4 +1,4 @@
-/* Renderer declarations for esp32-weather-epd using Waveshare library.
+/* Renderer declarations for esp32-weather-epd.
  * Copyright (C) 2022-2025  Luke Marzen
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,24 +24,34 @@
 #include "api_response.h"
 #include "config.h"
 
-// Waveshare library includes
-#include "DEV_Config.h"
-#include "EPD.h"
-#include "GUI_Paint.h"
-
-#define DISP_WIDTH  800
-#define DISP_HEIGHT 480
-
-#define GxEPD_BLACK 0
-#define GxEPD_WHITE 1
-
-// Compatibility class for GxEPD2 API
-class DisplayClass {
-public:
-  bool nextPage();
-};
-
-extern DisplayClass display;
+#ifdef DISP_BW_V2
+  #define DISP_WIDTH  800
+  #define DISP_HEIGHT 480
+  #include <GxEPD2_BW.h>
+  extern GxEPD2_BW<GxEPD2_750_T7,
+                   GxEPD2_750_T7::HEIGHT> display;
+#endif
+#ifdef DISP_3C_B
+  #define DISP_WIDTH  800
+  #define DISP_HEIGHT 480
+  #include <GxEPD2_3C.h>
+  extern GxEPD2_3C<GxEPD2_750c_Z08,
+                   GxEPD2_750c_Z08::HEIGHT / 2> display;
+#endif
+#ifdef DISP_7C_F
+  #define DISP_WIDTH  800
+  #define DISP_HEIGHT 480
+  #include <GxEPD2_7C.h>
+  extern GxEPD2_7C<GxEPD2_730c_GDEY073D46, 
+                   GxEPD2_730c_GDEY073D46::HEIGHT / 4> display;
+#endif
+#ifdef DISP_BW_V1
+  #define DISP_WIDTH  640
+  #define DISP_HEIGHT 384
+  #include <GxEPD2_BW.h>
+  extern GxEPD2_BW<GxEPD2_750,
+                   GxEPD2_750::HEIGHT> display;
+#endif
 
 typedef enum alignment
 {

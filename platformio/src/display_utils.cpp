@@ -1524,10 +1524,12 @@ const char *getWifiStatusPhrase(wl_status_t status)
  */
 void disableBuiltinLED()
 {
+#ifdef LED_BUILTIN
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
   gpio_hold_en(static_cast<gpio_num_t>(LED_BUILTIN));
   gpio_deep_sleep_hold_en();
+#endif
   return;
 } // end disableBuiltinLED
 
