@@ -39,6 +39,13 @@
 class DisplayClass {
 public:
   bool nextPage();
+  void firstPage();
+  void setFullWindow();
+  void setTextColor(uint16_t color);
+  void setTextSize(uint8_t size);
+  void setTextWrap(bool wrap);
+  void setCursor(int16_t x, int16_t y);
+  int16_t getCursorX();
 };
 
 extern DisplayClass display;
@@ -59,6 +66,7 @@ void drawMultiLnString(int16_t x, int16_t y, const String &text,
                        uint16_t max_lines, int16_t line_spacing,
                        uint16_t color=GxEPD_BLACK);
 void initDisplay();
+void refreshDisplay();
 void powerOffDisplay();
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
