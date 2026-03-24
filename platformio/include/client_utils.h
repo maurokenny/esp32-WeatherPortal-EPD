@@ -39,6 +39,13 @@ bool printLocalTime(tm *timeInfo);
   int getOWMairpollution(WiFiClientSecure &client, owm_resp_air_pollution_t &r);
 #endif
 
+/* Open-Meteo API support */
+int getOpenMeteoForecast(WiFiClientSecure &client, owm_resp_onecall_t &r);
+int getOpenMeteoCurrent(WiFiClientSecure &client, owm_current_t &current);
+int getOpenMeteoDaily(WiFiClientSecure &client, owm_daily_t *daily, int &count);
+int getOpenMeteoHourly(WiFiClientSecure &client, owm_hourly_t *hourly, int &count);
+
+void printHeapUsage();
 
 #endif
 

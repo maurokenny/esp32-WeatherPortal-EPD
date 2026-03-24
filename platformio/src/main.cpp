@@ -46,7 +46,7 @@
 
 // too large to allocate locally on stack
 static owm_resp_onecall_t       owm_onecall;
-static owm_resp_air_pollution_t owm_air_pollution;
+static owm_resp_air_pollution_t owm_air_pollution = {}; // Zero-initialize to prevent garbage data
 
 Preferences prefs;
 
@@ -129,6 +129,9 @@ void setup()
 {
   unsigned long startTime = millis();
   Serial.begin(115200);
+
+  // Debug: Verify WiFi credentials were loaded from .env
+  Serial.println("DEBUG: WiFi SSID from .env: " + String(WIFI_SSID));
 
 #if DEBUG_LEVEL >= 1
   printHeapUsage();
@@ -263,22 +266,22 @@ void setup()
   }
 
   // MAKE API REQUESTS
-#ifdef USE_HTTP
-  WiFiClient client;
-#elif defined(USE_HTTPS_NO_CERT_VERIF)
+  // Open-Meteo uses HTTPS only
+  Serial.println("DEBUG: Initializing WiFiClientSecure...");
   WiFiClientSecure client;
-  client.setInsecure();
-#elif defined(USE_HTTPS_WITH_CERT_VERIF)
-  WiFiClientSecure client;
-  client.setCACert(cert_Sectigo_RSA_Organization_Validation_Secure_Server_CA);
-#endif
-  Serial.println("DEBUG: Getting OWM One Call...");
-  int rxStatus = getOWMonecall(client, owm_onecall);
-  Serial.println("DEBUG: OWM One Call status = " + String(rxStatus));
+  client.setInsecure(); // Open-Meteo certificate verification can be enabled if needed
+  
+  // Initialize response structure
+  owm_onecall = {};  // Value-initialize all fields to zero
+  
+  // Fetch current weather (small JSON ~2KB)
+  Serial.println("DEBUG: Getting Open-Meteo current weather...");
+  int rxStatus = getOpenMeteoCurrent(client, owm_onecall.current);
+  Serial.println("DEBUG: Current weather status = " + String(rxStatus));
   if (rxStatus != HTTP_CODE_OK)
   {
     killWiFi();
-    statusStr = "One Call " + OWM_ONECALL_VERSION + " API";
+    statusStr = "Open-Meteo Current API";
     tmpStr = String(rxStatus, DEC) + ": " + getHttpResponsePhrase(rxStatus);
     initDisplay();
     do
@@ -288,22 +291,51 @@ void setup()
     powerOffDisplay();
     beginDeepSleep(startTime, &timeInfo);
   }
-  Serial.println("DEBUG: Getting OWM Air Pollution...");
-  rxStatus = getOWMairpollution(client, owm_air_pollution);
-  Serial.println("DEBUG: OWM Air Pollution status = " + String(rxStatus));
+  
+  // Fetch daily forecast (medium JSON ~3KB)
+  Serial.println("DEBUG: Getting Open-Meteo daily forecast...");
+  int dailyCount = 0;
+  rxStatus = getOpenMeteoDaily(client, owm_onecall.daily, dailyCount);
+  Serial.println("DEBUG: Daily forecast status = " + String(rxStatus) + ", count=" + String(dailyCount));
   if (rxStatus != HTTP_CODE_OK)
   {
-    killWiFi();
-    statusStr = "Air Pollution API";
-    tmpStr = String(rxStatus, DEC) + ": " + getHttpResponsePhrase(rxStatus);
-    initDisplay();
-    do
-    {
-      drawError(wi_cloud_down_196x196, statusStr, tmpStr);
-    } while (display.nextPage());
-    powerOffDisplay();
-    beginDeepSleep(startTime, &timeInfo);
+    Serial.println("WARNING: Failed to get daily forecast, using current data");
+    // Use current weather as fallback for daily[0]
+    owm_onecall.daily[0].dt = owm_onecall.current.dt;
+    owm_onecall.daily[0].sunrise = owm_onecall.current.sunrise;
+    owm_onecall.daily[0].sunset = owm_onecall.current.sunset;
+    owm_onecall.daily[0].temp.max = owm_onecall.current.temp;
+    owm_onecall.daily[0].temp.min = owm_onecall.current.temp;
+    owm_onecall.daily[0].temp.morn = owm_onecall.current.temp;
+    owm_onecall.daily[0].temp.day = owm_onecall.current.temp;
+    owm_onecall.daily[0].temp.eve = owm_onecall.current.temp;
+    owm_onecall.daily[0].temp.night = owm_onecall.current.temp;
+    owm_onecall.daily[0].weather = owm_onecall.current.weather;
+    owm_onecall.daily[0].uvi = owm_onecall.current.uvi;
+    owm_onecall.daily[0].pop = 0;
+    dailyCount = 1;
   }
+  
+  // Fetch hourly forecast (larger JSON ~5KB, limited to 48h)
+  Serial.println("DEBUG: Getting Open-Meteo hourly forecast...");
+  int hourlyCount = 0;
+  rxStatus = getOpenMeteoHourly(client, owm_onecall.hourly, hourlyCount);
+  Serial.println("DEBUG: Hourly forecast status = " + String(rxStatus) + ", count=" + String(hourlyCount));
+  if (rxStatus != HTTP_CODE_OK)
+  {
+    Serial.println("WARNING: Failed to get hourly forecast");
+  }
+  
+  // Debug: Verify data
+  Serial.println("DEBUG: After API calls:");
+  Serial.println("  current.temp: " + String(owm_onecall.current.temp));
+  Serial.println("  current.humidity: " + String(owm_onecall.current.humidity));
+  Serial.println("  current.pressure: " + String(owm_onecall.current.pressure));
+  Serial.println("  daily[0].temp.max: " + String(owm_onecall.daily[0].temp.max));
+  Serial.println("  daily[0].temp.min: " + String(owm_onecall.daily[0].temp.min));
+  
+  // Note: Air quality data is not fetched from Open-Meteo in this implementation.
+  // The air pollution structure is left uninitialized and will not be displayed.
   killWiFi(); // WiFi no longer needed
 
   // GET INDOOR TEMPERATURE AND HUMIDITY, start BMEx80...

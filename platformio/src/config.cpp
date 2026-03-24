@@ -18,6 +18,10 @@
 #include <Arduino.h>
 #include "config.h"
 
+// WiFi credentials are auto-generated from .env file by load_env.py
+// This file should NOT be committed to version control
+#include "wifi_credentials.h"
+
 // PINS
 // The configuration below is intended for use with the project's official 
 // wiring diagrams using the FireBeetle 2 ESP32-E microcontroller board.
@@ -44,8 +48,12 @@ const uint8_t PIN_BME_PWR =  0;   // Not used (connected to 3.3V)
 const uint8_t BME_ADDRESS = 0x76; // 0x76 if SDO -> GND; 0x77 if SDO -> VCC
 
 // WIFI
-const char *WIFI_SSID     = "ssid";
-const char *WIFI_PASSWORD = "password";
+// Credentials are loaded from .env file during build via load_env.py
+// Create a .env file in the project root with:
+//   WIFI_SSID=your_network_name
+//   WIFI_PASSWORD=your_password
+const char *WIFI_SSID     = WIFI_SSID_VALUE;
+const char *WIFI_PASSWORD = WIFI_PASSWORD_VALUE;
 const unsigned long WIFI_TIMEOUT = 10000; // ms, WiFi connection timeout.
 
 // HTTP
@@ -56,10 +64,16 @@ const unsigned long WIFI_TIMEOUT = 10000; // ms, WiFi connection timeout.
 //   -258 Deserialization Incomplete Input
 const unsigned HTTP_CLIENT_TCP_TIMEOUT = 10000; // ms
 
-// OPENWEATHERMAP API
-// OpenWeatherMap API key, https://openweathermap.org/
-const String OWM_APIKEY   = "abcdefghijklmnopqrstuvwxyz012345";
-const String OWM_ENDPOINT = "api.openweathermap.org";
+// OPEN-METEO API
+// Open-Meteo is a free weather API that does not require an API key.
+// https://open-meteo.com/
+const String OPENMETEO_ENDPOINT = "api.open-meteo.com";
+const uint16_t OPENMETEO_PORT = 443;
+
+// Legacy OpenWeatherMap constants (kept for compatibility with unused functions)
+const String OWM_APIKEY = "";
+const String OWM_ENDPOINT = "";
+const String OWM_ONECALL_VERSION = "";
 // OpenWeatherMap One Call 2.5 API is deprecated for all new free users
 // (accounts created after Summer 2022).
 //
@@ -74,20 +88,20 @@ const String OWM_ENDPOINT = "api.openweathermap.org";
 // - Go to https://home.openweathermap.org/subscriptions and set the "Calls per
 //   day (no more than)" to 1,000. This ensures you will never overrun the free
 //   calls.
-const String OWM_ONECALL_VERSION = "3.0";
+// (Removed - Open-Meteo does not use versioned API endpoints)
 
 // LOCATION
 // Set your latitude and longitude.
-// (used to get weather data as part of API requests to OpenWeatherMap)
-const String LAT = "40.7128";
-const String LON = "-74.0060";
+// (used to get weather data as part of API requests to Open-Meteo)
+const String LAT = "50.63";
+const String LON = "3.06";
 // City name that will be shown in the top-right corner of the display.
-const String CITY_STRING = "New York";
+const String CITY_STRING = "Lille";
 
 // TIME
 // For list of time zones see
 // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
-const char *TIMEZONE = "EST5EDT,M3.2.0,M11.1.0";
+const char *TIMEZONE = "CET-1CEST,M3.5.0,M10.5.0/3";
 // Time format used when displaying sunrise/set times. (Max 11 characters)
 // For more information about formatting see
 // https://man7.org/linux/man-pages/man3/strftime.3.html

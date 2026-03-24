@@ -23,6 +23,10 @@
 #include "_locale.h"
 #include "_strftime.h"
 
+// Standard C libraries
+#include <time.h>
+#include <stdio.h>
+
 // Include Adafruit_GFX for font definitions
 #include <Adafruit_GFX.h>
 
@@ -202,29 +206,125 @@ void drawMultiLnString(int16_t x, int16_t y, const String &text,
   drawString(x, y, text, alignment, color);
 }
 
-/* Stub functions for compatibility
+/* Helper function to draw temperature with large font
+ */
+static void drawTemperature(int x, int y, float temp)
+{
+  char buf[16];
+  sprintf(buf, "%.1f", temp);
+  Paint_DrawString_EN(x, y, buf, &Font24, BLACK, WHITE);
+  Paint_DrawString_EN(x + 80, y + 5, "C", &Font20, BLACK, WHITE);
+}
+
+/* Helper to get weather icon bitmap based on weather code
+ */
+static const uint8_t *getWeatherIcon196(int weatherId)
+{
+  // Map OWM weather IDs to icon bitmaps
+  // This is a simplified mapping - expand as needed
+  switch (weatherId / 100) {
+    case 2: return wi_thunderstorm_196x196;  // Thunderstorm
+    case 3: return wi_showers_196x196;       // Drizzle
+    case 5: return wi_rain_196x196;          // Rain
+    case 6: return wi_snow_196x196;          // Snow
+    case 7: return wi_fog_196x196;           // Atmosphere (fog, mist)
+    case 8: 
+      if (weatherId == 800) return wi_day_sunny_196x196;  // Clear
+      if (weatherId == 801) return wi_day_sunny_overcast_196x196;  // Few clouds
+      if (weatherId == 802) return wi_day_cloudy_196x196;  // Scattered clouds
+      return wi_cloudy_196x196;  // Broken/overcast clouds
+    default: return wi_na_196x196;
+  }
+}
+
+/* Draw current weather conditions
  */
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
                            float inTemp, float inHumidity)
 {
-  (void)current;
   (void)today;
   (void)owm_air_pollution;
   (void)inTemp;
   (void)inHumidity;
   
+  // Debug: Print received values
+  Serial.println("DEBUG drawCurrentConditions:");
+  Serial.println("  current.temp: " + String(current.temp));
+  Serial.println("  current.humidity: " + String(current.humidity));
+  Serial.println("  current.pressure: " + String(current.pressure));
+  Serial.println("  current.weather.id: " + String(current.weather.id));
+  Serial.println("  current.weather.description: " + current.weather.description);
+  
+  // Clear display
   Paint_Clear(WHITE);
-  Paint_DrawString_EN(10, 10, "Weather Display", &Font24, BLACK, WHITE);
-  Paint_DrawString_EN(10, 50, "Waveshare Driver OK!", &Font20, BLACK, WHITE);
+  
+  // Draw city name at top
+  Paint_DrawString_EN(10, 10, CITY_STRING.c_str(), &Font24, BLACK, WHITE);
+  
+  // Draw large temperature
+  char tempStr[32];
+  sprintf(tempStr, "%.1f", current.temp);
+  Paint_DrawString_EN(10, 50, tempStr, &Font24, BLACK, WHITE);
+  Paint_DrawString_EN(120, 55, "C", &Font20, BLACK, WHITE);
+  
+  // Draw feels like
+  char feelsStr[48];
+  sprintf(feelsStr, "Feels like %.1f C", current.feels_like);
+  Paint_DrawString_EN(10, 90, feelsStr, &Font20, BLACK, WHITE);
+  
+  // Draw weather description
+  Paint_DrawString_EN(10, 120, current.weather.description.c_str(), &Font20, BLACK, WHITE);
+  
+  // Draw weather icon on right side
+  const uint8_t *icon = getWeatherIcon196(current.weather.id);
+  Paint_DrawImage(icon, 500, 20, 196, 196);
+  
+  // Draw basic info
+  char buf[64];
+  sprintf(buf, "Humidity: %d%%", current.humidity);
+  Paint_DrawString_EN(10, 160, buf, &Font16, BLACK, WHITE);
+  
+  sprintf(buf, "Wind: %.1f km/h", current.wind_speed);
+  Paint_DrawString_EN(10, 180, buf, &Font16, BLACK, WHITE);
+  
+  sprintf(buf, "Pressure: %d hPa", current.pressure);
+  Paint_DrawString_EN(10, 200, buf, &Font16, BLACK, WHITE);
+  
+  // Draw additional widgets
+  drawCurrentSunrise(current);
+  drawCurrentSunset(current);
+  drawCurrentWind(current);
+  drawCurrentHumidity(current);
+  drawCurrentUVI(current);
+  drawCurrentPressure(current);
+  drawCurrentVisibility(current);
+  drawCurrentDewpoint(current);
+  
   refreshDisplay();
 }
 
 void drawForecast(const owm_daily_t *daily, tm timeInfo)
 {
-  (void)daily;
   (void)timeInfo;
+  
+  // Draw 7-day forecast at bottom
+  int y = 350;
+  Paint_DrawString_EN(10, y, "7-Day Forecast:", &Font20, BLACK, WHITE);
+  
+  for (int i = 0; i < 7 && i < OWM_NUM_DAILY; i++) {
+    int x = 10 + (i * 110);
+    char buf[32];
+    
+    // Day name (simplified - just show day number)
+    sprintf(buf, "+%d", i + 1);
+    Paint_DrawString_EN(x, y + 25, buf, &Font16, BLACK, WHITE);
+    
+    // High/Low temp
+    sprintf(buf, "%.0f/%.0f", daily[i].temp.max, daily[i].temp.min);
+    Paint_DrawString_EN(x, y + 45, buf, &Font16, BLACK, WHITE);
+  }
 }
 
 void drawAlerts(std::vector<owm_alerts_t> &alerts,
@@ -237,25 +337,56 @@ void drawAlerts(std::vector<owm_alerts_t> &alerts,
 
 void drawLocationDate(const String &city, const String &date)
 {
+  // Already drawn in drawCurrentConditions, but can add date here
   (void)city;
-  (void)date;
+  Paint_DrawString_EN(600, 10, date.c_str(), &Font20, BLACK, WHITE);
 }
 
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                       tm timeInfo)
 {
-  (void)hourly;
   (void)daily;
   (void)timeInfo;
+  
+  // Simple hourly temperature display
+  int y = 400;
+  Paint_DrawString_EN(10, y, "Next 24h:", &Font16, BLACK, WHITE);
+  
+  // Show temperatures for next 8 hours (every 3 hours)
+  for (int i = 0; i < 8 && i < OWM_NUM_HOURLY; i += 3) {
+    int x = 10 + (i / 3) * 95;
+    char buf[32];
+    
+    // Hour
+    time_t t = hourly[i].dt;
+    struct tm *tm_info = localtime(&t);
+    strftime(buf, sizeof(buf), "%Hh", tm_info);
+    Paint_DrawString_EN(x, y + 20, buf, &Font12, BLACK, WHITE);
+    
+    // Temperature
+    sprintf(buf, "%.0f", hourly[i].temp);
+    Paint_DrawString_EN(x, y + 35, buf, &Font16, BLACK, WHITE);
+  }
 }
 
 void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
                    int rssi, uint32_t batVoltage)
 {
   (void)statusStr;
-  (void)refreshTimeStr;
-  (void)rssi;
-  (void)batVoltage;
+  
+  int y = 460;  // Bottom of screen
+  
+  // Draw refresh time
+  Paint_DrawString_EN(10, y, refreshTimeStr.c_str(), &Font16, BLACK, WHITE);
+  
+  // Draw WiFi signal strength
+  char buf[32];
+  sprintf(buf, "WiFi: %d dBm", rssi);
+  Paint_DrawString_EN(300, y, buf, &Font16, BLACK, WHITE);
+  
+  // Draw battery voltage
+  sprintf(buf, "Bat: %.2fV", batVoltage / 1000.0);
+  Paint_DrawString_EN(550, y, buf, &Font16, BLACK, WHITE);
 }
 
 void drawError(const uint8_t *bitmap_196x196,
@@ -276,17 +407,82 @@ void drawError(const uint8_t *bitmap_196x196,
   refreshDisplay();
 }
 
-void drawCurrentSunrise(const owm_current_t &current) { (void)current; }
-void drawCurrentSunset(const owm_current_t &current) { (void)current; }
-void drawCurrentInTemp(float inTemp) { (void)inTemp; }
-void drawCurrentInHumidity(float inHumidity) { (void)inHumidity; }
+void drawCurrentSunrise(const owm_current_t &current) { 
+  char buf[32];
+  time_t t = current.sunrise;
+  struct tm *tm_info = localtime(&t);
+  strftime(buf, sizeof(buf), "%H:%M", tm_info);
+  Paint_DrawString_EN(10, 240, "Sunrise:", &Font16, BLACK, WHITE);
+  Paint_DrawString_EN(10, 260, buf, &Font16, BLACK, WHITE);
+}
+
+void drawCurrentSunset(const owm_current_t &current) { 
+  char buf[32];
+  time_t t = current.sunset;
+  struct tm *tm_info = localtime(&t);
+  strftime(buf, sizeof(buf), "%H:%H", tm_info);
+  Paint_DrawString_EN(120, 240, "Sunset:", &Font16, BLACK, WHITE);
+  Paint_DrawString_EN(120, 260, buf, &Font16, BLACK, WHITE);
+}
+
+void drawCurrentInTemp(float inTemp) { 
+  if (!isnan(inTemp)) {
+    char buf[32];
+    sprintf(buf, "In: %.1f C", inTemp);
+    Paint_DrawString_EN(230, 240, buf, &Font16, BLACK, WHITE);
+  }
+}
+
+void drawCurrentInHumidity(float inHumidity) { 
+  if (!isnan(inHumidity)) {
+    char buf[32];
+    sprintf(buf, "In: %.0f%%", inHumidity);
+    Paint_DrawString_EN(230, 260, buf, &Font16, BLACK, WHITE);
+  }
+}
+
 void drawCurrentMoonrise(const owm_daily_t &today) { (void)today; }
 void drawCurrentMoonset(const owm_daily_t &today) { (void)today; }
-void drawCurrentWind(const owm_current_t &current) { (void)current; }
-void drawCurrentHumidity(const owm_current_t &current) { (void)current; }
-void drawCurrentUVI(const owm_current_t &current) { (void)current; }
-void drawCurrentPressure(const owm_current_t &current) { (void)current; }
-void drawCurrentVisibility(const owm_current_t &current) { (void)current; }
-void drawCurrentAirQuality(const owm_resp_air_pollution_t &owm_air_pollution) { (void)owm_air_pollution; }
+
+void drawCurrentWind(const owm_current_t &current) { 
+  char buf[48];
+  sprintf(buf, "Wind: %.1f km/h", current.wind_speed);
+  Paint_DrawString_EN(10, 280, buf, &Font16, BLACK, WHITE);
+}
+
+void drawCurrentHumidity(const owm_current_t &current) { 
+  char buf[32];
+  sprintf(buf, "Humidity: %d%%", current.humidity);
+  Paint_DrawString_EN(10, 300, buf, &Font16, BLACK, WHITE);
+}
+
+void drawCurrentUVI(const owm_current_t &current) { 
+  char buf[32];
+  sprintf(buf, "UV Index: %.1f", current.uvi);
+  Paint_DrawString_EN(10, 320, buf, &Font16, BLACK, WHITE);
+}
+
+void drawCurrentPressure(const owm_current_t &current) { 
+  char buf[32];
+  sprintf(buf, "Pressure: %d hPa", current.pressure);
+  Paint_DrawString_EN(10, 340, buf, &Font16, BLACK, WHITE);
+}
+
+void drawCurrentVisibility(const owm_current_t &current) { 
+  char buf[48];
+  sprintf(buf, "Visibility: %.1f km", current.visibility / 1000.0);
+  Paint_DrawString_EN(10, 360, buf, &Font16, BLACK, WHITE);
+}
+
+void drawCurrentAirQuality(const owm_resp_air_pollution_t &owm_air_pollution) { 
+  (void)owm_air_pollution;
+  // Not implemented for Open-Meteo
+}
+
 void drawCurrentMoonphase(const owm_daily_t &today) { (void)today; }
-void drawCurrentDewpoint(const owm_current_t &current) { (void)current; }
+
+void drawCurrentDewpoint(const owm_current_t &current) { 
+  char buf[32];
+  sprintf(buf, "Dew Point: %.1f C", current.dew_point);
+  Paint_DrawString_EN(350, 240, buf, &Font16, BLACK, WHITE);
+}
