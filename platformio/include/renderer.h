@@ -97,4 +97,7 @@ void drawCurrentAirQuality(const owm_resp_air_pollution_t &owm_air_pollution);
 void drawCurrentMoonphase(const owm_daily_t &today);
 void drawCurrentDewpoint(const owm_current_t &current);
 
+// Helper function
+const char* getDayName(int dayOfWeek);
+
 #endif
