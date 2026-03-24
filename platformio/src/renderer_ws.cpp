@@ -53,7 +53,7 @@ static bool displayInitialized = false;
 
 // Temperature display
 #define TEMP_X           275
-#define TEMP_Y           95
+#define TEMP_Y_POS       95
 #define TEMP_UNIT_X      335
 
 // Display object
@@ -137,7 +137,14 @@ static void drawString(int x, int y, const char* text, sFONT* font, alignment_t 
   Paint_DrawString_EN(drawX, y, text, font, BLACK, WHITE);
 }
 
-/* IMPROVED: Draw bitmap using Waveshare's native function */
+/* SAFE: Draw point with bounds checking */
+static void safeDrawPoint(int x, int y, DOT_PIXEL pixel, DOT_STYLE style) {
+  if (x >= 0 && x < DISP_WIDTH && y >= 0 && y < DISP_HEIGHT) {
+    Paint_DrawPoint(x, y, BLACK, pixel, style);
+  }
+}
+
+/* FIXED: Draw bitmap with correct colors (inverted) and bounds checking */
 static void drawBitmap(int x, int y, const uint8_t* bitmap, int w, int h) {
   if (bitmap == NULL) {
     // Placeholder rectangle
@@ -145,11 +152,9 @@ static void drawBitmap(int x, int y, const uint8_t* bitmap, int w, int h) {
     return;
   }
   
-  // Use Waveshare's built-in bitmap drawing if available
-  // Paint_DrawBitMap(x, y, bitmap);  // If available in your version
-  
-  // Manual 1-bit bitmap rendering with correct bit order
-  // Format: MSB first, each row padded to byte boundary
+  // Manual 1-bit bitmap rendering - INVERTED (bit=0 means draw BLACK pixel)
+  // The icons in the library have white icon on black background
+  // We want: icon=BLACK on white background
   int rowBytes = (w + 7) / 8;  // Bytes per row (padded)
   
   for (int row = 0; row < h; row++) {
@@ -158,8 +163,9 @@ static void drawBitmap(int x, int y, const uint8_t* bitmap, int w, int h) {
       int bitIndex = 7 - (col % 8);  // MSB first
       
       if (byteIndex < (w * h / 8 + h)) {  // Bounds check
-        if (bitmap[byteIndex] & (1 << bitIndex)) {
-          Paint_DrawPoint(x + col, y + row, BLACK, DOT_PIXEL_1X1, DOT_FILL_AROUND);
+        // INVERTED: Draw when bit is 0 (icon is white in source, becomes black)
+        if (!(bitmap[byteIndex] & (1 << bitIndex))) {
+          safeDrawPoint(x + col, y + row, DOT_PIXEL_1X1, DOT_FILL_AROUND);
         }
       }
     }
@@ -363,12 +369,12 @@ void drawCurrentConditions(const owm_current_t &current,
   
   // ==== TEMPERATURE - LARGER ====
   snprintf(buf, sizeof(buf), "%.0f", current.temp);
-  drawString(TEMP_X, TEMP_Y, buf, &FONT_24PT, CENTER);  // Larger font
-  drawString(TEMP_UNIT_X, TEMP_Y + 5, "C", &FONT_14PT, LEFT);
+  drawString(TEMP_X, TEMP_Y_POS, buf, &FONT_24PT, CENTER);  // Larger font
+  drawString(TEMP_UNIT_X, TEMP_Y_POS + 5, "C", &FONT_14PT, LEFT);
   
   // ==== FEELS LIKE ====
   snprintf(buf, sizeof(buf), "Feels like %.0fC", current.feels_like);
-  drawString(TEMP_X, TEMP_Y + 55, buf, &FONT_12PT, CENTER);
+  drawString(TEMP_X, TEMP_Y_POS + 55, buf, &FONT_12PT, CENTER);
   
   // ==== WIDGET GRID (2x5 = 10 widgets) ====
   
@@ -430,10 +436,15 @@ void drawCurrentConditions(const owm_current_t &current,
   drawWidget(9, "Clouds", buf, getWidgetIcon(9));
 }
 
-/* BUGFIX: drawForecast - Fixed day calculation */
+/* BUGFIX: drawForecast - Fixed day calculation, moved down */
 void drawForecast(const owm_daily_t *daily, tm timeInfo) {
   (void)timeInfo;
   char buf[32];
+  
+  // MOVED DOWN: icons at y=85 (was 68), temps at y=155 (was 138)
+  const int ICON_Y = 85;
+  const int FORECAST_TEMP_Y = 155;
+  const int DAY_Y = 65;  // Day name above icon
   
   for (int i = 0; i < 5; i++) {
     int x = 398 + (i * 82);
@@ -441,18 +452,18 @@ void drawForecast(const owm_daily_t *daily, tm timeInfo) {
     // Day of week - use the daily[i].dt timestamp
     time_t t = (time_t)daily[i].dt;
     struct tm *tm_info = localtime(&t);
-    drawString(x + 32, 48, getDayName(tm_info->tm_wday), &FONT_11PT, CENTER);
+    drawString(x + 32, DAY_Y, getDayName(tm_info->tm_wday), &FONT_11PT, CENTER);
     
-    // Weather icon 64x64
+    // Weather icon 64x64 - MOVED DOWN
     const uint8_t* icon = getWeatherIcon64(daily[i].weather.id, true);
-    drawBitmap(x, 68, icon, 64, 64);
+    drawBitmap(x, ICON_Y, icon, 64, 64);
     
-    // High/Low temperatures
+    // High/Low temperatures - MOVED DOWN
     snprintf(buf, sizeof(buf), "%.0f", daily[i].temp.max);
-    drawString(x + 25, 138, buf, &FONT_8PT, RIGHT);
-    drawString(x + 35, 138, "|", &FONT_8PT, CENTER);
+    drawString(x + 25, FORECAST_TEMP_Y, buf, &FONT_8PT, RIGHT);
+    drawString(x + 35, FORECAST_TEMP_Y, "|", &FONT_8PT, CENTER);
     snprintf(buf, sizeof(buf), "%.0f", daily[i].temp.min);
-    drawString(x + 45, 138, buf, &FONT_8PT, LEFT);
+    drawString(x + 45, FORECAST_TEMP_Y, buf, &FONT_8PT, LEFT);
   }
 }
 
@@ -479,11 +490,14 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   float tempRange = maxTemp - minTemp;
   if (tempRange < 1.0f) tempRange = 1.0f;
   
-  // Draw average line
+  // Draw average line - with bounds checking
   float avgTemp = (minTemp + maxTemp) / 2.0f;
   int avgY = GRAPH_BOTTOM - (int)(((avgTemp - minTemp) / tempRange) * (GRAPH_H - 20)) - 10;
+  // Clamp avgY to valid range
+  if (avgY < GRAPH_Y) avgY = GRAPH_Y;
+  if (avgY > GRAPH_BOTTOM) avgY = GRAPH_BOTTOM;
   for (int x = GRAPH_X; x < GRAPH_X + GRAPH_W; x += 6) {
-    Paint_DrawPoint(x, avgY, BLACK, DOT_PIXEL_1X1, DOT_FILL_AROUND);
+    safeDrawPoint(x, avgY, DOT_PIXEL_1X1, DOT_FILL_AROUND);
   }
   
   // Draw min/max labels
@@ -504,7 +518,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     yPoints[i] = GRAPH_BOTTOM - (int)(((hourly[i].temp - minTemp) / tempRange) * (GRAPH_H - 20)) - 10;
   }
   
-  // Fill area under curve
+  // Fill area under curve - with bounds checking
   for (int x = 0; x < GRAPH_W; x += 4) {
     int col = GRAPH_X + x;
     float idx = (float)x / xStep;
@@ -514,17 +528,25 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     float frac = idx - i1;
     int yAtX = yPoints[i1] + (int)((yPoints[i2] - yPoints[i1]) * frac);
     
+    // Clamp yAtX to valid range
+    if (yAtX < GRAPH_Y) yAtX = GRAPH_Y;
+    if (yAtX > GRAPH_BOTTOM) yAtX = GRAPH_BOTTOM;
+    
     for (int y = GRAPH_BOTTOM - 1; y >= yAtX; y -= 3) {
-      if (y >= GRAPH_Y && y <= GRAPH_BOTTOM) {
-        Paint_DrawPoint(col, y, BLACK, DOT_PIXEL_1X1, DOT_FILL_AROUND);
-      }
+      safeDrawPoint(col, y, DOT_PIXEL_1X1, DOT_FILL_AROUND);
     }
   }
   
-  // Draw temperature line
+  // Draw temperature line - points are already clamped, but ensure they're valid
   for (int i = 0; i < pointsToDraw - 1; i++) {
-    Paint_DrawLine(xPoints[i], yPoints[i], xPoints[i+1], yPoints[i+1], 
-                   BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    // Additional safety check
+    if (xPoints[i] >= 0 && xPoints[i] < DISP_WIDTH && 
+        yPoints[i] >= 0 && yPoints[i] < DISP_HEIGHT &&
+        xPoints[i+1] >= 0 && xPoints[i+1] < DISP_WIDTH && 
+        yPoints[i+1] >= 0 && yPoints[i+1] < DISP_HEIGHT) {
+      Paint_DrawLine(xPoints[i], yPoints[i], xPoints[i+1], yPoints[i+1], 
+                     BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+    }
   }
   
   // Draw points and labels every 3 hours
@@ -553,20 +575,26 @@ void drawLocationDate(const String &city, const String &date) {
   drawString(HEADER_RIGHT_X, HEADER_DATE_Y, date.c_str(), &FONT_12PT, RIGHT);
 }
 
-/* BUGFIX: drawStatusBar - Fixed position, no overlap */
+/* BUGFIX: drawStatusBar - Fixed position, no overlap, Updated closer to WiFi */
 void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
                    int rssi, uint32_t batVoltage) {
   (void)statusStr;
   
   int y = STATUS_BAR_Y;
+  char buf[32];
   
-  // Left: Refresh time
-  drawString(10, y, refreshTimeStr.c_str(), &FONT_8PT, LEFT);
+  // Updated time - MOVED CLOSER to WiFi (was x=10, now x=280)
+  // Just show time, no "Updated" text to save space
+  const char* timeOnly = refreshTimeStr.c_str();
+  // Skip "Updated " prefix if present (8 chars)
+  if (strncmp(timeOnly, "Updated ", 8) == 0) {
+    timeOnly += 8;
+  }
+  drawString(280, y, timeOnly, &FONT_8PT, LEFT);
   
   // Center: WiFi icon + RSSI
   const uint8_t* wifiIcon = getWiFiIcon(rssi);
   drawBitmap(380, y - 8, wifiIcon, 32, 32);
-  char buf[32];
   snprintf(buf, sizeof(buf), "%d dBm", rssi);
   drawString(420, y, buf, &FONT_8PT, LEFT);
   
