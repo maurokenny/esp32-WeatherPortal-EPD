@@ -87,12 +87,25 @@ bool fetchWeatherData(owm_current_t &current, owm_daily_t *daily, owm_hourly_t *
   current.sunset = parseIso8601(sunsetStr);
   
   // Fill daily forecast (5 days)
+  time_t now = time(nullptr);
+  struct tm today_tm;
+  localtime_r(&now, &today_tm);
+  
   for (int i = 0; i < 5; i++) {
     daily[i].temp.max = doc["daily"]["temperature_2m_max"][i];
     daily[i].temp.min = doc["daily"]["temperature_2m_min"][i];
     int dailyWmo = doc["daily"]["weather_code"][i];
     daily[i].weather.id = dailyWmo;
     daily[i].weather.main = "Clouds";
+    
+    // Calculate timestamp for each day (today + i days at noon)
+    struct tm day_tm = today_tm;
+    day_tm.tm_mday += i;
+    day_tm.tm_hour = 12;
+    day_tm.tm_min = 0;
+    day_tm.tm_sec = 0;
+    mktime(&day_tm);  // Normalize
+    daily[i].dt = mktime(&day_tm);
     
     const char* dailySunrise = doc["daily"]["sunrise"][i];
     daily[i].sunrise = parseIso8601(dailySunrise);

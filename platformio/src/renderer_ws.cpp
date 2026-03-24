@@ -1,5 +1,5 @@
 /* Renderer with original esp32-weather-epd layout */
-/* PHASE 3: Enhanced graphics, battery icons, moon phase, wind direction */
+/* BUGFIX VERSION: Fixed bitmap rendering, font sizes, positioning */
 
 #include "renderer.h"
 #include "DEV_Config.h"
@@ -21,27 +21,40 @@
 static UBYTE *imageBuffer = NULL;
 static bool displayInitialized = false;
 
-// Font mapping
+// LARGER Font mapping for better readability on 7.5" display
 #define FONT_7PT    Font8
-#define FONT_8PT    Font8
+#define FONT_8PT    Font12   // Increased from Font8
 #define FONT_11PT   Font12
-#define FONT_12PT   Font12
-#define FONT_14PT   Font16
-#define FONT_16PT   Font16
+#define FONT_12PT   Font16   // Increased from Font12
+#define FONT_14PT   Font20   // Increased from Font16
+#define FONT_16PT   Font24   // Increased from Font16
 #define FONT_24PT   Font24
 
 // Widget positions (2 columns x 5 rows)
 #define WIDGET_COL_WIDTH  162
-#define WIDGET_ROW_HEIGHT 56
-#define WIDGET_BASE_Y     204
+#define WIDGET_ROW_HEIGHT 58   // Increased slightly
+#define WIDGET_BASE_Y     206
 #define WIDGET_ICON_SIZE  48
 
 // Graph area constants
 #define GRAPH_X      350
-#define GRAPH_Y      216
+#define GRAPH_Y      220   // Moved down slightly
 #define GRAPH_W      430
-#define GRAPH_H      180
+#define GRAPH_H      175   // Slightly smaller
 #define GRAPH_BOTTOM (GRAPH_Y + GRAPH_H)
+
+// Header positions
+#define HEADER_CITY_Y    28
+#define HEADER_DATE_Y    56
+#define HEADER_RIGHT_X   785  // Margin from right edge
+
+// Status bar positions
+#define STATUS_BAR_Y     452  // Higher up to avoid overlap
+
+// Temperature display
+#define TEMP_X           275
+#define TEMP_Y           95
+#define TEMP_UNIT_X      335
 
 // Display object
 DisplayClass display;
@@ -102,7 +115,7 @@ void powerOffDisplay() {
   }
 }
 
-/* Draw string with alignment helper */
+/* Draw string with alignment helper - FIXED for better positioning */
 static void drawString(int x, int y, const char* text, sFONT* font, alignment_t align) {
   if (text == NULL || *text == '\0') return;
   
@@ -115,25 +128,39 @@ static void drawString(int x, int y, const char* text, sFONT* font, alignment_t 
     drawX = x - textWidth / 2;
   }
   
+  // Bounds checking
   if (drawX < 0) drawX = 0;
   if (drawX + textWidth > DISP_WIDTH) drawX = DISP_WIDTH - textWidth;
+  if (y < 0) y = 0;
+  if (y + font->Height > DISP_HEIGHT) y = DISP_HEIGHT - font->Height;
   
   Paint_DrawString_EN(drawX, y, text, font, BLACK, WHITE);
 }
 
-/* Draw bitmap from array (1-bit per pixel, MSB first) */
+/* IMPROVED: Draw bitmap using Waveshare's native function */
 static void drawBitmap(int x, int y, const uint8_t* bitmap, int w, int h) {
   if (bitmap == NULL) {
-    Paint_DrawRectangle(x, y, x + w, y + h, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    // Placeholder rectangle
+    Paint_DrawRectangle(x, y, x + w - 1, y + h - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     return;
   }
   
+  // Use Waveshare's built-in bitmap drawing if available
+  // Paint_DrawBitMap(x, y, bitmap);  // If available in your version
+  
+  // Manual 1-bit bitmap rendering with correct bit order
+  // Format: MSB first, each row padded to byte boundary
+  int rowBytes = (w + 7) / 8;  // Bytes per row (padded)
+  
   for (int row = 0; row < h; row++) {
     for (int col = 0; col < w; col++) {
-      int byteIndex = (row * w + col) / 8;
-      int bitIndex = 7 - (col % 8);
-      if (bitmap[byteIndex] & (1 << bitIndex)) {
-        Paint_DrawPoint(x + col, y + row, BLACK, DOT_PIXEL_1X1, DOT_FILL_AROUND);
+      int byteIndex = row * rowBytes + (col / 8);
+      int bitIndex = 7 - (col % 8);  // MSB first
+      
+      if (byteIndex < (w * h / 8 + h)) {  // Bounds check
+        if (bitmap[byteIndex] & (1 << bitIndex)) {
+          Paint_DrawPoint(x + col, y + row, BLACK, DOT_PIXEL_1X1, DOT_FILL_AROUND);
+        }
       }
     }
   }
@@ -224,25 +251,24 @@ static const uint8_t* getWiFiIcon(int rssi) {
 
 /* Get wind direction icon based on degrees */
 static const uint8_t* getWindDirectionIcon(int degrees) {
-  // Map degrees to nearest 22.5 degree increment
   int index = ((degrees + 11) % 360) / 23;
   switch (index) {
-    case 0: return wi_direction_up_48x48;           // N
-    case 1: return wi_direction_up_right_48x48;     // NNE/NE
-    case 2: return wi_direction_up_right_48x48;     // NE
-    case 3: return wi_direction_right_48x48;        // ENE/E
-    case 4: return wi_direction_right_48x48;        // E
-    case 5: return wi_direction_down_right_48x48;   // ESE/SE
-    case 6: return wi_direction_down_right_48x48;   // SE
-    case 7: return wi_direction_down_48x48;         // SSE/S
-    case 8: return wi_direction_down_48x48;         // S
-    case 9: return wi_direction_down_left_48x48;    // SSW/SW
-    case 10: return wi_direction_down_left_48x48;   // SW
-    case 11: return wi_direction_left_48x48;        // WSW/W
-    case 12: return wi_direction_left_48x48;        // W
-    case 13: return wi_direction_up_left_48x48;     // WNW/NW
-    case 14: return wi_direction_up_left_48x48;     // NW
-    case 15: return wi_direction_up_48x48;          // NNW
+    case 0: return wi_direction_up_48x48;
+    case 1: return wi_direction_up_right_48x48;
+    case 2: return wi_direction_up_right_48x48;
+    case 3: return wi_direction_right_48x48;
+    case 4: return wi_direction_right_48x48;
+    case 5: return wi_direction_down_right_48x48;
+    case 6: return wi_direction_down_right_48x48;
+    case 7: return wi_direction_down_48x48;
+    case 8: return wi_direction_down_48x48;
+    case 9: return wi_direction_down_left_48x48;
+    case 10: return wi_direction_down_left_48x48;
+    case 11: return wi_direction_left_48x48;
+    case 12: return wi_direction_left_48x48;
+    case 13: return wi_direction_up_left_48x48;
+    case 14: return wi_direction_up_left_48x48;
+    case 15: return wi_direction_up_48x48;
     default: return wi_direction_up_48x48;
   }
 }
@@ -257,9 +283,6 @@ static const char* degreesToCardinal(int degrees) {
 
 /* Calculate moon phase (0.0 = new, 0.5 = full, 1.0 = new) */
 static float calculateMoonPhase(int year, int month, int day) {
-  // Simple moon phase calculation
-  // Reference: 2000-01-06 18:14 UTC was a new moon
-  
   if (month < 3) {
     year--;
     month += 12;
@@ -267,8 +290,8 @@ static float calculateMoonPhase(int year, int month, int day) {
   
   double c = 365.25 * year;
   double e = 30.6 * (month + 1);
-  double jd = c + e + day - 694039.09;  // Julian date from reference
-  jd /= 29.53059;  // Divide by moon cycle
+  double jd = c + e + day - 694039.09;
+  jd /= 29.53059;
   double phase = jd - floor(jd);
   
   return (float)phase;
@@ -276,7 +299,6 @@ static float calculateMoonPhase(int year, int month, int day) {
 
 /* Get moon phase icon and name */
 static const uint8_t* getMoonPhaseIcon(float phase, const char** name) {
-  // phase: 0.0 = new, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter
   if (phase < 0.0625 || phase >= 0.9375) {
     *name = "New";
     return wi_moon_new_48x48;
@@ -311,19 +333,19 @@ static void formatTime(char* buf, size_t size, int64_t timestamp) {
   strftime(buf, size, "%H:%M", tm_info);
 }
 
-/* Draw a single widget */
+/* Draw a single widget with LARGER fonts */
 static void drawWidget(int pos, const char* label, const char* value, const uint8_t* icon) {
   int col = pos % 2;
   int row = pos / 2;
-  int x = WIDGET_COL_WIDTH * col;
+  int x = WIDGET_COL_WIDTH * col + 2;  // Small left margin
   int y = WIDGET_BASE_Y + (WIDGET_ROW_HEIGHT * row);
   
   drawBitmap(x, y, icon, 48, 48);
-  drawString(x + 56, y + 8, label, &FONT_7PT, LEFT);
-  drawString(x + 56, y + 28, value, &FONT_12PT, LEFT);
+  drawString(x + 54, y + 6, label, &FONT_8PT, LEFT);    // Increased from FONT_7PT
+  drawString(x + 54, y + 26, value, &FONT_12PT, LEFT);  // Increased from FONT_12PT
 }
 
-/* PHASE 3: drawCurrentConditions - Enhanced widgets */
+/* BUGFIX: drawCurrentConditions - Larger fonts, better spacing */
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
@@ -337,16 +359,16 @@ void drawCurrentConditions(const owm_current_t &current,
   
   // ==== TOP LEFT: Weather Icon (196x196) ====
   const uint8_t* weatherIcon = getWeatherIcon196(current.weather.id, isDay);
-  drawBitmap(0, 0, weatherIcon, 196, 196);
+  drawBitmap(2, 2, weatherIcon, 196, 196);
   
-  // ==== TEMPERATURE ====
+  // ==== TEMPERATURE - LARGER ====
   snprintf(buf, sizeof(buf), "%.0f", current.temp);
-  drawString(278, 100, buf, &Font24, CENTER);
-  drawString(330, 110, "C", &FONT_14PT, LEFT);
+  drawString(TEMP_X, TEMP_Y, buf, &FONT_24PT, CENTER);  // Larger font
+  drawString(TEMP_UNIT_X, TEMP_Y + 5, "C", &FONT_14PT, LEFT);
   
   // ==== FEELS LIKE ====
   snprintf(buf, sizeof(buf), "Feels like %.0fC", current.feels_like);
-  drawString(278, 155, buf, &FONT_12PT, CENTER);
+  drawString(TEMP_X, TEMP_Y + 55, buf, &FONT_12PT, CENTER);
   
   // ==== WIDGET GRID (2x5 = 10 widgets) ====
   
@@ -388,7 +410,7 @@ void drawCurrentConditions(const owm_current_t &current,
   }
   drawWidget(6, "Visibility", buf, getWidgetIcon(6));
   
-  // Widget 7: Moon Phase (calculated from today's date)
+  // Widget 7: Moon Phase
   time_t today_t = (time_t)today.dt;
   struct tm *today_tm = localtime(&today_t);
   float moonPhase = calculateMoonPhase(today_tm->tm_year + 1900, 
@@ -408,7 +430,7 @@ void drawCurrentConditions(const owm_current_t &current,
   drawWidget(9, "Clouds", buf, getWidgetIcon(9));
 }
 
-/* PHASE 3: drawForecast - 5 days with icons */
+/* BUGFIX: drawForecast - Fixed day calculation */
 void drawForecast(const owm_daily_t *daily, tm timeInfo) {
   (void)timeInfo;
   char buf[32];
@@ -416,38 +438,38 @@ void drawForecast(const owm_daily_t *daily, tm timeInfo) {
   for (int i = 0; i < 5; i++) {
     int x = 398 + (i * 82);
     
-    // Day of week
+    // Day of week - use the daily[i].dt timestamp
     time_t t = (time_t)daily[i].dt;
     struct tm *tm_info = localtime(&t);
-    drawString(x + 32, 42, getDayName(tm_info->tm_wday), &FONT_11PT, CENTER);
+    drawString(x + 32, 48, getDayName(tm_info->tm_wday), &FONT_11PT, CENTER);
     
     // Weather icon 64x64
     const uint8_t* icon = getWeatherIcon64(daily[i].weather.id, true);
-    drawBitmap(x, 60, icon, 64, 64);
+    drawBitmap(x, 68, icon, 64, 64);
     
     // High/Low temperatures
     snprintf(buf, sizeof(buf), "%.0f", daily[i].temp.max);
-    drawString(x + 25, 130, buf, &FONT_8PT, RIGHT);
-    drawString(x + 35, 130, "|", &FONT_8PT, CENTER);
+    drawString(x + 25, 138, buf, &FONT_8PT, RIGHT);
+    drawString(x + 35, 138, "|", &FONT_8PT, CENTER);
     snprintf(buf, sizeof(buf), "%.0f", daily[i].temp.min);
-    drawString(x + 45, 130, buf, &FONT_8PT, LEFT);
+    drawString(x + 45, 138, buf, &FONT_8PT, LEFT);
   }
 }
 
-/* PHASE 3: Enhanced temperature graph with fill */
+/* BUGFIX: drawOutlookGraph - Adjusted position */
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                       tm timeInfo) {
   (void)daily;
   (void)timeInfo;
   
-  // Title
-  drawString(GRAPH_X + GRAPH_W/2, 200, "24-Hour Temperature", &FONT_14PT, CENTER);
+  // Title - moved down
+  drawString(GRAPH_X + GRAPH_W/2, 208, "24-Hour Temperature", &FONT_12PT, CENTER);
   
   // Draw border
   Paint_DrawRectangle(GRAPH_X, GRAPH_Y, GRAPH_X + GRAPH_W, GRAPH_BOTTOM, 
                       BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
   
-  // Find min/max temperatures for scaling
+  // Find min/max temperatures
   float minTemp = hourly[0].temp;
   float maxTemp = hourly[0].temp;
   for (int i = 1; i < 24; i++) {
@@ -457,7 +479,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   float tempRange = maxTemp - minTemp;
   if (tempRange < 1.0f) tempRange = 1.0f;
   
-  // Draw average line (dotted)
+  // Draw average line
   float avgTemp = (minTemp + maxTemp) / 2.0f;
   int avgY = GRAPH_BOTTOM - (int)(((avgTemp - minTemp) / tempRange) * (GRAPH_H - 20)) - 10;
   for (int x = GRAPH_X; x < GRAPH_X + GRAPH_W; x += 6) {
@@ -482,10 +504,9 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     yPoints[i] = GRAPH_BOTTOM - (int)(((hourly[i].temp - minTemp) / tempRange) * (GRAPH_H - 20)) - 10;
   }
   
-  // Fill area under curve (striped pattern)
+  // Fill area under curve
   for (int x = 0; x < GRAPH_W; x += 4) {
     int col = GRAPH_X + x;
-    // Find y at this x using linear interpolation
     float idx = (float)x / xStep;
     int i1 = (int)idx;
     int i2 = i1 + 1;
@@ -493,7 +514,6 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     float frac = idx - i1;
     int yAtX = yPoints[i1] + (int)((yPoints[i2] - yPoints[i1]) * frac);
     
-    // Draw vertical dotted line from bottom to curve
     for (int y = GRAPH_BOTTOM - 1; y >= yAtX; y -= 3) {
       if (y >= GRAPH_Y && y <= GRAPH_BOTTOM) {
         Paint_DrawPoint(col, y, BLACK, DOT_PIXEL_1X1, DOT_FILL_AROUND);
@@ -511,51 +531,55 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   for (int i = 0; i < pointsToDraw; i += 3) {
     Paint_DrawPoint(xPoints[i], yPoints[i], BLACK, DOT_PIXEL_2X2, DOT_FILL_AROUND);
     
-    // Hour label
     time_t t = (time_t)hourly[i].dt;
     struct tm *tm_info = localtime(&t);
     strftime(buf, sizeof(buf), "%Hh", tm_info);
     drawString(xPoints[i], GRAPH_BOTTOM + 5, buf, &FONT_8PT, CENTER);
     
-    // Temperature value above point
     snprintf(buf, sizeof(buf), "%.0f", hourly[i].temp);
     drawString(xPoints[i], yPoints[i] - 15, buf, &FONT_8PT, CENTER);
   }
 }
 
-/* PHASE 3: Enhanced status bar with icons */
+/* BUGFIX: drawLocationDate - Fixed position with proper margin */
+void drawLocationDate(const String &city, const String &date) {
+  // Clear header area first (prevent overlap)
+  // Paint_ClearWindows(600, 0, DISP_WIDTH, 70, WHITE);
+  
+  // City name - larger font, positioned with margin from right
+  drawString(HEADER_RIGHT_X, HEADER_CITY_Y, city.c_str(), &FONT_16PT, RIGHT);
+  
+  // Date
+  drawString(HEADER_RIGHT_X, HEADER_DATE_Y, date.c_str(), &FONT_12PT, RIGHT);
+}
+
+/* BUGFIX: drawStatusBar - Fixed position, no overlap */
 void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
                    int rssi, uint32_t batVoltage) {
   (void)statusStr;
   
-  int y = DISP_HEIGHT - 32;
+  int y = STATUS_BAR_Y;
   
   // Left: Refresh time
-  drawString(5, y + 8, refreshTimeStr.c_str(), &FONT_8PT, LEFT);
+  drawString(10, y, refreshTimeStr.c_str(), &FONT_8PT, LEFT);
   
   // Center: WiFi icon + RSSI
   const uint8_t* wifiIcon = getWiFiIcon(rssi);
-  drawBitmap(380, y, wifiIcon, 32, 32);
+  drawBitmap(380, y - 8, wifiIcon, 32, 32);
   char buf[32];
   snprintf(buf, sizeof(buf), "%d dBm", rssi);
-  drawString(420, y + 8, buf, &FONT_8PT, LEFT);
+  drawString(420, y, buf, &FONT_8PT, LEFT);
   
   // Right: Battery icon + voltage
   const uint8_t* batIcon = getBatteryIcon(batVoltage);
-  drawBitmap(720, y, batIcon, 32, 32);
+  drawBitmap(720, y - 8, batIcon, 32, 32);
   if (batVoltage != UINT32_MAX) {
     snprintf(buf, sizeof(buf), "%.2fV", batVoltage / 1000.0f);
-    drawString(758, y + 8, buf, &FONT_8PT, LEFT);
+    drawString(758, y, buf, &FONT_8PT, LEFT);
   }
 }
 
-/* PHASE 3: Location and date */
-void drawLocationDate(const String &city, const String &date) {
-  drawString(798, 23, city.c_str(), &FONT_16PT, RIGHT);
-  drawString(798, 51, date.c_str(), &FONT_12PT, RIGHT);
-}
-
-/* PHASE 3: Alerts screen */
+/* drawAlerts - Weather alerts screen */
 void drawAlerts(std::vector<owm_alerts_t> &alerts,
                 const String &city, const String &date) {
   (void)city;
@@ -565,25 +589,20 @@ void drawAlerts(std::vector<owm_alerts_t> &alerts,
   
   Paint_Clear(WHITE);
   
-  // Title
-  drawString(400, 20, "WEATHER ALERTS", &FONT_16PT, CENTER);
+  drawString(400, 20, "WEATHER ALERTS", &FONT_14PT, CENTER);
   drawBitmap(10, 10, warning_icon_48x48, 48, 48);
   
-  // Draw alerts
   int y = 80;
   for (size_t i = 0; i < alerts.size() && i < 3; i++) {
-    // Alert event name
-    drawString(20, y, alerts[i].event.c_str(), &FONT_14PT, LEFT);
+    drawString(20, y, alerts[i].event.c_str(), &FONT_12PT, LEFT);
     y += 25;
     
-    // Alert description (truncated)
     if (alerts[i].description.length() > 0) {
       String desc = alerts[i].description.substring(0, 100);
       drawString(20, y, desc.c_str(), &FONT_8PT, LEFT);
       y += 35;
     }
     
-    // Separator
     Paint_DrawLine(20, y, 780, y, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
     y += 20;
   }
@@ -591,29 +610,24 @@ void drawAlerts(std::vector<owm_alerts_t> &alerts,
   refreshDisplay();
 }
 
-/* PHASE 3: Enhanced error screen */
+/* drawError - Enhanced error screen */
 void drawError(const uint8_t *bitmap_196x196,
                const String &errMsgLn1, const String &errMsgLn2) {
   Paint_Clear(WHITE);
   
-  // Error icon
   if (bitmap_196x196) {
     drawBitmap(302, 80, bitmap_196x196, 196, 196);
   } else {
     drawBitmap(336, 80, error_icon_196x196, 128, 128);
   }
   
-  // Error title
-  drawString(400, 220, "ERROR", &FONT_24PT, CENTER);
-  
-  // Error messages
-  drawString(400, 280, errMsgLn1.c_str(), &FONT_14PT, CENTER);
+  drawString(400, 280, "ERROR", &FONT_16PT, CENTER);
+  drawString(400, 320, errMsgLn1.c_str(), &FONT_12PT, CENTER);
   if (errMsgLn2.length() > 0) {
-    drawString(400, 310, errMsgLn2.c_str(), &FONT_12PT, CENTER);
+    drawString(400, 350, errMsgLn2.c_str(), &FONT_8PT, CENTER);
   }
   
-  // Retry hint
-  drawString(400, 380, "Will retry in next update cycle", &FONT_8PT, CENTER);
+  drawString(400, 420, "Will retry in next update cycle", &FONT_8PT, CENTER);
   
   refreshDisplay();
 }
