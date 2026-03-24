@@ -17,6 +17,8 @@
 #include "icons/icons_24x24.h"
 #include "icons/icons_128x128.h"
 #include "icons/icons_24x24.h"
+#include "icons/icons_16x16.h"
+#include "display_utils.h"
 
 // Display buffer
 static UBYTE *imageBuffer = NULL;
@@ -50,7 +52,7 @@ static bool displayInitialized = false;
 #define HEADER_RIGHT_X   785  // Margin from right edge
 
 // Status bar positions
-#define STATUS_BAR_Y     452  // Higher up to avoid overlap
+#define STATUS_BAR_Y     468  // Closer to bottom edge (480)
 
 // Temperature display
 #define TEMP_X           275
@@ -371,7 +373,9 @@ void drawCurrentConditions(const owm_current_t &current,
   // ==== TEMPERATURE - LARGER ====
   snprintf(buf, sizeof(buf), "%.0f", current.temp);
   drawString(TEMP_X, TEMP_Y_POS, buf, &FONT_24PT, CENTER);  // Larger font
-  drawString(TEMP_UNIT_X, TEMP_Y_POS + 5, "C", &FONT_14PT, LEFT);
+  // Draw degree symbol manually as small circle, then C
+  Paint_DrawCircle(TEMP_UNIT_X + 3, TEMP_Y_POS + 7, 3, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+  drawString(TEMP_UNIT_X + 10, TEMP_Y_POS + 5, "C", &FONT_14PT, LEFT);
   
   // ==== FEELS LIKE ====
   snprintf(buf, sizeof(buf), "Feels like %.0fC", current.feels_like);
@@ -398,8 +402,7 @@ void drawCurrentConditions(const owm_current_t &current,
   } else {
     snprintf(buf, sizeof(buf), "%.0f km/h", current.wind_speed * 3.6f);
   }
-  drawWidget(3, "Wind", buf, 
-             current.wind_deg > 0 ? getWindDirectionIcon(current.wind_deg) : getWidgetIcon(3));
+  drawWidget(3, "Wind", buf, wi_strong_wind_48x48);
   
   // Widget 4: Pressure
   snprintf(buf, sizeof(buf), "%d hPa", current.pressure);
@@ -442,10 +445,10 @@ void drawForecast(const owm_daily_t *daily, tm timeInfo) {
   (void)timeInfo;
   char buf[32];
   
-  // MOVED DOWN: icons at y=85 (was 68), temps at y=155 (was 138)
-  const int ICON_Y = 85;
-  const int FORECAST_TEMP_Y = 155;
-  const int DAY_Y = 65;  // Day name above icon
+  // MOVED DOWN: icons at y=100, temps at y=170
+  const int ICON_Y = 100;
+  const int FORECAST_TEMP_Y = 170;
+  const int DAY_Y = 80;  // Day name above icon
   
   for (int i = 0; i < 5; i++) {
     int x = 398 + (i * 82);
@@ -556,7 +559,11 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     
     time_t t = (time_t)hourly[i].dt;
     struct tm *tm_info = localtime(&t);
-    strftime(buf, sizeof(buf), "%Hh", tm_info);
+#if USE_12H_FORMAT
+    strftime(buf, sizeof(buf), "%I %p", tm_info);  // 12h format: "02 PM"
+#else
+    strftime(buf, sizeof(buf), "%Hh", tm_info);    // 24h format: "14h"
+#endif
     drawString(xPoints[i], GRAPH_BOTTOM + 5, buf, &FONT_8PT, CENTER);
     
     snprintf(buf, sizeof(buf), "%.0f", hourly[i].temp);
@@ -576,44 +583,45 @@ void drawLocationDate(const String &city, const String &date) {
   drawString(HEADER_RIGHT_X, HEADER_DATE_Y, date.c_str(), &FONT_12PT, RIGHT);
 }
 
-/* BUGFIX: drawStatusBar - Fixed position, reload icon, battery percentage */
+/* Status bar - aligned right but moved left to avoid overlap */
 void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
                    int rssi, uint32_t batVoltage) {
   (void)statusStr;
   
   int y = STATUS_BAR_Y;
-  char buf[32];
+  char buf[48];
   
-  // Left: Refresh icon + time (compact)
+  // All elements moved left to prevent battery text overlap
+  // and provide better spacing
+  
+  // Battery: icon 24x24 + percentage + voltage
+  // Position: x=650 for icon, text at x=680 (30px gap)
+  uint32_t displayVoltage = batVoltage;
+  if (batVoltage == UINT32_MAX) {
+    displayVoltage = MAX_BATTERY_VOLTAGE;
+  }
+  uint32_t batteryPercent = calcBatPercent(displayVoltage, MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE);
+  const uint8_t* batIcon = getBatBitmap24(batteryPercent);
+  drawBitmap(650, y - 4, batIcon, 24, 24);
+  snprintf(buf, sizeof(buf), "%d%% (%.2fV)", batteryPercent, displayVoltage / 1000.0f);
+  drawString(680, y, buf, &FONT_8PT, LEFT);
+  
+  // WiFi: icon 16x16 + quality text + RSSI (in parentheses)
+  // Position: x=460 for icon, text at x=480
+  const uint8_t* wifiIcon = getWiFiBitmap16(rssi);
+  drawBitmap(460, y - 2, wifiIcon, 16, 16);
+  const char* wifiDesc = getWiFidesc(rssi);
+  snprintf(buf, sizeof(buf), "%s (%d dBm)", wifiDesc, rssi);
+  drawString(480, y, buf, &FONT_8PT, LEFT);
+  
+  // Refresh: icon 24x24 + time
+  // Position: x=350 for icon, text at x=380
   const char* timeOnly = refreshTimeStr.c_str();
   if (strncmp(timeOnly, "Updated ", 8) == 0) {
     timeOnly += 8;
   }
-  drawBitmap(260, y - 4, wi_refresh_alt_24x24, 24, 24);  // reload icon
-  drawString(290, y, timeOnly, &FONT_8PT, LEFT);          // time
-  
-  // Center: WiFi icon + RSSI
-  const uint8_t* wifiIcon = getWiFiIcon(rssi);
-  drawBitmap(380, y - 8, wifiIcon, 32, 32);
-  snprintf(buf, sizeof(buf), "%d dBm", rssi);
-  drawString(420, y, buf, &FONT_8PT, LEFT);
-  
-  // Right: Battery icon + percentage + voltage
-  int batteryPercent = 0;
-  if (batVoltage != UINT32_MAX) {
-    if (batVoltage >= 4200) batteryPercent = 100;
-    else if (batVoltage <= 3200) batteryPercent = 0;
-    else batteryPercent = (batVoltage - 3200) / 10;
-  }
-  
-  const uint8_t* batIcon = getBatteryIcon(batVoltage);
-  drawBitmap(560, y - 8, batIcon, 32, 32);
-  if (batVoltage != UINT32_MAX) {
-    snprintf(buf, sizeof(buf), "%d%%", batteryPercent);
-    drawString(598, y, buf, &FONT_8PT, LEFT);
-    snprintf(buf, sizeof(buf), "%.2fV", batVoltage / 1000.0f);
-    drawString(640, y, buf, &FONT_8PT, LEFT);
-  }
+  drawBitmap(350, y - 4, wi_refresh_alt_24x24, 24, 24);
+  drawString(380, y, timeOnly, &FONT_8PT, LEFT);
 }
 
 /* drawAlerts - Weather alerts screen */
