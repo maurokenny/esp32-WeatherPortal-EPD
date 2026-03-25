@@ -45,6 +45,16 @@
                   PIN_EPD_RST,
                   PIN_EPD_BUSY));
 #endif
+#ifdef DISP_BW_V2_ALT
+  // Driver alternativo para displays Waveshare 7.5" BW com FPC-C001
+  // Melhora o contraste em painéis que ficam "lavados" com o driver padrão
+  GxEPD2_BW<GxEPD2_750_GDEY075T7,
+            GxEPD2_750_GDEY075T7::HEIGHT> display(
+    GxEPD2_750_GDEY075T7(PIN_EPD_CS,
+                  PIN_EPD_DC,
+                  PIN_EPD_RST,
+                  PIN_EPD_BUSY));
+#endif
 #ifdef DISP_3C_B
   GxEPD2_3C<GxEPD2_750c_Z08,
             GxEPD2_750c_Z08::HEIGHT / 2> display(
@@ -220,32 +230,66 @@ void drawMultiLnString(int16_t x, int16_t y, const String &text,
   return;
 } // end drawMultiLnString
 
+/* Fix display contrast for Waveshare 7.5" V2
+ * Sends VCOM and Data Interval Setting command with Waveshare values
+ */
+void fixDisplayContrast()
+{
+#ifdef DRIVER_WAVESHARE
+  Serial.println("Applying Waveshare contrast settings...");
+  
+  digitalWrite(PIN_EPD_CS, LOW);
+  digitalWrite(PIN_EPD_DC, LOW);
+  SPI.transfer(0x50); // VCOM AND DATA INTERVAL SETTING
+  digitalWrite(PIN_EPD_DC, HIGH);
+  SPI.transfer(0x10); // VBD=Fix Level
+  SPI.transfer(0x07); // VCOM data interval
+  digitalWrite(PIN_EPD_CS, HIGH);
+  
+  delay(10);
+  Serial.println("Contrast settings applied!");
+#endif
+}
+
 /* Initialize e-paper display
  */
 void initDisplay()
 {
   pinMode(PIN_EPD_PWR, OUTPUT);
   digitalWrite(PIN_EPD_PWR, HIGH);
+  delay(100); // Power stabilization
+  
 #ifdef DRIVER_WAVESHARE
-  display.init(115200, true, 2, false);
+  display.init(115200, true, 20, false); // Increased reset pulse to 20ms
 #endif
 #ifdef DRIVER_DESPI_C02
   display.init(115200, true, 10, false);
 #endif
+  
   // remap spi
   SPI.end();
   SPI.begin(PIN_EPD_SCK,
             PIN_EPD_MISO,
             PIN_EPD_MOSI,
             PIN_EPD_CS);
-
+  
+  // Apply Waveshare contrast settings
+  fixDisplayContrast();
+  
   display.setRotation(0);
   display.setTextSize(1);
   display.setTextColor(GxEPD_BLACK);
   display.setTextWrap(false);
-  // display.fillScreen(GxEPD_WHITE);
+  
+  // Clear screen with full refresh for better contrast
   display.setFullWindow();
-  display.firstPage(); // use paged drawing mode, sets fillScreen(GxEPD_WHITE)
+  display.firstPage();
+  do {
+    display.fillScreen(GxEPD_WHITE);
+  } while (display.nextPage());
+  
+  display.setFullWindow();
+  display.firstPage(); // use paged drawing mode
   return;
 } // end initDisplay
 

@@ -23,12 +23,15 @@
 
 // E-PAPER PANEL
 // This project supports the following E-Paper panels:
-//   DISP_BW_V2 - 7.5in e-Paper (v2)      800x480px  Black/White
-//   DISP_3C_B  - 7.5in e-Paper (B)       800x480px  Red/Black/White
-//   DISP_7C_F  - 7.3in ACeP e-Paper (F)  800x480px  7-Color
-//   DISP_BW_V1 - 7.5in e-Paper (v1)      640x384px  Black/White
+//   DISP_BW_V2     - 7.5in e-Paper (v2)      800x480px  Black/White
+//   DISP_BW_V2_ALT - 7.5in e-Paper (v2)      800x480px  Black/White (Alternative driver for FPC-C001 panels)
+//   DISP_3C_B      - 7.5in e-Paper (B)       800x480px  Red/Black/White
+//   DISP_7C_F      - 7.3in ACeP e-Paper (F)  800x480px  7-Color
+//   DISP_BW_V1     - 7.5in e-Paper (v1)      640x384px  Black/White
 // Uncomment the macro that identifies your physical panel.
-#define DISP_BW_V2
+// Use DISP_BW_V2_ALT if your display has FPC-C001 marking and low contrast issues.
+// #define DISP_BW_V2
+#define DISP_BW_V2_ALT
 // #define DISP_3C_B
 // #define DISP_7C_F
 // #define DISP_BW_V1
@@ -39,8 +42,8 @@
 // The Waveshare rev2.2 is no longer in production.
 // Users of the Waveshare rev2.3 have reported experiencing low contrast issues.
 // Uncomment the macro that identifies your driver board hardware.
-#define DRIVER_DESPI_C02
-// #define DRIVER_WAVESHARE
+// #define DRIVER_DESPI_C02
+#define DRIVER_WAVESHARE
 
 // INDOOR ENVIRONMENT SENSOR
 // Uncomment the macro that identifies your sensor.
@@ -309,6 +312,16 @@
 //   If you wish to disable battery monitoring set this macro to 0.
 #define BATTERY_MONITORING 1
 
+// POWER SOURCE
+//   Set to 1 if powering via battery (enables low voltage protection)
+//   Set to 0 if powering via USB/power supply (disables low voltage sleep)
+#define USING_BATTERY 0
+
+// MOCKUP DATA
+//   Set to 1 to use mockup/fake weather data instead of fetching from API
+//   Useful for testing display without WiFi connection
+#define USE_MOCKUP_DATA 1
+
 // NON-VOLATILE STORAGE (NVS) NAMESPACE
 #define NVS_NAMESPACE "weather_epd"
 
@@ -365,9 +378,10 @@ extern const uint32_t MAX_BATTERY_VOLTAGE;
 extern const uint32_t MIN_BATTERY_VOLTAGE;
 
 // CONFIG VALIDATION - DO NOT MODIFY
-#if !(  defined(DISP_BW_V2)  \
-      ^ defined(DISP_3C_B)   \
-      ^ defined(DISP_7C_F)   \
+#if !(  defined(DISP_BW_V2)     \
+      ^ defined(DISP_BW_V2_ALT) \
+      ^ defined(DISP_3C_B)      \
+      ^ defined(DISP_7C_F)      \
       ^ defined(DISP_BW_V1))
   #error Invalid configuration. Exactly one display panel must be selected.
 #endif
