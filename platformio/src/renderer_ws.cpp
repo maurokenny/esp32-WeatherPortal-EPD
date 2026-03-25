@@ -549,16 +549,22 @@ void drawForecast(const owm_daily_t *daily, tm timeInfo) {
   }
 }
 
-/* BUGFIX: drawOutlookGraph - Adjusted position */
+/* drawOutlookGraph - Temperature line with precipitation probability bars */
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                       tm timeInfo) {
   (void)daily;
   (void)timeInfo;
   
-  // Title - moved down
-  drawString(GRAPH_X + GRAPH_W/2, 208, "24-Hour Temperature", &FONT_12PT, CENTER);
+  // Layout constants
+  const int POP_HEIGHT = 40;      // Height for precipitation bars
+  const int POP_Y = GRAPH_BOTTOM - POP_HEIGHT;  // Y where pop area starts
+  const int TEMP_BOTTOM = POP_Y - 8;  // Bottom of temp area (gap for separator)
+  const int TEMP_H = TEMP_BOTTOM - GRAPH_Y;  // Height for temperature
   
-  // Draw border
+  // Title
+  drawString(GRAPH_X + GRAPH_W/2, 208, "24-Hour Outlook", &FONT_12PT, CENTER);
+  
+  // Draw main border
   Paint_DrawRectangle(GRAPH_X, GRAPH_Y, GRAPH_X + GRAPH_W, GRAPH_BOTTOM, 
                       BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
   
@@ -572,24 +578,17 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   float tempRange = maxTemp - minTemp;
   if (tempRange < 1.0f) tempRange = 1.0f;
   
-  // Draw average line - with bounds checking
-  float avgTemp = (minTemp + maxTemp) / 2.0f;
-  int avgY = GRAPH_BOTTOM - (int)(((avgTemp - minTemp) / tempRange) * (GRAPH_H - 20)) - 10;
-  // Clamp avgY to valid range
-  if (avgY < GRAPH_Y) avgY = GRAPH_Y;
-  if (avgY > GRAPH_BOTTOM) avgY = GRAPH_BOTTOM;
-  for (int x = GRAPH_X; x < GRAPH_X + GRAPH_W; x += 6) {
-    safeDrawPoint(x, avgY, DOT_PIXEL_1X1, DOT_FILL_AROUND);
-  }
-  
-  // Draw min/max labels
+  // Draw temperature labels on left axis (no degree symbols, 3 values: max, mid, min)
   char buf[16];
+  float midTemp = (minTemp + maxTemp) / 2.0f;
   snprintf(buf, sizeof(buf), "%.0f", maxTemp);
-  drawString(GRAPH_X + GRAPH_W + 5, GRAPH_Y + 5, buf, &FONT_8PT, LEFT);
+  drawString(GRAPH_X - 5, GRAPH_Y + 5, buf, &FONT_8PT, RIGHT);
+  snprintf(buf, sizeof(buf), "%.0f", midTemp);
+  drawString(GRAPH_X - 5, (GRAPH_Y + TEMP_BOTTOM) / 2, buf, &FONT_8PT, RIGHT);
   snprintf(buf, sizeof(buf), "%.0f", minTemp);
-  drawString(GRAPH_X + GRAPH_W + 5, GRAPH_BOTTOM - 15, buf, &FONT_8PT, LEFT);
+  drawString(GRAPH_X - 5, TEMP_BOTTOM - 12, buf, &FONT_8PT, RIGHT);
   
-  // Calculate points
+  // Calculate temperature points
   int pointsToDraw = 24;
   int xStep = GRAPH_W / (pointsToDraw - 1);
   int xPoints[24];
@@ -597,31 +596,15 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   
   for (int i = 0; i < pointsToDraw; i++) {
     xPoints[i] = GRAPH_X + (i * xStep);
-    yPoints[i] = GRAPH_BOTTOM - (int)(((hourly[i].temp - minTemp) / tempRange) * (GRAPH_H - 20)) - 10;
+    // Map temp to temp area only (not using pop area)
+    yPoints[i] = TEMP_BOTTOM - (int)(((hourly[i].temp - minTemp) / tempRange) * (TEMP_H - 10)) - 5;
+    // Clamp to temp area
+    if (yPoints[i] < GRAPH_Y) yPoints[i] = GRAPH_Y;
+    if (yPoints[i] > TEMP_BOTTOM) yPoints[i] = TEMP_BOTTOM;
   }
   
-  // Fill area under curve - with bounds checking
-  for (int x = 0; x < GRAPH_W; x += 4) {
-    int col = GRAPH_X + x;
-    float idx = (float)x / xStep;
-    int i1 = (int)idx;
-    int i2 = i1 + 1;
-    if (i2 >= pointsToDraw) i2 = pointsToDraw - 1;
-    float frac = idx - i1;
-    int yAtX = yPoints[i1] + (int)((yPoints[i2] - yPoints[i1]) * frac);
-    
-    // Clamp yAtX to valid range
-    if (yAtX < GRAPH_Y) yAtX = GRAPH_Y;
-    if (yAtX > GRAPH_BOTTOM) yAtX = GRAPH_BOTTOM;
-    
-    for (int y = GRAPH_BOTTOM - 1; y >= yAtX; y -= 3) {
-      safeDrawPoint(col, y, DOT_PIXEL_1X1, DOT_FILL_AROUND);
-    }
-  }
-  
-  // Draw temperature line - points are already clamped, but ensure they're valid
+  // Draw temperature line (solid, no fill)
   for (int i = 0; i < pointsToDraw - 1; i++) {
-    // Additional safety check
     if (xPoints[i] >= 0 && xPoints[i] < DISP_WIDTH && 
         yPoints[i] >= 0 && yPoints[i] < DISP_HEIGHT &&
         xPoints[i+1] >= 0 && xPoints[i+1] < DISP_WIDTH && 
@@ -631,19 +614,41 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     }
   }
   
-  // Draw points and labels every 3 hours
+  // Draw precipitation probability bars (every 3 hours)
+  int barWidth = 12;
   for (int i = 0; i < pointsToDraw; i += 3) {
+    float pop = hourly[i].pop;  // 0.0 to 1.0
+    if (pop > 0.05f) {  // Only draw if > 5%
+      int barHeight = (int)(pop * POP_HEIGHT);
+      int barX = xPoints[i] - barWidth/2;
+      int barY = GRAPH_BOTTOM - barHeight;
+      
+      // Draw filled bar
+      Paint_DrawRectangle(barX, barY, barX + barWidth, GRAPH_BOTTOM - 1,
+                          BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    }
+  }
+  
+  // Right axis label for pop (100% at top of graph, 0% at bottom)
+  drawString(GRAPH_X + GRAPH_W + 5, GRAPH_Y + 5, "100%", &FONT_7PT, LEFT);
+  drawString(GRAPH_X + GRAPH_W + 5, GRAPH_BOTTOM - 7, "0%", &FONT_7PT, LEFT);
+  
+  // Draw time labels and temp points every 3 hours
+  for (int i = 0; i < pointsToDraw; i += 3) {
+    // Temperature point
     Paint_DrawPoint(xPoints[i], yPoints[i], BLACK, DOT_PIXEL_2X2, DOT_FILL_AROUND);
     
+    // Time label
     time_t t = (time_t)hourly[i].dt;
     struct tm *tm_info = localtime(&t);
 #if USE_12H_FORMAT
-    strftime(buf, sizeof(buf), "%I %p", tm_info);  // 12h format: "02 PM"
+    strftime(buf, sizeof(buf), "%I %p", tm_info);
 #else
-    strftime(buf, sizeof(buf), "%Hh", tm_info);    // 24h format: "14h"
+    strftime(buf, sizeof(buf), "%Hh", tm_info);
 #endif
-    drawString(xPoints[i], GRAPH_BOTTOM + 5, buf, &FONT_8PT, CENTER);
+    drawString(xPoints[i], GRAPH_BOTTOM + 8, buf, &FONT_8PT, CENTER);
     
+    // Temp label above point
     snprintf(buf, sizeof(buf), "%.0f", hourly[i].temp);
     drawString(xPoints[i], yPoints[i] - 15, buf, &FONT_8PT, CENTER);
   }
