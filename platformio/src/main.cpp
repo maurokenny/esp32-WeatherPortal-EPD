@@ -97,6 +97,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     owm_onecall.hourly[i].pressure = 1013;
     owm_onecall.hourly[i].humidity = 60 + (i % 10);
     owm_onecall.hourly[i].pop = (i % 3 == 0) ? 0.3f + (i % 5) * 0.1f : 0.0f;
+    owm_onecall.hourly[i].rain_1h = (i % 3 == 0) ? 2.5f + (i % 4) : 0.0f;  // mm of rain
     owm_onecall.hourly[i].weather.main = (i % 3 == 0) ? "Rain" : "Clouds";
     owm_onecall.hourly[i].weather.description = (i % 3 == 0) ? "light rain" : "scattered clouds";
     owm_onecall.hourly[i].weather.icon = (i % 3 == 0) ? "10d" : "03d";
