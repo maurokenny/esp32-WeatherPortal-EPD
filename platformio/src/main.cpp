@@ -204,7 +204,7 @@ void setup() {
     
     // 2. Current conditions (left side with widget grid)
     owm_resp_air_pollution_t dummyAir = {};
-    drawCurrentConditions(*current, daily[0], dummyAir, 0.0f, 0.0f);
+    drawCurrentConditions(*current, daily[0], hourly[0], dummyAir, 0.0f, 0.0f);
     
     // 3. 5-day forecast (top right, below location)
     drawForecast(daily, timeInfo);
