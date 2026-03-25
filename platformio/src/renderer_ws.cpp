@@ -455,12 +455,12 @@ void drawCurrentConditions(const owm_current_t &current,
   snprintf(buf, sizeof(buf), "%d%%", current.humidity);
   drawWidget(2, "Humidity", buf, getWidgetIcon(2));
   
-  // Widget 3: Wind with direction
+  // Widget 3: Wind with direction (Open-Meteo returns km/h by default)
   if (current.wind_deg > 0) {
-    snprintf(buf, sizeof(buf), "%.0f km/h %s", current.wind_speed * 3.6f, 
+    snprintf(buf, sizeof(buf), "%.0f km/h %s", current.wind_speed, 
              degreesToCardinal(current.wind_deg));
   } else {
-    snprintf(buf, sizeof(buf), "%.0f km/h", current.wind_speed * 3.6f);
+    snprintf(buf, sizeof(buf), "%.0f km/h", current.wind_speed);
   }
   drawWidget(3, "Wind", buf, wi_strong_wind_48x48);
   
@@ -473,7 +473,7 @@ void drawCurrentConditions(const owm_current_t &current,
   drawWidget(5, "UV Index", buf, getWidgetIcon(5));
   
   // Widget 6: Visibility
-  if (current.visibility > 0) {
+  if (current.visibility > 100) {
     snprintf(buf, sizeof(buf), "%.1f km", current.visibility / 1000.0f);
   } else {
     strcpy(buf, "--");

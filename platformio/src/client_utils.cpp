@@ -297,13 +297,12 @@ void printHeapUsage() {
 /* Get current weather only - small JSON (~2KB) */
 int getOpenMeteoCurrent(WiFiClientSecure &client, owm_current_t &current)
 {
-  Serial.println("DEBUG: getOpenMeteoCurrent started");
-  
   String uri = "/v1/forecast"
                "?latitude=" + LAT + 
                "&longitude=" + LON +
                "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,visibility,dew_point_2m,rain,snowfall" +
                "&timezone=Europe/Paris";
+
   
   int attempts = 0;
   while (attempts < 3) {
@@ -375,7 +374,7 @@ int getOpenMeteoDaily(WiFiClientSecure &client, owm_daily_t *daily, int &count)
   String uri = "/v1/forecast"
                "?latitude=" + LAT + 
                "&longitude=" + LON +
-               "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max" +
+               "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max" +
                "&timezone=Europe/Paris" +
                "&forecast_days=" + String(OWM_NUM_DAILY);
   
@@ -418,6 +417,7 @@ int getOpenMeteoDaily(WiFiClientSecure &client, owm_daily_t *daily, int &count)
         JsonArray daily_uv = daily_obj["uv_index_max"];
         JsonArray daily_rain = daily_obj["precipitation_sum"];
         JsonArray daily_pop = daily_obj["precipitation_probability_max"];
+        JsonArray daily_wind = daily_obj["wind_speed_10m_max"];
         JsonArray daily_weather = daily_obj["weather_code"];
         
         count = min((int)OWM_NUM_DAILY, (int)daily_time.size());
@@ -434,11 +434,11 @@ int getOpenMeteoDaily(WiFiClientSecure &client, owm_daily_t *daily, int &count)
           daily[i].uvi = daily_uv[i].as<float>();
           daily[i].rain = daily_rain[i].as<float>();
           daily[i].pop = daily_pop[i].as<float>() / 100.0f;
+          daily[i].wind_speed = daily_wind[i].as<float>();
           int wmo = daily_weather[i].as<int>();
           wmoToOwmWeather(wmo, true, daily[i].weather);
           daily[i].pressure = 0;
           daily[i].humidity = 0;
-          daily[i].wind_speed = 0;
           daily[i].moonrise = 0;
           daily[i].moonset = 0;
           daily[i].moon_phase = 0;
