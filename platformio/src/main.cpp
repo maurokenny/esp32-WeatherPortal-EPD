@@ -30,6 +30,7 @@
 #include "display_utils.h"
 #include "icons/icons_196x196.h"
 #include "renderer.h"
+#include "test_gxepd2.h"
 
 #if defined(SENSOR_BME280)
   #include <Adafruit_BME280.h>
@@ -129,6 +130,11 @@ void setup()
 {
   unsigned long startTime = millis();
   Serial.begin(115200);
+
+  // Run display test first (will show test pattern then continue)
+  delay(1000);
+  runDisplayTest();
+  delay(2000);
 
 #if DEBUG_LEVEL >= 1
   printHeapUsage();
