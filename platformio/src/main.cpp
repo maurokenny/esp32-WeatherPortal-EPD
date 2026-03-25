@@ -30,7 +30,6 @@
 #include "display_utils.h"
 #include "icons/icons_196x196.h"
 #include "renderer.h"
-#include "test_gxepd2.h"
 
 #if defined(SENSOR_BME280)
   #include <Adafruit_BME280.h>
@@ -50,6 +49,70 @@ static owm_resp_onecall_t       owm_onecall;
 static owm_resp_air_pollution_t owm_air_pollution;
 
 Preferences prefs;
+
+/* Fill data structures with mockup data for testing without WiFi/API
+ */
+void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
+{
+  Serial.println("Using MOCKUP DATA - No WiFi/API calls");
+  
+  // Set current time
+  timeInfo.tm_year = 2025 - 1900;  // Year since 1900
+  timeInfo.tm_mon = 2;             // March (0-11)
+  timeInfo.tm_mday = 25;           // Day of month
+  timeInfo.tm_hour = 14;           // Hour
+  timeInfo.tm_min = 30;            // Minute
+  timeInfo.tm_sec = 0;
+  time_t now = mktime(&timeInfo);
+  
+  // Set ESP32 internal clock so getLocalTime() works
+  struct timeval tv = { .tv_sec = now, .tv_usec = 0 };
+  settimeofday(&tv, NULL);
+  setenv("TZ", TIMEZONE, 1);
+  tzset();
+  
+  // Current weather
+  owm_onecall.current.dt = now;
+  owm_onecall.current.temp = 22.5f;
+  owm_onecall.current.feels_like = 21.0f;
+  owm_onecall.current.pressure = 1013;
+  owm_onecall.current.humidity = 65;
+  owm_onecall.current.dew_point = 15.5f;
+  owm_onecall.current.clouds = 40;
+  owm_onecall.current.uvi = 4.5f;
+  owm_onecall.current.visibility = 10000;
+  owm_onecall.current.wind_speed = 15.0f;
+  owm_onecall.current.wind_deg = 180;
+  owm_onecall.current.weather.main = "Clouds";
+  owm_onecall.current.weather.description = "scattered clouds";
+  owm_onecall.current.weather.icon = "03d";
+  
+  // Hourly forecast (24 hours)
+  for (int i = 0; i < 24; i++) {
+    owm_onecall.hourly[i].dt = now + (i * 3600);
+    owm_onecall.hourly[i].temp = 20.0f + (i % 5) - 2.0f;
+    owm_onecall.hourly[i].feels_like = owm_onecall.hourly[i].temp - 1.0f;
+    owm_onecall.hourly[i].pressure = 1013;
+    owm_onecall.hourly[i].humidity = 60 + (i % 10);
+    owm_onecall.hourly[i].pop = (i % 3 == 0) ? 0.3f + (i % 5) * 0.1f : 0.0f;
+    owm_onecall.hourly[i].weather.main = (i % 3 == 0) ? "Rain" : "Clouds";
+    owm_onecall.hourly[i].weather.description = (i % 3 == 0) ? "light rain" : "scattered clouds";
+    owm_onecall.hourly[i].weather.icon = (i % 3 == 0) ? "10d" : "03d";
+  }
+  
+  // Daily forecast (5 days)
+  for (int i = 0; i < 5; i++) {
+    owm_onecall.daily[i].dt = now + (i * 86400);
+    owm_onecall.daily[i].temp.max = 22.0f + (i % 3);
+    owm_onecall.daily[i].temp.min = 15.0f - (i % 2);
+    owm_onecall.daily[i].weather.main = "Clouds";
+    owm_onecall.daily[i].weather.description = "scattered clouds";
+    owm_onecall.daily[i].weather.icon = "03d";
+    owm_onecall.daily[i].pop = (i % 2 == 0) ? 0.2f : 0.0f;
+  }
+  
+  Serial.println("Mockup data filled successfully!");
+}
 
 /* Put esp32 into ultra low-power deep sleep (<11μA).
  * Aligns wake time to the minute. Sleep times defined in config.cpp.
@@ -131,11 +194,6 @@ void setup()
   unsigned long startTime = millis();
   Serial.begin(115200);
 
-  // Run display test first (will show test pattern then continue)
-  delay(1000);
-  runDisplayTest();
-  delay(2000);
-
 #if DEBUG_LEVEL >= 1
   printHeapUsage();
 #endif
@@ -156,8 +214,8 @@ void setup()
   // make use of non-volatile storage.
   bool lowBat = prefs.getBool("lowBat", false);
 
-  // low battery, deep sleep now
-  if (batteryVoltage <= LOW_BATTERY_VOLTAGE)
+  // low battery, deep sleep now (only if using battery)
+  if (USING_BATTERY && batteryVoltage <= LOW_BATTERY_VOLTAGE)
   {
     if (lowBat == false)
     { // battery is now low for the first time
@@ -211,9 +269,17 @@ void setup()
   String statusStr = {};
   String tmpStr = {};
   tm timeInfo = {};
+  bool timeConfigured = false;
 
+#if USE_MOCKUP_DATA
+  // Use mockup data instead of WiFi/API
+  int wifiRSSI = -50; // Fake good signal
+  timeConfigured = true; // Mockup always has valid time
+  fillMockupData(owm_onecall, timeInfo);
+  
+#else
   // START WIFI
-  int wifiRSSI = 0; // “Received Signal Strength Indicator"
+  int wifiRSSI = 0; // "Received Signal Strength Indicator"
   wl_status_t wifiStatus = startWiFi(wifiRSSI);
   if (wifiStatus != WL_CONNECTED)
   { // WiFi Connection Failed
@@ -241,7 +307,7 @@ void setup()
 
   // TIME SYNCHRONIZATION
   configTzTime(TIMEZONE, NTP_SERVER_1, NTP_SERVER_2);
-  bool timeConfigured = waitForSNTPSync(&timeInfo);
+  timeConfigured = waitForSNTPSync(&timeInfo);
   if (!timeConfigured)
   {
     Serial.println(TXT_TIME_SYNCHRONIZATION_FAILED);
@@ -294,6 +360,7 @@ void setup()
     beginDeepSleep(startTime, &timeInfo);
   }
   killWiFi(); // WiFi no longer needed
+#endif
 
   // GET INDOOR TEMPERATURE AND HUMIDITY, start BMEx80...
   pinMode(PIN_BME_PWR, OUTPUT);
