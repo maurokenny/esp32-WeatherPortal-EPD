@@ -916,17 +916,68 @@ void drawCurrentDewpoint(const owm_current_t &current)
 
 //End defining functions for left panel.
 
+/* Draws a compact umbrella widget (96x96) showing rain alert status.
+ * x, y: top-left position
+ * hourly: hourly forecast data
+ * hours: number of hours to check
+ */
+void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours)
+{
+  // Find max POP and first hour with rain in the next N hours
+  float maxPop = 0.0f;
+  int firstRainHour = -1;
+  
+  for (int i = 0; i < hours && i < HOURLY_GRAPH_MAX; i++) {
+    if (hourly[i].pop > maxPop) {
+      maxPop = hourly[i].pop;
+    }
+    if (firstRainHour == -1 && hourly[i].pop >= 0.30f) {
+      firstRainHour = i;
+    }
+  }
+  
+  int popPercent = static_cast<int>(std::round(maxPop * 100));
+  int centerX = x + 48; // Center of 96px width
+  
+  // Draw umbrella icon 48x48 centered
+  display.drawInvertedBitmap(x + 24, y + 10, wi_umbrella_64x64, 48, 48, GxEPD_BLACK);
+  
+  // State 1: No rain (POP < 30%)
+  if (maxPop < 0.30f) {
+    // Draw X over icon
+    display.drawLine(x + 28, y + 14, x + 68, y + 54, GxEPD_BLACK);
+    display.drawLine(x + 68, y + 14, x + 28, y + 54, GxEPD_BLACK);
+    // Text below
+    display.setFont(&FONT_8pt8b);
+    drawString(centerX, y + 64, "No rain", CENTER);
+    drawString(centerX, y + 78, String(popPercent) + "%", CENTER);
+  }
+  // State 2: Compact umbrella (POP 30-70%)
+  else if (maxPop < 0.70f) {
+    display.setFont(&FONT_8pt8b);
+    drawString(centerX, y + 64, "Compact", CENTER);
+    drawString(centerX, y + 78, String(popPercent) + "%", CENTER);
+  }
+  // State 3: Umbrella now (POP >= 70%)
+  else {
+    display.setFont(&FONT_8pt8b);
+    drawString(centerX, y + 64, "Take", CENTER);
+    drawString(centerX, y + 78, String(popPercent) + "%", CENTER);
+  }
+}
+
 /* This function is responsible for drawing the current conditions and
  * associated icons.
  */
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
-                           float inTemp, float inHumidity)
+                           float inTemp, float inHumidity,
+                           const owm_hourly_t *hourly)
 {
   String dataStr, unitStr;
   
-  // LEFT: Temperature 164x196 at (0, 0) - SWAPPED POSITION
+  // LEFT: Temperature 164x196 at (0, 0) - ORIGINAL SIZE & POSITION
 #ifdef UNITS_TEMP_KELVIN
   dataStr = String(static_cast<int>(std::round(current.temp)));
   unitStr = TXT_UNITS_TEMP_KELVIN;
@@ -976,10 +1027,15 @@ void drawCurrentConditions(const owm_current_t &current,
   drawString(0 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
 #endif
 
-  // RIGHT: Weather icon 196x196 at (164, 0) - SWAPPED POSITION
-  display.drawInvertedBitmap(164, 0,
-                             getCurrentConditionsBitmap196(current, today),
-                             196, 196, GxEPD_BLACK);
+  // RIGHT COLUMN: Cloud icon 96x96 at (164, 10) - TOP, REDUCED
+  display.drawInvertedBitmap(164 + 26, 10,
+                             getCurrentConditionsBitmap96(current, today),
+                             96, 96, GxEPD_BLACK);
+
+  // RIGHT COLUMN: Umbrella widget 96x96 at (164, 106) - BOTTOM, REDUCED
+  if (hourly != nullptr) {
+    drawUmbrellaWidget(164, 106, hourly, 6);
+  }
   // line dividing top and bottom display areas
   // display.drawLine(0, 196, DISP_WIDTH - 1, 196, GxEPD_BLACK);
 

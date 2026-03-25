@@ -77,10 +77,12 @@ void drawMultiLnString(int16_t x, int16_t y, const String &text,
                        uint16_t color=GxEPD_BLACK);
 void initDisplay();
 void powerOffDisplay();
+void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours);
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
-                           float inTemp, float inHumidity);
+                           float inTemp, float inHumidity,
+                           const owm_hourly_t *hourly = nullptr);
 void drawForecast(const owm_daily_t *daily, tm timeInfo);
 void drawAlerts(std::vector<owm_alerts_t> &alerts,
                 const String &city, const String &date);
