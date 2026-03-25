@@ -91,6 +91,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   owm_onecall.current.visibility = 10000;
   owm_onecall.current.wind_speed = 15.0f;
   owm_onecall.current.wind_deg = 180;
+  owm_onecall.current.weather.id = 803;  // Clouds (broken clouds)
   owm_onecall.current.weather.main = "Clouds";
   owm_onecall.current.weather.description = "scattered clouds";
   owm_onecall.current.weather.icon = "03d";
@@ -104,6 +105,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     owm_onecall.hourly[i].humidity = 60 + (i % 10);
     owm_onecall.hourly[i].pop = (i % 3 == 0) ? 0.3f + (i % 5) * 0.1f : 0.0f;
     owm_onecall.hourly[i].rain_1h = (i % 3 == 0) ? 2.5f + (i % 4) : 0.0f;  // mm of rain
+    owm_onecall.hourly[i].weather.id = (i % 3 == 0) ? 500 : 803;  // 500=Rain, 803=Clouds
     owm_onecall.hourly[i].weather.main = (i % 3 == 0) ? "Rain" : "Clouds";
     owm_onecall.hourly[i].weather.description = (i % 3 == 0) ? "light rain" : "scattered clouds";
     owm_onecall.hourly[i].weather.icon = (i % 3 == 0) ? "10d" : "03d";
@@ -114,6 +116,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     owm_onecall.daily[i].dt = now + (i * 86400);
     owm_onecall.daily[i].temp.max = 295.15f + (i % 3);  // ~22°C in Kelvin
     owm_onecall.daily[i].temp.min = 288.15f - (i % 2);  // ~15°C in Kelvin
+    owm_onecall.daily[i].weather.id = 803;  // Clouds (broken clouds)
     owm_onecall.daily[i].weather.main = "Clouds";
     owm_onecall.daily[i].weather.description = "scattered clouds";
     owm_onecall.daily[i].weather.icon = "03d";
@@ -429,7 +432,7 @@ void setup()
   do
   {
     drawCurrentConditions(owm_onecall.current, owm_onecall.daily[0],
-                          owm_air_pollution, inTemp, inHumidity);
+                          owm_air_pollution, inTemp, inHumidity, owm_onecall.hourly);
     drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, timeInfo);
     drawForecast(owm_onecall.daily, timeInfo);
     drawLocationDate(CITY_STRING, dateStr);
