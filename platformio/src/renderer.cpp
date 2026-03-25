@@ -925,12 +925,8 @@ void drawCurrentConditions(const owm_current_t &current,
                            float inTemp, float inHumidity)
 {
   String dataStr, unitStr;
-  // current weather icon
-  display.drawInvertedBitmap(0, 0,
-                             getCurrentConditionsBitmap196(current, today),
-                             196, 196, GxEPD_BLACK);
-
-  // current temp
+  
+  // LEFT: Temperature 164x196 at (0, 0) - SWAPPED POSITION
 #ifdef UNITS_TEMP_KELVIN
   dataStr = String(static_cast<int>(std::round(current.temp)));
   unitStr = TXT_UNITS_TEMP_KELVIN;
@@ -949,9 +945,9 @@ void drawCurrentConditions(const owm_current_t &current,
   // temperature (0123456789.-\260)
   display.setFont(&FONT_48pt8b_temperature);
 #ifndef DISP_BW_V1
-    drawString(196 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
+    drawString(0 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
 #elif defined(DISP_BW_V1)
-    drawString(156 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
+    drawString(0 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
 #endif
   display.setFont(&FONT_14pt8b);
   drawString(display.getCursorX(), 196 / 2 - 69 / 2 + 20, unitStr, LEFT);
@@ -975,10 +971,15 @@ void drawCurrentConditions(const owm_current_t &current,
 #endif
   display.setFont(&FONT_12pt8b);
 #ifndef DISP_BW_V1
-  drawString(196 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
+  drawString(0 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
 #elif defined(DISP_BW_V1)
-  drawString(156 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
+  drawString(0 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
 #endif
+
+  // RIGHT: Weather icon 196x196 at (164, 0) - SWAPPED POSITION
+  display.drawInvertedBitmap(164, 0,
+                             getCurrentConditionsBitmap196(current, today),
+                             196, 196, GxEPD_BLACK);
   // line dividing top and bottom display areas
   // display.drawLine(0, 196, DISP_WIDTH - 1, 196, GxEPD_BLACK);
 
