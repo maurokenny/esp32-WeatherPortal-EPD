@@ -51,6 +51,8 @@ static owm_resp_air_pollution_t owm_air_pollution;
 Preferences prefs;
 
 /* Fill data structures with mockup data for testing without WiFi/API
+ * Temperature values are kept below 100 degrees to ensure proper display
+ * layout (2-digit temperatures fit better in the UI than 3-digit ones).
  */
 void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
 {
