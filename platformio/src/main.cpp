@@ -75,11 +75,11 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   
   // Current weather
   owm_onecall.current.dt = now;
-  owm_onecall.current.temp = 22.5f;
-  owm_onecall.current.feels_like = 21.0f;
+  owm_onecall.current.temp = 295.65f;  // 22.5°C in Kelvin
+  owm_onecall.current.feels_like = 294.15f;  // 21°C in Kelvin
   owm_onecall.current.pressure = 1013;
   owm_onecall.current.humidity = 65;
-  owm_onecall.current.dew_point = 15.5f;
+  owm_onecall.current.dew_point = 288.65f;  // 15.5°C in Kelvin
   owm_onecall.current.clouds = 40;
   owm_onecall.current.uvi = 4.5f;
   owm_onecall.current.visibility = 10000;
@@ -92,7 +92,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   // Hourly forecast (24 hours)
   for (int i = 0; i < 24; i++) {
     owm_onecall.hourly[i].dt = now + (i * 3600);
-    owm_onecall.hourly[i].temp = 20.0f + (i % 5) - 2.0f;
+    owm_onecall.hourly[i].temp = 293.15f + (i % 5) - 2.0f;  // ~20°C in Kelvin
     owm_onecall.hourly[i].feels_like = owm_onecall.hourly[i].temp - 1.0f;
     owm_onecall.hourly[i].pressure = 1013;
     owm_onecall.hourly[i].humidity = 60 + (i % 10);
@@ -105,8 +105,8 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   // Daily forecast (5 days)
   for (int i = 0; i < 5; i++) {
     owm_onecall.daily[i].dt = now + (i * 86400);
-    owm_onecall.daily[i].temp.max = 22.0f + (i % 3);
-    owm_onecall.daily[i].temp.min = 15.0f - (i % 2);
+    owm_onecall.daily[i].temp.max = 295.15f + (i % 3);  // ~22°C in Kelvin
+    owm_onecall.daily[i].temp.min = 288.15f - (i % 2);  // ~15°C in Kelvin
     owm_onecall.daily[i].weather.main = "Clouds";
     owm_onecall.daily[i].weather.description = "scattered clouds";
     owm_onecall.daily[i].weather.icon = "03d";
