@@ -20,6 +20,8 @@
 #include "icons/icons_16x16.h"
 #include "display_utils.h"
 
+
+
 // Display buffer
 static UBYTE *imageBuffer = NULL;
 static bool displayInitialized = false;
@@ -46,18 +48,18 @@ static bool displayInitialized = false;
 #define GRAPH_H      175   // Slightly smaller
 #define GRAPH_BOTTOM (GRAPH_Y + GRAPH_H)
 
-// Header positions
-#define HEADER_CITY_Y    28
-#define HEADER_DATE_Y    56
+// Header positions (moved up)
+#define HEADER_CITY_Y    15
+#define HEADER_DATE_Y    40
 #define HEADER_RIGHT_X   785  // Margin from right edge
 
 // Status bar positions
 #define STATUS_BAR_Y     468  // Closer to bottom edge (480)
 
-// Temperature display
-#define TEMP_X           275
-#define TEMP_Y_POS       95
-#define TEMP_UNIT_X      335
+// Temperature display (48pt font, adjusted positions)
+#define TEMP_X           240
+#define TEMP_Y_POS       110
+#define TEMP_UNIT_X      360
 
 // Display object
 DisplayClass display;
@@ -138,6 +140,50 @@ static void drawString(int x, int y, const char* text, sFONT* font, alignment_t 
   if (y + font->Height > DISP_HEIGHT) y = DISP_HEIGHT - font->Height;
   
   Paint_DrawString_EN(drawX, y, text, font, WHITE, BLACK);
+}
+
+/* Draw scaled string (2x size) for large temperature display */
+static void drawStringScaled(int x, int y, const char* text, sFONT* font, alignment_t align, uint8_t scale) {
+  if (text == NULL || *text == '\0' || scale == 0) return;
+  
+  int charWidth = font->Width;
+  int charHeight = font->Height;
+  int textPixelWidth = strlen(text) * charWidth * scale;
+  int drawX = x;
+  
+  if (align == RIGHT) {
+    drawX = x - textPixelWidth;
+  } else if (align == CENTER) {
+    drawX = x - textPixelWidth / 2;
+  }
+  
+  // Draw each character scaled
+  for (size_t i = 0; i < strlen(text); i++) {
+    char c = text[i];
+    int charStartX = drawX + (i * charWidth * scale);
+    
+    // Get font bitmap for this character
+    const uint8_t* charBitmap = font->table + ((c - ' ') * charHeight);
+    
+    // Draw character pixel by pixel with scaling
+    for (int row = 0; row < charHeight; row++) {
+      uint8_t rowData = charBitmap[row];
+      for (int col = 0; col < charWidth; col++) {
+        if (rowData & (0x80 >> col)) {  // Pixel is set
+          // Draw scaled pixel (scale x scale block)
+          for (int dy = 0; dy < scale; dy++) {
+            for (int dx = 0; dx < scale; dx++) {
+              int px = charStartX + (col * scale) + dx;
+              int py = y + (row * scale) + dy;
+              if (px >= 0 && px < DISP_WIDTH && py >= 0 && py < DISP_HEIGHT) {
+                Paint_DrawPoint(px, py, BLACK, DOT_PIXEL_1X1, DOT_FILL_AROUND);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 /* SAFE: Draw point with bounds checking */
@@ -370,16 +416,24 @@ void drawCurrentConditions(const owm_current_t &current,
   const uint8_t* weatherIcon = getWeatherIcon196(current.weather.id, isDay);
   drawBitmap(2, 2, weatherIcon, 196, 196);
   
-  // ==== TEMPERATURE - LARGER ====
+  // ==== TEMPERATURE - SCALED 2x (simulates 48pt) ====
   snprintf(buf, sizeof(buf), "%.0f", current.temp);
-  drawString(TEMP_X, TEMP_Y_POS, buf, &FONT_24PT, CENTER);  // Larger font
-  // Draw degree symbol manually as small circle, then C
-  Paint_DrawCircle(TEMP_UNIT_X + 3, TEMP_Y_POS + 7, 3, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-  drawString(TEMP_UNIT_X + 10, TEMP_Y_POS + 5, "C", &FONT_14PT, LEFT);
+  // Use scaled font (2x = 48pt effect)
+  drawStringScaled(TEMP_X - 20, TEMP_Y_POS - 20, buf, &FONT_24PT, CENTER, 2);
+  // Draw degree symbol (°) above the scaled number
+  // ° position adjusted for scaled text
+  Paint_DrawCircle(TEMP_UNIT_X + 25, TEMP_Y_POS - 10, 5, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+  // C at same height as number, to the right of °
+  drawString(TEMP_UNIT_X + 35, TEMP_Y_POS, "C", &FONT_16PT, LEFT);
   
   // ==== FEELS LIKE ====
-  snprintf(buf, sizeof(buf), "Feels like %.0fC", current.feels_like);
-  drawString(TEMP_X, TEMP_Y_POS + 55, buf, &FONT_12PT, CENTER);
+  snprintf(buf, sizeof(buf), "Feels like %.0f", current.feels_like);
+  drawString(TEMP_X - 10, TEMP_Y_POS + 55, buf, &FONT_12PT, CENTER);
+  // Draw degree symbol for feels like
+  int feelsX = TEMP_X + 55;
+  int feelsY = TEMP_Y_POS + 55;
+  Paint_DrawCircle(feelsX + 3, feelsY + 7, 3, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+  Paint_DrawString_EN(feelsX + 10, feelsY + 5, "C", &FONT_12PT, WHITE, BLACK);
   
   // ==== WIDGET GRID (2x5 = 10 widgets) ====
   
@@ -432,8 +486,13 @@ void drawCurrentConditions(const owm_current_t &current,
   drawWidget(7, "Moon", buf, moonIcon);
   
   // Widget 8: Dew Point
-  snprintf(buf, sizeof(buf), "%.0fC", current.dew_point);
+  snprintf(buf, sizeof(buf), "%.0f", current.dew_point);
   drawWidget(8, "Dew Point", buf, getWidgetIcon(8));
+  // Draw degree symbol for dew point (position is widget 8: x=0, y=458)
+  int dewX = WIDGET_COL_WIDTH * 0 + 54 + 40; // x + label offset + value width
+  int dewY = WIDGET_BASE_Y + (WIDGET_ROW_HEIGHT * 4) + 26;
+  Paint_DrawCircle(dewX + 3, dewY + 7, 3, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+  Paint_DrawString_EN(dewX + 10, dewY + 5, "C", &FONT_12PT, WHITE, BLACK);
   
   // Widget 9: Cloud Cover
   snprintf(buf, sizeof(buf), "%d%%", current.clouds);
@@ -462,12 +521,19 @@ void drawForecast(const owm_daily_t *daily, tm timeInfo) {
     const uint8_t* icon = getWeatherIcon64(daily[i].weather.id, true);
     drawBitmap(x, ICON_Y, icon, 64, 64);
     
-    // High/Low temperatures - MOVED DOWN
+    // High/Low temperatures - MOVED DOWN (with degree symbol)
+    // High temp
     snprintf(buf, sizeof(buf), "%.0f", daily[i].temp.max);
-    drawString(x + 25, FORECAST_TEMP_Y, buf, &FONT_8PT, RIGHT);
+    drawString(x + 22, FORECAST_TEMP_Y, buf, &FONT_8PT, RIGHT);
+    // Degree symbol for high
+    Paint_DrawCircle(x + 28, FORECAST_TEMP_Y - 5, 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    // Separator
     drawString(x + 35, FORECAST_TEMP_Y, "|", &FONT_8PT, CENTER);
+    // Low temp
     snprintf(buf, sizeof(buf), "%.0f", daily[i].temp.min);
-    drawString(x + 45, FORECAST_TEMP_Y, buf, &FONT_8PT, LEFT);
+    drawString(x + 42, FORECAST_TEMP_Y, buf, &FONT_8PT, LEFT);
+    // Degree symbol for low
+    Paint_DrawCircle(x + 48, FORECAST_TEMP_Y - 5, 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
   }
 }
 
