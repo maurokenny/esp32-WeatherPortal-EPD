@@ -32,7 +32,6 @@
 #include "icons/icons_32x32.h"
 #include "icons/icons_48x48.h"
 #include "icons/icons_64x64.h"
-#include "icons/64x64/wi_umbrella_64x64.h"
 #include "icons/icons_96x96.h"
 #include "icons/icons_128x128.h"
 #include "icons/icons_160x160.h"
@@ -961,95 +960,21 @@ void drawCurrentDewpoint(const owm_current_t &current)
 
 //End defining functions for left panel.
 
-/* Draws the umbrella widget showing rain alert status.
- * x, y: top-left position
- * hourly: hourly forecast data
- * hours: number of hours to check
- */
-void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours)
-{
-  // Find max POP and first hour with rain in the next N hours
-  float maxPop = 0.0f;
-  int firstRainHour = -1;
-  
-  for (int i = 0; i < hours && i < HOURLY_GRAPH_MAX; i++) {
-    if (hourly[i].pop > maxPop) {
-      maxPop = hourly[i].pop;
-    }
-    if (firstRainHour == -1 && hourly[i].pop >= 0.30f) {
-      firstRainHour = i;
-    }
-  }
-  
-  int popPercent = static_cast<int>(std::round(maxPop * 100));
-  
-  // State 1: No rain (POP < 30%)
-  if (maxPop < 0.30f) {
-    // Draw closed umbrella with X
-    display.drawInvertedBitmap(x + 32, y + 10, wi_umbrella_64x64, 64, 64, GxEPD_BLACK);
-    // Draw X over the umbrella
-    display.drawLine(x + 40, y + 18, x + 88, y + 66, GxEPD_BLACK);
-    display.drawLine(x + 88, y + 18, x + 40, y + 66, GxEPD_BLACK);
-    // Text
-    display.setFont(&FONT_10pt8b);
-    drawString(x + 64, y + 82, "No rain", CENTER);
-    display.setFont(&FONT_8pt8b);
-    drawString(x + 64, y + 98, String(popPercent) + "% chance", CENTER);
-  }
-  // State 2: Compact umbrella (POP 30-70%)
-  else if (maxPop < 0.70f) {
-    // Draw closed umbrella
-    display.drawInvertedBitmap(x + 32, y + 10, wi_umbrella_64x64, 64, 64, GxEPD_BLACK);
-    // Text
-    display.setFont(&FONT_10pt8b);
-    drawString(x + 64, y + 82, "Compact", CENTER);
-    drawString(x + 64, y + 96, "umbrella", CENTER);
-    display.setFont(&FONT_8pt8b);
-    if (firstRainHour > 0) {
-      drawString(x + 64, y + 112, String(popPercent) + "% in " + firstRainHour + "h", CENTER);
-    } else {
-      drawString(x + 64, y + 112, String(popPercent) + "% now", CENTER);
-    }
-  }
-  // State 3: Umbrella (POP >= 70%)
-  else {
-    // Draw open umbrella (using same icon but could be different)
-    display.drawInvertedBitmap(x + 32, y + 10, wi_umbrella_64x64, 64, 64, GxEPD_BLACK);
-    // Text
-    display.setFont(&FONT_10pt8b);
-    drawString(x + 64, y + 82, "Umbrella", CENTER);
-    display.setFont(&FONT_8pt8b);
-    drawString(x + 64, y + 98, String(popPercent) + "%", CENTER);
-    if (firstRainHour == 0) {
-      drawString(x + 64, y + 112, "now!", CENTER);
-    } else if (firstRainHour > 0) {
-      drawString(x + 64, y + 112, "in " + String(firstRainHour) + "h", CENTER);
-    }
-  }
-}
-
 /* This function is responsible for drawing the current conditions and
  * associated icons.
  */
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
-                           float inTemp, float inHumidity,
-                           const owm_hourly_t *hourly)
+                           float inTemp, float inHumidity)
 {
   String dataStr, unitStr;
-  
-  // current weather icon - reduced to 128x128
+  // current weather icon
   display.drawInvertedBitmap(0, 0,
-                             getCurrentConditionsBitmap128(current, today),
-                             128, 128, GxEPD_BLACK);
+                             getCurrentConditionsBitmap196(current, today),
+                             196, 196, GxEPD_BLACK);
 
-  // Umbrella widget at (128, 0)
-  if (hourly != nullptr) {
-    drawUmbrellaWidget(128, 0, hourly, 6);
-  }
-
-  // current temp - moved to (256, 0) with smaller font
+  // current temp
 #ifdef UNITS_TEMP_KELVIN
   dataStr = String(static_cast<int>(std::round(current.temp)));
   unitStr = TXT_UNITS_TEMP_KELVIN;
@@ -1064,11 +989,16 @@ void drawCurrentConditions(const owm_current_t &current,
             std::round(kelvin_to_fahrenheit(current.temp))));
   unitStr = TXT_UNITS_TEMP_FAHRENHEIT;
 #endif
-  // Use smaller font (24pt instead of 48pt)
-  display.setFont(&FONT_24pt8b);
-  drawString(256 + 60, 128 / 2 + 20, dataStr, CENTER);
-  display.setFont(&FONT_12pt8b);
-  drawString(display.getCursorX(), 128 / 2 - 30, unitStr, LEFT);
+  // FONT_**_temperature fonts only have the character set used for displaying
+  // temperature (0123456789.-\260)
+  display.setFont(&FONT_48pt8b_temperature);
+#ifndef DISP_BW_V1
+    drawString(196 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
+#elif defined(DISP_BW_V1)
+    drawString(156 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
+#endif
+  display.setFont(&FONT_14pt8b);
+  drawString(display.getCursorX(), 196 / 2 - 69 / 2 + 20, unitStr, LEFT);
 
   // current feels like
 #ifdef UNITS_TEMP_KELVIN
@@ -1087,8 +1017,12 @@ void drawCurrentConditions(const owm_current_t &current,
                      kelvin_to_fahrenheit(current.feels_like))))
             + '\260';
 #endif
-  display.setFont(&FONT_10pt8b);
-  drawString(256 + 60, 128 - 20, dataStr, CENTER);
+  display.setFont(&FONT_12pt8b);
+#ifndef DISP_BW_V1
+  drawString(196 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
+#elif defined(DISP_BW_V1)
+  drawString(156 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
+#endif
   // line dividing top and bottom display areas
   // display.drawLine(0, 196, DISP_WIDTH - 1, 196, GxEPD_BLACK);
 
