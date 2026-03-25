@@ -20,6 +20,7 @@
 #include <Adafruit_Sensor.h>
 #include <Preferences.h>
 #include <time.h>
+#include <cstring>
 #include <WiFi.h>
 #include <Wire.h>
 
@@ -58,13 +59,18 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
 {
   Serial.println("Using MOCKUP DATA - No WiFi/API calls");
   
-  // Set current time
+  // Initialize entire structure to zero to avoid garbage values
+  memset(&owm_onecall, 0, sizeof(owm_onecall));
+  
+  // Set current time - initialize all fields to avoid undefined behavior
+  memset(&timeInfo, 0, sizeof(tm));
   timeInfo.tm_year = 2025 - 1900;  // Year since 1900
   timeInfo.tm_mon = 2;             // March (0-11)
   timeInfo.tm_mday = 25;           // Day of month
   timeInfo.tm_hour = 14;           // Hour
   timeInfo.tm_min = 30;            // Minute
   timeInfo.tm_sec = 0;
+  timeInfo.tm_isdst = -1;          // Let mktime determine DST
   time_t now = mktime(&timeInfo);
   
   // Set ESP32 internal clock so getLocalTime() works
