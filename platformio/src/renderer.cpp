@@ -1413,10 +1413,12 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   float tempMin = kelvin_to_fahrenheit(hourly[0].temp);
 #endif
   float tempMax = tempMin;
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
   float precipMax = hourly[0].pop;
 #else
   float precipMax = hourly[0].rain_1h + hourly[0].snow_1h;
+#endif
 #endif
   int yTempMajorTicks = 5;
   float newTemp = 0;
@@ -1433,11 +1435,13 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #endif
     tempMin = std::min(tempMin, newTemp);
     tempMax = std::max(tempMax, newTemp);
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
     precipMax = std::max<float>(precipMax, hourly[i].pop);
 #else
     precipMax = std::max<float>(
                 precipMax, hourly[i].rain_1h + hourly[i].snow_1h);
+#endif
 #endif
   }
   int tempBoundMin = static_cast<int>(tempMin - 1)
@@ -1468,6 +1472,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     }
   }
 
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
   xPos1 = DISP_WIDTH - 23;
   // Always use 100 as max scale for POP (0-100%), even when no precipitation
@@ -1529,6 +1534,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   { // fill need extra room for labels
     xPos1 -= 23;
   }
+#endif // ENABLE_HOURLY_PRECIP_GRAPH
 
   // draw x axis
   display.drawLine(xPos0, yPos1    , xPos1, yPos1    , GxEPD_BLACK);
@@ -1548,6 +1554,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #endif
     drawString(xPos0 - 8, yTick + 4, dataStr, RIGHT, ACCENT_COLOR);
 
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH
     if (precipBoundMax > 0)
     { // don't labels if precip is 0
 #ifdef UNITS_HOURLY_PRECIP_POP
@@ -1575,6 +1582,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
       display.setFont(&FONT_5pt8b);
       drawString(display.getCursorX(), yTick + 4, precipUnit, LEFT);
     } // end draw labels if precip is >0
+#endif
 
     // draw dotted line
     if (i < yMajorTicks)
@@ -1666,6 +1674,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #endif
     }
 
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
     float precipVal = hourly[i].pop * 100;
 #else
@@ -1683,8 +1692,10 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     yPxPerUnit = (yPos1 - yPos0) / precipBoundMax;
     y0_t = static_cast<int>(std::round( yPos1 - (yPxPerUnit * (precipVal)) ));
     y1_t = yPos1;
+#endif
 
     // graph Precipitation
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH
     for (int y = y1_t - 1; y > y0_t; y -= 2)
     {
       for (int x = x0_t + (x0_t % 2); x < x1_t; x += 2)
@@ -1692,6 +1703,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
         display.drawPixel(x, y, GxEPD_BLACK);
       }
     }
+#endif
 
     if ((i % hourInterval) == 0)
     {

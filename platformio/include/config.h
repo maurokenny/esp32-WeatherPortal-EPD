@@ -130,6 +130,12 @@
 // #define UNITS_HOURLY_PRECIP_CENTIMETERS
 // #define UNITS_HOURLY_PRECIP_INCHES
 
+// HOURLY PRECIPITATION GRAPH
+// Enable/disable the precipitation graph in the hourly outlook
+// When disabled, only the temperature line is shown
+#define ENABLE_HOURLY_PRECIP_GRAPH
+// #define DISABLE_HOURLY_PRECIP_GRAPH
+
 // UNITS - PRECIPITATION (DAILY)
 // Measure of precipitation.
 // This can either be Probability of Precipitation (PoP) or daily volume.
