@@ -58,6 +58,7 @@
 wl_status_t startWiFi(int &wifiRSSI)
 {
   WiFi.mode(WIFI_STA);
+  Serial.printf("[WiFi] Connecting to ESSID: '%s'\n", WIFI_SSID);
   Serial.printf("%s '%s'", TXT_CONNECTING_TO, WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -77,10 +78,12 @@ wl_status_t startWiFi(int &wifiRSSI)
   {
     wifiRSSI = WiFi.RSSI(); // get WiFi signal strength now, because the WiFi
                             // will be turned off to save power!
+    Serial.printf("[WiFi] Connected to ESSID: '%s'\n", WIFI_SSID);
     Serial.println("IP: " + WiFi.localIP().toString());
   }
   else
   {
+    Serial.printf("[WiFi] Failed to connect to ESSID: '%s'\n", WIFI_SSID);
     Serial.printf("%s '%s'\n", TXT_COULD_NOT_CONNECT_TO, WIFI_SSID);
   }
   return connection_status;
