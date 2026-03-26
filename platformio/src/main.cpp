@@ -227,6 +227,20 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
           owm_onecall.hourly[i].pop = 0.20f;  // Lower probability
         }
         break;
+        
+      case MOCKUP_RAIN_GRAPH_TEST:
+        // Graph test - POP varies from 0% to 120% to test graph scaling
+        // Uses 5% increments per hour to see how graph handles 0-100%+ range
+        owm_onecall.hourly[i].pop = (i * 0.05f);  // 0%, 5%, 10%, ... 115%
+        // Cap at realistic max of 100% for most hours, but let last few exceed
+        if (owm_onecall.hourly[i].pop > 1.0f) {
+          owm_onecall.hourly[i].pop = 1.0f;  // Max 100% for display
+        }
+        // Add some variation to make it interesting
+        if (i >= 12 && i < 16) {
+          owm_onecall.hourly[i].pop = 0.95f;  // Heavy rain afternoon
+        }
+        break;
     }
     
     // Varied weather icons for hourly forecast
@@ -300,6 +314,9 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
       break;
     case MOCKUP_RAIN_TAKE:
       Serial.println("Mockup: Rain widget = TAKE (>=70% POP)");
+      break;
+    case MOCKUP_RAIN_GRAPH_TEST:
+      Serial.println("Mockup: Rain widget = GRAPH TEST (0-100% POP ramp)");
       break;
   }
   

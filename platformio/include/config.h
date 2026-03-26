@@ -335,20 +335,22 @@ typedef enum {
 } mockup_weather_type_t;
 
 // Select your mockup weather scenario here:
-#define MOCKUP_CURRENT_WEATHER MOCKUP_WEATHER_SNOWY
+#define MOCKUP_CURRENT_WEATHER MOCKUP_WEATHER_RAINY
 
 // Mockup Rain Widget states for testing umbrella widget display
 // Controls what message appears below the umbrella icon
 typedef enum {
-  MOCKUP_RAIN_NO_RAIN,   // 0 - "No rain (X%)" - POP < 30%, shows X over icon
-  MOCKUP_RAIN_COMPACT,   // 1 - "Compact (X%)" or "Rain in Ymin" - POP 30-70%
-  MOCKUP_RAIN_TAKE       // 2 - "Take (X%)" or "Rain in Ymin" - POP >= 70%
+  MOCKUP_RAIN_NO_RAIN,      // 0 - "No rain (X%)" - POP < 30%, shows X over icon
+  MOCKUP_RAIN_COMPACT,      // 1 - "Compact (X%)" or "Rain in Ymin" - POP 30-70%
+  MOCKUP_RAIN_TAKE,         // 2 - "Take (X%)" or "Rain in Ymin" - POP >= 70%
+  MOCKUP_RAIN_GRAPH_TEST    // 3 - Varied POP for graph testing (0% -> 120%)
 } mockup_rain_widget_state_t;
 
 // Select rain widget state for mockup mode:
 // NO_RAIN: Shows X over umbrella, "No rain (10%)"
 // COMPACT: Shows "Compact (50%)" or "Rain in 45min (50%)"
 // TAKE: Shows "Take (80%)" or "Rain in 45min (80%)"
+// GRAPH_TEST: POP varies from 0% to 120% across hours to test graph scaling
 #define MOCKUP_RAIN_WIDGET_STATE MOCKUP_RAIN_COMPACT
 
 // NON-VOLATILE STORAGE (NVS) NAMESPACE
