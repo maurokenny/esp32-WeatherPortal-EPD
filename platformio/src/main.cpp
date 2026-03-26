@@ -79,22 +79,92 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   setenv("TZ", TIMEZONE, 1);
   tzset();
   
-  // Current weather - Rain
-  owm_onecall.current.dt = now;
-  owm_onecall.current.temp = 288.15f;  // 15°C in Kelvin (cool)
-  owm_onecall.current.feels_like = 285.15f;  // 12°C in Kelvin
-  owm_onecall.current.pressure = 1010;
+  // Current weather based on MOCKUP_CURRENT_WEATHER define
+#if MOCKUP_CURRENT_WEATHER == MOCKUP_WEATHER_SUNNY
+  // Sunny - Clear sky, warm
+  owm_onecall.current.temp = 298.15f;  // 25°C
+  owm_onecall.current.feels_like = 300.15f;  // 27°C
+  owm_onecall.current.humidity = 45;
+  owm_onecall.current.clouds = 10;
+  owm_onecall.current.uvi = 8.0f;
+  owm_onecall.current.visibility = 10000;
+  owm_onecall.current.weather.id = 800;  // Clear sky
+  owm_onecall.current.weather.main = "Clear";
+  owm_onecall.current.weather.description = "clear sky";
+  owm_onecall.current.weather.icon = "01d";
+  Serial.println("Mockup: Sunny weather");
+#elif MOCKUP_CURRENT_WEATHER == MOCKUP_WEATHER_RAINY
+  // Rainy - Moderate rain
+  owm_onecall.current.temp = 288.15f;  // 15°C
+  owm_onecall.current.feels_like = 285.15f;  // 12°C
   owm_onecall.current.humidity = 85;
-  owm_onecall.current.dew_point = 286.15f;  // 13°C in Kelvin
   owm_onecall.current.clouds = 85;
   owm_onecall.current.uvi = 2.0f;
   owm_onecall.current.visibility = 8000;
-  owm_onecall.current.wind_speed = 12.0f;
-  owm_onecall.current.wind_deg = 200;
-  owm_onecall.current.weather.id = 501;  // Rain (moderate rain)
+  owm_onecall.current.weather.id = 501;  // Moderate rain
   owm_onecall.current.weather.main = "Rain";
   owm_onecall.current.weather.description = "moderate rain";
   owm_onecall.current.weather.icon = "10d";
+  Serial.println("Mockup: Rainy weather");
+#elif MOCKUP_CURRENT_WEATHER == MOCKUP_WEATHER_SNOWY
+  // Snowy - Light snow, freezing
+  owm_onecall.current.temp = 273.15f;  // 0°C
+  owm_onecall.current.feels_like = 268.15f;  // -5°C
+  owm_onecall.current.humidity = 80;
+  owm_onecall.current.clouds = 90;
+  owm_onecall.current.uvi = 1.0f;
+  owm_onecall.current.visibility = 5000;
+  owm_onecall.current.weather.id = 600;  // Light snow
+  owm_onecall.current.weather.main = "Snow";
+  owm_onecall.current.weather.description = "light snow";
+  owm_onecall.current.weather.icon = "13d";
+  Serial.println("Mockup: Snowy weather");
+#elif MOCKUP_CURRENT_WEATHER == MOCKUP_WEATHER_CLOUDY
+  // Cloudy - Overcast
+  owm_onecall.current.temp = 291.15f;  // 18°C
+  owm_onecall.current.feels_like = 290.15f;  // 17°C
+  owm_onecall.current.humidity = 65;
+  owm_onecall.current.clouds = 90;
+  owm_onecall.current.uvi = 3.0f;
+  owm_onecall.current.visibility = 9000;
+  owm_onecall.current.weather.id = 804;  // Overcast
+  owm_onecall.current.weather.main = "Clouds";
+  owm_onecall.current.weather.description = "overcast clouds";
+  owm_onecall.current.weather.icon = "04d";
+  Serial.println("Mockup: Cloudy weather");
+#elif MOCKUP_CURRENT_WEATHER == MOCKUP_WEATHER_THUNDER
+  // Thunderstorm
+  owm_onecall.current.temp = 293.15f;  // 20°C
+  owm_onecall.current.feels_like = 295.15f;  // 22°C
+  owm_onecall.current.humidity = 90;
+  owm_onecall.current.clouds = 100;
+  owm_onecall.current.uvi = 1.0f;
+  owm_onecall.current.visibility = 6000;
+  owm_onecall.current.weather.id = 211;  // Thunderstorm
+  owm_onecall.current.weather.main = "Thunderstorm";
+  owm_onecall.current.weather.description = "thunderstorm";
+  owm_onecall.current.weather.icon = "11d";
+  Serial.println("Mockup: Thunderstorm weather");
+#else
+  // Default to rainy
+  owm_onecall.current.temp = 288.15f;
+  owm_onecall.current.feels_like = 285.15f;
+  owm_onecall.current.humidity = 85;
+  owm_onecall.current.clouds = 85;
+  owm_onecall.current.uvi = 2.0f;
+  owm_onecall.current.visibility = 8000;
+  owm_onecall.current.weather.id = 501;
+  owm_onecall.current.weather.main = "Rain";
+  owm_onecall.current.weather.description = "moderate rain";
+  owm_onecall.current.weather.icon = "10d";
+  Serial.println("Mockup: Default weather (rainy)");
+#endif
+  
+  // Common current weather fields
+  owm_onecall.current.dt = now;
+  owm_onecall.current.pressure = 1013;
+  owm_onecall.current.wind_speed = 10.0f;
+  owm_onecall.current.wind_deg = 180;
   
   // Hourly forecast (24 hours) - varied weather icons
   for (int i = 0; i < 24; i++) {

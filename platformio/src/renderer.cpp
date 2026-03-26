@@ -933,8 +933,8 @@ void drawCurrentDewpoint(const owm_current_t &current)
 void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int64_t current_dt)
 {
   // Position configuration - adjust these to move elements
-  const int ICON_OFFSET_Y = -5;        // Vertical offset of umbrella icon
-  const int TEXT_OFFSET_Y = 116;       // Vertical offset of text line
+  const int ICON_OFFSET_Y = -15;        // Vertical offset of umbrella icon
+  const int TEXT_OFFSET_Y = 110;       // Vertical offset of text line
   const int X_LINE1_START_X = 10;      // X start position for first diagonal line
   const int X_LINE1_END_X = 118;       // X end position for first diagonal line
   const int X_LINE_START_Y = -2;       // Y start position for X lines
