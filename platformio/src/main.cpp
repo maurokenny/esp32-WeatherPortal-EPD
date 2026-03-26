@@ -79,22 +79,22 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   setenv("TZ", TIMEZONE, 1);
   tzset();
   
-  // Current weather - Snow
+  // Current weather - Rain
   owm_onecall.current.dt = now;
-  owm_onecall.current.temp = 273.15f;  // 0°C in Kelvin (freezing)
-  owm_onecall.current.feels_like = 268.15f;  // -5°C in Kelvin
-  owm_onecall.current.pressure = 1013;
-  owm_onecall.current.humidity = 80;
-  owm_onecall.current.dew_point = 270.15f;  // -3°C in Kelvin
-  owm_onecall.current.clouds = 90;
-  owm_onecall.current.uvi = 1.0f;
-  owm_onecall.current.visibility = 5000;
-  owm_onecall.current.wind_speed = 10.0f;
-  owm_onecall.current.wind_deg = 180;
-  owm_onecall.current.weather.id = 600;  // Snow (light snow)
-  owm_onecall.current.weather.main = "Snow";
-  owm_onecall.current.weather.description = "light snow";
-  owm_onecall.current.weather.icon = "13d";
+  owm_onecall.current.temp = 288.15f;  // 15°C in Kelvin (cool)
+  owm_onecall.current.feels_like = 285.15f;  // 12°C in Kelvin
+  owm_onecall.current.pressure = 1010;
+  owm_onecall.current.humidity = 85;
+  owm_onecall.current.dew_point = 286.15f;  // 13°C in Kelvin
+  owm_onecall.current.clouds = 85;
+  owm_onecall.current.uvi = 2.0f;
+  owm_onecall.current.visibility = 8000;
+  owm_onecall.current.wind_speed = 12.0f;
+  owm_onecall.current.wind_deg = 200;
+  owm_onecall.current.weather.id = 501;  // Rain (moderate rain)
+  owm_onecall.current.weather.main = "Rain";
+  owm_onecall.current.weather.description = "moderate rain";
+  owm_onecall.current.weather.icon = "10d";
   
   // Hourly forecast (24 hours)
   for (int i = 0; i < 24; i++) {

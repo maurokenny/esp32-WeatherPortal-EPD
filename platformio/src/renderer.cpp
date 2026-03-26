@@ -1068,8 +1068,9 @@ void drawCurrentConditions(const owm_current_t &current,
 
     // 1. Cloud / Current Condition Icon (Top) - 96x96 bitmap
     // Snow icon needs to be shifted left due to visual offset
-    int iconOffsetX = (current.weather.id >= 600 && current.weather.id < 700) ? 18 : 30;
-    display.drawInvertedBitmap(rightX + iconOffsetX, 0,
+    // int iconOffsetX = (current.weather.id >= 600 && current.weather.id < 700) ? 18 : 18;
+    int iconOffsetX = 18;
+    display.drawInvertedBitmap(rightX + iconOffsetX, -10,
         getCurrentConditionsBitmap96(current, today),
         96, 96, GxEPD_BLACK);
 
