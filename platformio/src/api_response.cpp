@@ -599,11 +599,12 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.current.dt = 0;
   }
   
-  r.current.temp = current["temperature_2m"].as<float>();
-  r.current.feels_like = current["apparent_temperature"].as<float>();
+  // Open-Meteo returns temperatures in Celsius, convert to Kelvin
+  r.current.temp = current["temperature_2m"].as<float>() + 273.15f;
+  r.current.feels_like = current["apparent_temperature"].as<float>() + 273.15f;
   r.current.pressure = current["surface_pressure"].as<int>();
   r.current.humidity = current["relative_humidity_2m"].as<int>();
-  r.current.dew_point = current["dew_point_2m"].as<float>();
+  r.current.dew_point = current["dew_point_2m"].as<float>() + 273.15f;
   r.current.clouds = current["cloud_cover"].as<int>();
   r.current.uvi = current["uv_index"].as<float>();
   r.current.visibility = current["visibility"].as<int>();
@@ -638,8 +639,9 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
   for (int i = 0; i < hourlyCount; i++) {
     r.hourly[i].dt = parseIso8601(hourly_time[i]);
-    r.hourly[i].temp = hourly_temp[i].as<float>();
-    r.hourly[i].feels_like = hourly_feels[i].as<float>();
+    // Convert Celsius to Kelvin
+    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
+    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
     r.hourly[i].humidity = hourly_humidity[i].as<int>();
     r.hourly[i].pressure = hourly_pressure[i].as<int>();
     r.hourly[i].clouds = hourly_clouds[i].as<int>();
@@ -652,7 +654,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
     
     // Default values for fields not provided by Open-Meteo
-    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f; // Estimate
+    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f; // Estimate (already in Kelvin)
     r.hourly[i].uvi = 0.0f;
     r.hourly[i].visibility = 10000;
     r.hourly[i].rain_1h = 0.0f;
@@ -672,8 +674,9 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
   for (int i = 0; i < dailyCount; i++) {
     r.daily[i].dt = parseIso8601(daily_time[i]);
-    r.daily[i].temp.max = daily_max[i].as<float>();
-    r.daily[i].temp.min = daily_min[i].as<float>();
+    // Convert Celsius to Kelvin
+    r.daily[i].temp.max = daily_max[i].as<float>() + 273.15f;
+    r.daily[i].temp.min = daily_min[i].as<float>() + 273.15f;
     r.daily[i].sunrise = parseIso8601(daily_sunrise[i]);
     r.daily[i].sunset = parseIso8601(daily_sunset[i]);
     r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
