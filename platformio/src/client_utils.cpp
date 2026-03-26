@@ -190,7 +190,11 @@ bool waitForSNTPSync(tm *timeInfo)
     http.setConnectTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
     http.setTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
     http.begin(client, OPENMETEO_ENDPOINT, OPENMETEO_PORT, uri);
+    
+    Serial.println("  [HTTP] GET attempt " + String(attempts + 1) + "/3...");
     httpResponse = http.GET();
+    Serial.println("  [HTTP] Response code: " + String(httpResponse));
+    
     if (httpResponse == HTTP_CODE_OK)
     {
       jsonErr = deserializeOpenMeteo(http.getStream(), r);
@@ -198,15 +202,28 @@ bool waitForSNTPSync(tm *timeInfo)
       {
         // -256 offset distinguishes these errors from httpClient errors
         httpResponse = -256 - static_cast<int>(jsonErr.code());
+        Serial.println("  [JSON] Parse error: " + String(jsonErr.c_str()));
       }
-      rxSuccess = !jsonErr;
+      else
+      {
+        rxSuccess = true;
+        Serial.println("  [HTTP] Success!");
+      }
     }
-    client.stop();
     http.end();
+    
+    if (!rxSuccess && attempts < 2)
+    {
+      Serial.println("  [HTTP] Retrying in 500ms...");
+      delay(500);
+    }
+    
     Serial.println("  " + String(httpResponse, DEC) + " "
                    + getHttpResponsePhrase(httpResponse));
     ++attempts;
   }
+  
+  client.stop();
 
   return httpResponse;
 } // getOpenMeteoForecast
@@ -253,7 +270,11 @@ bool waitForSNTPSync(tm *timeInfo)
     http.setConnectTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
     http.setTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
     http.begin(client, OPENMETEO_AIRQUALITY_ENDPOINT, OPENMETEO_PORT, uri);
+    
+    Serial.println("  [HTTP] GET attempt " + String(attempts + 1) + "/3...");
     httpResponse = http.GET();
+    Serial.println("  [HTTP] Response code: " + String(httpResponse));
+    
     if (httpResponse == HTTP_CODE_OK)
     {
       jsonErr = deserializeOpenMeteoAirQuality(http.getStream(), r);
@@ -261,15 +282,28 @@ bool waitForSNTPSync(tm *timeInfo)
       {
         // -256 offset to distinguishes these errors from httpClient errors
         httpResponse = -256 - static_cast<int>(jsonErr.code());
+        Serial.println("  [JSON] Parse error: " + String(jsonErr.c_str()));
       }
-      rxSuccess = !jsonErr;
+      else
+      {
+        rxSuccess = true;
+        Serial.println("  [HTTP] Success!");
+      }
     }
-    client.stop();
     http.end();
+    
+    if (!rxSuccess && attempts < 2)
+    {
+      Serial.println("  [HTTP] Retrying in 500ms...");
+      delay(500);
+    }
+    
     Serial.println("  " + String(httpResponse, DEC) + " "
                    + getHttpResponsePhrase(httpResponse));
     ++attempts;
   }
+  
+  client.stop();
 
   return httpResponse;
 } // getOpenMeteoAirQuality
