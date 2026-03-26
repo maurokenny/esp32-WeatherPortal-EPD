@@ -173,9 +173,8 @@ bool waitForSNTPSync(tm *timeInfo)
                "&forecast_days=8";
 
   String fullUri = "https://" + OPENMETEO_ENDPOINT + uri;
-  Serial.print("[Open-Meteo] ");
-  Serial.print(TXT_ATTEMPTING_HTTP_REQ);
-  Serial.println(": " + fullUri);
+  Serial.println("[Open-Meteo API] Request: " + fullUri);
+  Serial.flush();
   
   int httpResponse = 0;
   while (!rxSuccess && attempts < 3)
@@ -258,8 +257,8 @@ bool waitForSNTPSync(tm *timeInfo)
                "&timezone=auto";
 
   String fullUri = "https://" + OPENMETEO_AIRQUALITY_ENDPOINT + uri;
-  Serial.print(TXT_ATTEMPTING_HTTP_REQ);
-  Serial.println(": " + fullUri);
+  Serial.println("[Open-Meteo Air Quality API] Request: " + fullUri);
+  Serial.flush();
   
   int httpResponse = 0;
   while (!rxSuccess && attempts < 3)
