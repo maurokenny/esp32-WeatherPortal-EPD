@@ -1712,12 +1712,31 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                    ", x0_t=" + String(x0_t) + ", x1_t=" + String(x1_t));
 #endif
 
-    // graph Precipitation - DISABLED FOR DEBUG
-#ifdef ENABLE_HOURLY_PRECIP_GRAPH_DISABLED
-    // DEBUG: Print what we would draw but don't actually draw
-    Serial.println("[DEBUG] Would draw bar at hour " + String(i) + 
-                   ": x=" + String(x0_t) + "-" + String(x1_t) +
-                   ", y=" + String(y0_t) + "-" + String(y1_t));
+    // graph Precipitation - RE-ENABLED WITH STRICT CHECKS
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH
+    // DEBUG: Check all coordinates before any drawing
+    bool coordError = false;
+    if (x0_t < 0 || x0_t >= DISP_WIDTH) { Serial.println("[ERROR] x0_t out of bounds: " + String(x0_t)); coordError = true; }
+    if (x1_t < 0 || x1_t >= DISP_WIDTH) { Serial.println("[ERROR] x1_t out of bounds: " + String(x1_t)); coordError = true; }
+    if (y0_t < 0 || y0_t >= DISP_HEIGHT) { Serial.println("[ERROR] y0_t out of bounds: " + String(y0_t)); coordError = true; }
+    if (y1_t < 0 || y1_t >= DISP_HEIGHT) { Serial.println("[ERROR] y1_t out of bounds: " + String(y1_t)); coordError = true; }
+    
+    if (!coordError && i < 3) {
+      Serial.println("[DEBUG] Drawing hour " + String(i) + " with SAFE coordinates");
+    }
+    
+    // Only draw if coordinates are valid
+    if (!coordError) {
+      // Use simple iteration without step to avoid any issues
+      for (int y = y0_t; y < y1_t; y++) {
+        for (int x = x0_t; x < x1_t; x++) {
+          // Final safety check
+          if (x >= 0 && x < DISP_WIDTH && y >= 0 && y < DISP_HEIGHT) {
+            display.drawPixel(x, y, GxEPD_BLACK);
+          }
+        }
+      }
+    }
 #endif
 
     if ((i % hourInterval) == 0)
