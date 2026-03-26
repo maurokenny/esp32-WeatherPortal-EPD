@@ -737,17 +737,47 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
     }
   }
   
-  // Find where JSON actually starts (first '{' character)
-  int jsonStart = jsonString.indexOf('{');
-  if (jsonStart >= 0) {
-    jsonString = jsonString.substring(jsonStart);
+  // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
+  String cleanedJson = "";
+  int pos = 0;
+  while (pos < (int)jsonString.length()) {
+    int lineEnd = jsonString.indexOf("\r\n", pos);
+    if (lineEnd < 0) break;
+    
+    String chunkSizeStr = jsonString.substring(pos, lineEnd);
+    chunkSizeStr.trim();
+    if (chunkSizeStr.length() == 0) break;
+    
+    int chunkSize = (int)strtol(chunkSizeStr.c_str(), NULL, 16);
+    if (chunkSize == 0) break;
+    
+    pos = lineEnd + 2;
+    
+    if (pos + chunkSize <= (int)jsonString.length()) {
+      cleanedJson += jsonString.substring(pos, pos + chunkSize);
+      pos += chunkSize + 2;
+    } else {
+      break;
+    }
   }
   
-  // Find actual end of JSON (last })
-  int lastBrace = jsonString.lastIndexOf('}');
-  if (lastBrace > 0 && lastBrace < jsonString.length() - 1) {
-    jsonString = jsonString.substring(0, lastBrace + 1);
+  if (cleanedJson.length() == 0) {
+    cleanedJson = jsonString;
   }
+  
+  // Find where JSON actually starts
+  int jsonStart = cleanedJson.indexOf('{');
+  if (jsonStart >= 0) {
+    cleanedJson = cleanedJson.substring(jsonStart);
+  }
+  
+  // Find actual end of JSON
+  int lastBrace = cleanedJson.lastIndexOf('}');
+  if (lastBrace > 0 && lastBrace < (int)cleanedJson.length() - 1) {
+    cleanedJson = cleanedJson.substring(0, lastBrace + 1);
+  }
+  
+  jsonString = cleanedJson;
   
   // Validate JSON is not empty and starts with {
   if (jsonString.length() == 0 || jsonString[0] != '{') {
