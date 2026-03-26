@@ -125,8 +125,8 @@
 // This can either be Probability of Precipitation (PoP) or hourly volume.
 //   Metric   : Millimeters
 //   Imperial : Inches
-// #define UNITS_HOURLY_PRECIP_POP
-#define UNITS_HOURLY_PRECIP_MILLIMETERS
+#define UNITS_HOURLY_PRECIP_POP
+// #define UNITS_HOURLY_PRECIP_MILLIMETERS
 // #define UNITS_HOURLY_PRECIP_CENTIMETERS
 // #define UNITS_HOURLY_PRECIP_INCHES
 
@@ -161,7 +161,8 @@
 // (uncomment exactly one)
 // #define USE_HTTP
 // #define USE_HTTPS_NO_CERT_VERIF
-#define USE_HTTPS_WITH_CERT_VERIF // REQUIRES MANUAL UPDATE WHEN CERT EXPIRES
+#define USE_HTTPS_NO_CERT_VERIF // REQUIRES MANUAL UPDATE WHEN CERT EXPIRES
+// #define USE_HTTPS_WITH_CERT_VERIF // REQUIRES MANUAL UPDATE WHEN CERT EXPIRES
 
 // WIND DIRECTION INDICATOR
 // Choose whether the wind direction indicator should be an arrow, number, or
@@ -320,7 +321,7 @@
 // MOCKUP DATA
 //   Set to 1 to use mockup/fake weather data instead of fetching from API
 //   Useful for testing display without WiFi connection
-#define USE_MOCKUP_DATA 1
+#define USE_MOCKUP_DATA 0
 
 // MOCKUP WEATHER TYPE
 //   Select the weather scenario for mockup data
@@ -358,7 +359,7 @@ typedef enum {
 //   level 0: basic status information, assists troubleshooting (default)
 //   level 1: increased verbosity for debugging
 //   level 2: print api responses to serial monitor
-#define DEBUG_LEVEL 0
+#define DEBUG_LEVEL 2
 
 // Set the below constants in "config.cpp"
 extern const uint8_t PIN_BAT_ADC;

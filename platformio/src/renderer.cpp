@@ -1415,6 +1415,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   float tempMax = tempMin;
 #ifdef UNITS_HOURLY_PRECIP_POP
   float precipMax = hourly[0].pop;
+  Serial.println("[DEBUG] Graph POP[0]: " + String(hourly[0].pop) + " (" + String(hourly[0].pop * 100) + "%)");
 #else
   float precipMax = hourly[0].rain_1h + hourly[0].snow_1h;
 #endif
@@ -1479,6 +1480,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   {
     precipBoundMax = 0.0f;
   }
+  Serial.println("[DEBUG] precipMax: " + String(precipMax) + ", precipBoundMax: " + String(precipBoundMax));
 #else
 #ifdef UNITS_HOURLY_PRECIP_MILLIMETERS
   xPos1 = DISP_WIDTH - 24;
