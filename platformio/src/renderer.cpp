@@ -1396,15 +1396,10 @@ int kelvin_to_plot_y(float kelvin, int tempBoundMin, float yPxPerUnit,
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                       tm timeInfo)
 {
-  Serial.println("[DEBUG] drawOutlookGraph START");
-  
   const int xPos0 = 350;
   int xPos1 = DISP_WIDTH;
   const int yPos0 = 216;
   const int yPos1 = DISP_HEIGHT - 46;
-  
-  Serial.println("[DEBUG] Graph area: x=" + String(xPos0) + "-" + String(xPos1) + 
-                 ", y=" + String(yPos0) + "-" + String(yPos1));
 
   // calculate y max/min and intervals
   int yMajorTicks = 5;
@@ -1695,46 +1690,20 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     x0_t = static_cast<int>(std::round( xPos0 + 1 + (i * xInterval)));
     x1_t = static_cast<int>(std::round( xPos0 + 1 + ((i + 1) * xInterval) ));
     
-    // Safety check to prevent division by zero
-    if (precipBoundMax <= 0) {
-      Serial.println("[DEBUG] precipBoundMax is zero or negative!");
-      precipBoundMax = 100.0f;
-    }
-    
     yPxPerUnit = (yPos1 - yPos0) / precipBoundMax;
     y0_t = static_cast<int>(std::round( yPos1 - (yPxPerUnit * (precipVal)) ));
     y1_t = yPos1;
-    
-    // Debug ALL hours
-    Serial.println("[DEBUG] Hour " + String(i) + ": precipVal=" + String(precipVal) + 
-                   ", yPxPerUnit=" + String(yPxPerUnit) + 
-                   ", y0_t=" + String(y0_t) + ", y1_t=" + String(y1_t) +
-                   ", x0_t=" + String(x0_t) + ", x1_t=" + String(x1_t));
 #endif
 
-    // graph Precipitation - RE-ENABLED WITH STRICT CHECKS
+    // graph Precipitation
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
-    // DEBUG: Check all coordinates before any drawing
-    bool coordError = false;
-    if (x0_t < 0 || x0_t >= DISP_WIDTH) { Serial.println("[ERROR] x0_t out of bounds: " + String(x0_t)); coordError = true; }
-    if (x1_t < 0 || x1_t >= DISP_WIDTH) { Serial.println("[ERROR] x1_t out of bounds: " + String(x1_t)); coordError = true; }
-    if (y0_t < 0 || y0_t >= DISP_HEIGHT) { Serial.println("[ERROR] y0_t out of bounds: " + String(y0_t)); coordError = true; }
-    if (y1_t < 0 || y1_t >= DISP_HEIGHT) { Serial.println("[ERROR] y1_t out of bounds: " + String(y1_t)); coordError = true; }
-    
-    if (!coordError && i < 3) {
-      Serial.println("[DEBUG] Drawing hour " + String(i) + " with SAFE coordinates");
-    }
-    
-    // Only draw if coordinates are valid
-    if (!coordError) {
-      // Use simple iteration without step to avoid any issues
-      for (int y = y0_t; y < y1_t; y++) {
-        for (int x = x0_t; x < x1_t; x++) {
-          // Final safety check
-          if (x >= 0 && x < DISP_WIDTH && y >= 0 && y < DISP_HEIGHT) {
-            display.drawPixel(x, y, GxEPD_BLACK);
-          }
-        }
+    // Draw dotted pattern (checkerboard) to save e-paper refresh time
+    // and create a nice visual effect
+    for (int y = y0_t; y < y1_t && y < DISP_HEIGHT; y += 2) {
+      // Offset x by row parity for checkerboard pattern
+      int x_start = x0_t + ((y - y0_t) % 2);
+      for (int x = x_start; x < x1_t && x < DISP_WIDTH; x += 2) {
+        display.drawPixel(x, y, GxEPD_BLACK);
       }
     }
 #endif
