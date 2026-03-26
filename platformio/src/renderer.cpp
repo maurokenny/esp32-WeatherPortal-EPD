@@ -1709,35 +1709,32 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
     // graph Precipitation
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
-    // Store original y0_t for debug
-    int y0_t_original = y0_t;
+    // CRITICAL FIX: Ensure we only draw within safe graph area
+    // The graph area is: xPos0 to xPos1 (horizontal), yPos0 to yPos1 (vertical)
     
-    // Clamp y0_t to graph boundaries (yPos0 to yPos1)
-    if (y0_t < yPos0) y0_t = yPos0;
-    if (y0_t > yPos1) y0_t = yPos1;
+    // Calculate bar height - must not exceed graph height
+    int barHeight = y1_t - y0_t;
+    if (barHeight < 0) barHeight = 0;
+    if (barHeight > (yPos1 - yPos0)) barHeight = yPos1 - yPos0;
     
-    // Debug clamping
-    if (y0_t != y0_t_original) {
-      Serial.println("[DEBUG] Hour " + String(i) + " CLAMPED: " + String(y0_t_original) + " -> " + String(y0_t));
-    }
+    // Recalculate y0_t based on safe bar height
+    int safe_y0_t = y1_t - barHeight;
+    if (safe_y0_t < yPos0) safe_y0_t = yPos0;
     
-    // Only draw if there's space to draw (y0_t < y1_t)
-    if (y0_t >= y1_t - 1) {
-      Serial.println("[DEBUG] Hour " + String(i) + " SKIPPED: no space (y0_t=" + String(y0_t) + ", y1_t=" + String(y1_t) + ")");
-    } else {
-      int pixelsDrawn = 0;
-      for (int y = y1_t - 1; y > y0_t; y -= 2)
+    // Calculate safe x range
+    int safe_x0 = x0_t;
+    int safe_x1 = x1_t;
+    if (safe_x0 < xPos0) safe_x0 = xPos0;
+    if (safe_x1 > xPos1) safe_x1 = xPos1;
+    
+    // Only draw if we have valid area
+    if (safe_y0_t < y1_t && safe_x0 < safe_x1) {
+      for (int y = y1_t - 1; y >= safe_y0_t; y -= 2)
       {
-        if (y < yPos0 || y >= yPos1) continue;
-        for (int x = x0_t + (x0_t % 2); x < x1_t; x += 2)
+        for (int x = safe_x0 + (safe_x0 % 2); x < safe_x1; x += 2)
         {
-          if (x < xPos0 || x >= xPos1) continue;
           display.drawPixel(x, y, GxEPD_BLACK);
-          pixelsDrawn++;
         }
-      }
-      if (pixelsDrawn == 0) {
-        Serial.println("[DEBUG] Hour " + String(i) + " NO PIXELS drawn!");
       }
     }
 #endif
