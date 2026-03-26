@@ -60,7 +60,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   Serial.println("Using MOCKUP DATA - No WiFi/API calls");
   
   // Initialize entire structure to zero to avoid garbage values
-  memset(&owm_onecall, 0, sizeof(owm_onecall));
+  owm_onecall = {};
   
   // Set current time - initialize all fields to avoid undefined behavior
   memset(&timeInfo, 0, sizeof(tm));
