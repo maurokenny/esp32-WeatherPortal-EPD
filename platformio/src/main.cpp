@@ -79,22 +79,22 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   setenv("TZ", TIMEZONE, 1);
   tzset();
   
-  // Current weather
+  // Current weather - Snow
   owm_onecall.current.dt = now;
-  owm_onecall.current.temp = 295.65f;  // 22.5°C in Kelvin
-  owm_onecall.current.feels_like = 294.15f;  // 21°C in Kelvin
+  owm_onecall.current.temp = 273.15f;  // 0°C in Kelvin (freezing)
+  owm_onecall.current.feels_like = 268.15f;  // -5°C in Kelvin
   owm_onecall.current.pressure = 1013;
-  owm_onecall.current.humidity = 65;
-  owm_onecall.current.dew_point = 288.65f;  // 15.5°C in Kelvin
-  owm_onecall.current.clouds = 40;
-  owm_onecall.current.uvi = 4.5f;
-  owm_onecall.current.visibility = 10000;
-  owm_onecall.current.wind_speed = 15.0f;
+  owm_onecall.current.humidity = 80;
+  owm_onecall.current.dew_point = 270.15f;  // -3°C in Kelvin
+  owm_onecall.current.clouds = 90;
+  owm_onecall.current.uvi = 1.0f;
+  owm_onecall.current.visibility = 5000;
+  owm_onecall.current.wind_speed = 10.0f;
   owm_onecall.current.wind_deg = 180;
-  owm_onecall.current.weather.id = 500;  // Rain (light rain)
-  owm_onecall.current.weather.main = "Rain";
-  owm_onecall.current.weather.description = "light rain";
-  owm_onecall.current.weather.icon = "10d";
+  owm_onecall.current.weather.id = 600;  // Snow (light snow)
+  owm_onecall.current.weather.main = "Snow";
+  owm_onecall.current.weather.description = "light snow";
+  owm_onecall.current.weather.icon = "13d";
   
   // Hourly forecast (24 hours)
   for (int i = 0; i < 24; i++) {
@@ -120,16 +120,49 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     owm_onecall.hourly[i].weather.icon = (i % 3 == 0) ? "10d" : "03d";
   }
   
-  // Daily forecast (5 days)
+  // Daily forecast (5 days) - each day with different weather type
   for (int i = 0; i < 5; i++) {
     owm_onecall.daily[i].dt = now + (i * 86400);
     owm_onecall.daily[i].temp.max = 295.15f + (i % 3);  // ~22°C in Kelvin
     owm_onecall.daily[i].temp.min = 288.15f - (i % 2);  // ~15°C in Kelvin
-    owm_onecall.daily[i].weather.id = 803;  // Clouds (broken clouds)
-    owm_onecall.daily[i].weather.main = "Clouds";
-    owm_onecall.daily[i].weather.description = "scattered clouds";
-    owm_onecall.daily[i].weather.icon = "03d";
-    owm_onecall.daily[i].pop = 0.0f;  // No rain
+    owm_onecall.daily[i].pop = 0.0f;  // No rain by default
+    
+    // Different weather for each day
+    switch (i) {
+      case 0:  // Day 1: Sunny
+        owm_onecall.daily[i].weather.id = 800;
+        owm_onecall.daily[i].weather.main = "Clear";
+        owm_onecall.daily[i].weather.description = "clear sky";
+        owm_onecall.daily[i].weather.icon = "01d";
+        break;
+      case 1:  // Day 2: Cloudy
+        owm_onecall.daily[i].weather.id = 803;
+        owm_onecall.daily[i].weather.main = "Clouds";
+        owm_onecall.daily[i].weather.description = "broken clouds";
+        owm_onecall.daily[i].weather.icon = "04d";
+        break;
+      case 2:  // Day 3: Rain
+        owm_onecall.daily[i].weather.id = 500;
+        owm_onecall.daily[i].weather.main = "Rain";
+        owm_onecall.daily[i].weather.description = "light rain";
+        owm_onecall.daily[i].weather.icon = "10d";
+        owm_onecall.daily[i].pop = 0.70f;  // 70% rain chance
+        break;
+      case 3:  // Day 4: Thunderstorm
+        owm_onecall.daily[i].weather.id = 200;
+        owm_onecall.daily[i].weather.main = "Thunderstorm";
+        owm_onecall.daily[i].weather.description = "thunderstorm with light rain";
+        owm_onecall.daily[i].weather.icon = "11d";
+        owm_onecall.daily[i].pop = 0.80f;  // 80% rain chance
+        break;
+      case 4:  // Day 5: Snow
+        owm_onecall.daily[i].weather.id = 600;
+        owm_onecall.daily[i].weather.main = "Snow";
+        owm_onecall.daily[i].weather.description = "light snow";
+        owm_onecall.daily[i].weather.icon = "13d";
+        owm_onecall.daily[i].pop = 0.50f;  // 50% snow chance
+        break;
+    }
   }
   
   Serial.println("Mockup data filled successfully!");
