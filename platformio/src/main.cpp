@@ -96,15 +96,15 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   owm_onecall.current.weather.description = "moderate rain";
   owm_onecall.current.weather.icon = "10d";
   
-  // Hourly forecast (24 hours)
+  // Hourly forecast (24 hours) - varied weather icons
   for (int i = 0; i < 24; i++) {
     owm_onecall.hourly[i].dt = now + (i * 3600);
     owm_onecall.hourly[i].temp = 293.15f + (i % 5) - 2.0f;  // ~20°C in Kelvin
     owm_onecall.hourly[i].feels_like = owm_onecall.hourly[i].temp - 1.0f;
     owm_onecall.hourly[i].pressure = 1013;
     owm_onecall.hourly[i].humidity = 60 + (i % 10);
+    
     // Simulate rain in 45 minutes (index 1 with offset) with 80% probability
-    // Index 0 = now, Index 1 = 45 min (to test minutes display)
     if (i == 1) {
       owm_onecall.hourly[i].dt = now + (45 * 60);  // 45 minutes from now
       owm_onecall.hourly[i].pop = 0.80f;  // 80% rain in 45 minutes
@@ -113,11 +113,66 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     } else {
       owm_onecall.hourly[i].pop = 0.0f;   // No rain
     }
-    owm_onecall.hourly[i].rain_1h = (i % 3 == 0) ? 2.5f + (i % 4) : 0.0f;  // mm of rain
-    owm_onecall.hourly[i].weather.id = (i % 3 == 0) ? 500 : 803;  // 500=Rain, 803=Clouds
-    owm_onecall.hourly[i].weather.main = (i % 3 == 0) ? "Rain" : "Clouds";
-    owm_onecall.hourly[i].weather.description = (i % 3 == 0) ? "light rain" : "scattered clouds";
-    owm_onecall.hourly[i].weather.icon = (i % 3 == 0) ? "10d" : "03d";
+    
+    // Varied weather icons for hourly forecast
+    switch (i % 8) {
+      case 0:  // Sunny
+        owm_onecall.hourly[i].weather.id = 800;
+        owm_onecall.hourly[i].weather.main = "Clear";
+        owm_onecall.hourly[i].weather.description = "clear sky";
+        owm_onecall.hourly[i].weather.icon = "01d";
+        owm_onecall.hourly[i].rain_1h = 0.0f;
+        break;
+      case 1:  // Few clouds
+        owm_onecall.hourly[i].weather.id = 801;
+        owm_onecall.hourly[i].weather.main = "Clouds";
+        owm_onecall.hourly[i].weather.description = "few clouds";
+        owm_onecall.hourly[i].weather.icon = "02d";
+        owm_onecall.hourly[i].rain_1h = 0.0f;
+        break;
+      case 2:  // Scattered clouds
+        owm_onecall.hourly[i].weather.id = 802;
+        owm_onecall.hourly[i].weather.main = "Clouds";
+        owm_onecall.hourly[i].weather.description = "scattered clouds";
+        owm_onecall.hourly[i].weather.icon = "03d";
+        owm_onecall.hourly[i].rain_1h = 0.0f;
+        break;
+      case 3:  // Broken clouds
+        owm_onecall.hourly[i].weather.id = 803;
+        owm_onecall.hourly[i].weather.main = "Clouds";
+        owm_onecall.hourly[i].weather.description = "broken clouds";
+        owm_onecall.hourly[i].weather.icon = "04d";
+        owm_onecall.hourly[i].rain_1h = 0.0f;
+        break;
+      case 4:  // Shower rain
+        owm_onecall.hourly[i].weather.id = 521;
+        owm_onecall.hourly[i].weather.main = "Rain";
+        owm_onecall.hourly[i].weather.description = "shower rain";
+        owm_onecall.hourly[i].weather.icon = "09d";
+        owm_onecall.hourly[i].rain_1h = 2.5f;
+        break;
+      case 5:  // Rain
+        owm_onecall.hourly[i].weather.id = 500;
+        owm_onecall.hourly[i].weather.main = "Rain";
+        owm_onecall.hourly[i].weather.description = "light rain";
+        owm_onecall.hourly[i].weather.icon = "10d";
+        owm_onecall.hourly[i].rain_1h = 1.5f;
+        break;
+      case 6:  // Thunderstorm
+        owm_onecall.hourly[i].weather.id = 200;
+        owm_onecall.hourly[i].weather.main = "Thunderstorm";
+        owm_onecall.hourly[i].weather.description = "thunderstorm with light rain";
+        owm_onecall.hourly[i].weather.icon = "11d";
+        owm_onecall.hourly[i].rain_1h = 5.0f;
+        break;
+      case 7:  // Snow
+        owm_onecall.hourly[i].weather.id = 600;
+        owm_onecall.hourly[i].weather.main = "Snow";
+        owm_onecall.hourly[i].weather.description = "light snow";
+        owm_onecall.hourly[i].weather.icon = "13d";
+        owm_onecall.hourly[i].rain_1h = 0.0f;
+        break;
+    }
   }
   
   // Daily forecast (5 days) - each day with different weather type
