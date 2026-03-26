@@ -59,8 +59,12 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
 {
   Serial.println("Using MOCKUP DATA - No WiFi/API calls");
   
-  // Initialize entire structure to zero to avoid garbage values
-  owm_onecall = {};
+  // Initialize only the fields we use to avoid stack overflow from String constructors
+  // Don't use owm_onecall = {} as it calls 171+ String constructors!
+  memset(&owm_onecall.current, 0, sizeof(owm_current_t));
+  owm_onecall.current.weather.main = "";
+  owm_onecall.current.weather.description = "";
+  owm_onecall.current.weather.icon = "";
   
   // Set current time - initialize all fields to avoid undefined behavior
   memset(&timeInfo, 0, sizeof(tm));
@@ -181,6 +185,12 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   // Hourly forecast (24 hours) - varied weather icons
   // Configure rain data based on MOCKUP_RAIN_WIDGET_STATE
   for (int i = 0; i < 24; i++) {
+    // Clear hourly entry first (avoid uninitialized values)
+    memset(&owm_onecall.hourly[i], 0, sizeof(owm_hourly_t));
+    owm_onecall.hourly[i].weather.main = "";
+    owm_onecall.hourly[i].weather.description = "";
+    owm_onecall.hourly[i].weather.icon = "";
+    
     owm_onecall.hourly[i].dt = now + (i * 3600);
     owm_onecall.hourly[i].temp = 293.15f + (i % 5) - 2.0f;  // ~20°C in Kelvin
     owm_onecall.hourly[i].feels_like = owm_onecall.hourly[i].temp - 1.0f;
@@ -295,6 +305,12 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   
   // Daily forecast (5 days) - each day with different weather type
   for (int i = 0; i < 5; i++) {
+    // Clear daily entry first
+    memset(&owm_onecall.daily[i], 0, sizeof(owm_daily_t));
+    owm_onecall.daily[i].weather.main = "";
+    owm_onecall.daily[i].weather.description = "";
+    owm_onecall.daily[i].weather.icon = "";
+    
     owm_onecall.daily[i].dt = now + (i * 86400);
     owm_onecall.daily[i].temp.max = 295.15f + (i % 3);  // ~22°C in Kelvin
     owm_onecall.daily[i].temp.min = 288.15f - (i % 2);  // ~15°C in Kelvin
