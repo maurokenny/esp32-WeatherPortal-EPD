@@ -1711,23 +1711,31 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
     // graph Precipitation
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
-    // Clamp values to prevent drawing outside display area
-    if (y0_t < 0) y0_t = 0;
-    if (y0_t > DISP_HEIGHT) y0_t = DISP_HEIGHT;
-    if (y1_t < 0) y1_t = 0;
-    if (y1_t > DISP_HEIGHT) y1_t = DISP_HEIGHT;
-    if (x0_t < 0) x0_t = 0;
-    if (x0_t > DISP_WIDTH) x0_t = DISP_WIDTH;
-    if (x1_t < 0) x1_t = 0;
-    if (x1_t > DISP_WIDTH) x1_t = DISP_WIDTH;
+    // Clamp y0_t to graph boundaries (yPos0 to yPos1)
+    // y0_t must be >= yPos0 (top of graph area)
+    // y0_t must be <= yPos1 (bottom of graph area)
+    if (y0_t < yPos0) y0_t = yPos0;
+    if (y0_t > yPos1) y0_t = yPos1;
     
-    for (int y = y1_t - 1; y > y0_t; y -= 2)
-    {
-      if (y < 0 || y >= DISP_HEIGHT) continue;
-      for (int x = x0_t + (x0_t % 2); x < x1_t; x += 2)
+    // Debug if clamping was applied
+    if (i < 3) {
+      Serial.println("[DEBUG] After clamp: y0_t=" + String(y0_t) + ", yPos0=" + String(yPos0) + ", yPos1=" + String(yPos1));
+    }
+    
+    // Only draw if there's space to draw (y0_t < y1_t)
+    if (y0_t >= y1_t - 1) {
+      if (i < 3) Serial.println("[DEBUG] Skipping hour " + String(i) + " - no space to draw");
+    } else {
+      for (int y = y1_t - 1; y > y0_t; y -= 2)
       {
-        if (x < 0 || x >= DISP_WIDTH) continue;
-        display.drawPixel(x, y, GxEPD_BLACK);
+        // Additional safety: only draw within graph area
+        if (y < yPos0 || y >= yPos1) continue;
+        for (int x = x0_t + (x0_t % 2); x < x1_t; x += 2)
+        {
+          // Additional safety: only draw within graph area
+          if (x < xPos0 || x >= xPos1) continue;
+          display.drawPixel(x, y, GxEPD_BLACK);
+        }
       }
     }
 #endif
