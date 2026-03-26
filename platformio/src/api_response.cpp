@@ -475,30 +475,47 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
 DeserializationError deserializeOpenMeteo(WiFiClient &json,
                                           owm_resp_onecall_t &r)
 {
-  // Read entire response into buffer
+  // Read entire response into buffer with timeout
+  // Open-Meteo response can be ~15KB, so we need to wait for all data
   String jsonString = "";
-  while (json.available()) {
-    char c = json.read();
-    if (c >= 0) {
-      jsonString += c;
-      if (jsonString.length() > 30000) break; // Safety limit
+  int bytesRead = 0;
+  unsigned long startTime = millis();
+  
+  // Keep reading until stream is empty or timeout (10 seconds)
+  while (bytesRead < 30000 && (millis() - startTime) < 10000) {
+    if (json.available()) {
+      char c = json.read();
+      if (c >= 0) {
+        jsonString += c;
+        bytesRead++;
+      }
+    } else {
+      // Stream empty, wait a bit for more data
+      delay(10);
     }
   }
   
-  // Find JSON boundaries
+  // Find where JSON actually starts (first '{' character)
   int jsonStart = jsonString.indexOf('{');
   if (jsonStart >= 0) {
     jsonString = jsonString.substring(jsonStart);
-    int lastBrace = jsonString.lastIndexOf('}');
-    if (lastBrace > 0) {
-      jsonString = jsonString.substring(0, lastBrace + 1);
-    }
+  }
+  
+  // Find actual end of JSON (last })
+  int lastBrace = jsonString.lastIndexOf('}');
+  if (lastBrace > 0 && lastBrace < jsonString.length() - 1) {
+    jsonString = jsonString.substring(0, lastBrace + 1);
+  }
+  
+  // Validate JSON is not empty and starts with {
+  if (jsonString.length() == 0 || jsonString[0] != '{') {
+    return DeserializationError::InvalidInput;
   }
   
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonString);
   
-  if (error && doc.size() == 0) {
+  if (error) {
     return error;
   }
   
@@ -636,30 +653,46 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
 DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
                                                     owm_resp_air_pollution_t &r)
 {
-  // Read entire response into buffer
+  // Read entire response into buffer with timeout
   String jsonString = "";
-  while (json.available()) {
-    char c = json.read();
-    if (c >= 0) {
-      jsonString += c;
-      if (jsonString.length() > 15000) break; // Safety limit
+  int bytesRead = 0;
+  unsigned long startTime = millis();
+  
+  // Keep reading until stream is empty or timeout (10 seconds)
+  while (bytesRead < 15000 && (millis() - startTime) < 10000) {
+    if (json.available()) {
+      char c = json.read();
+      if (c >= 0) {
+        jsonString += c;
+        bytesRead++;
+      }
+    } else {
+      // Stream empty, wait a bit for more data
+      delay(10);
     }
   }
   
-  // Find JSON boundaries
+  // Find where JSON actually starts (first '{' character)
   int jsonStart = jsonString.indexOf('{');
   if (jsonStart >= 0) {
     jsonString = jsonString.substring(jsonStart);
-    int lastBrace = jsonString.lastIndexOf('}');
-    if (lastBrace > 0) {
-      jsonString = jsonString.substring(0, lastBrace + 1);
-    }
+  }
+  
+  // Find actual end of JSON (last })
+  int lastBrace = jsonString.lastIndexOf('}');
+  if (lastBrace > 0 && lastBrace < jsonString.length() - 1) {
+    jsonString = jsonString.substring(0, lastBrace + 1);
+  }
+  
+  // Validate JSON is not empty and starts with {
+  if (jsonString.length() == 0 || jsonString[0] != '{') {
+    return DeserializationError::InvalidInput;
   }
   
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonString);
   
-  if (error && doc.size() == 0) {
+  if (error) {
     return error;
   }
   
