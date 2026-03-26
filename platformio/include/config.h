@@ -324,9 +324,17 @@
 
 // MOCKUP WEATHER TYPE
 //   Select the weather scenario for mockup data
-//   Options: MOCKUP_WEATHER_SUNNY, MOCKUP_WEATHER_RAINY, 
-//            MOCKUP_WEATHER_SNOWY, MOCKUP_WEATHER_CLOUDY
-#define MOCKUP_CURRENT_WEATHER MOCKUP_WEATHER_RAINY
+//   Using enum with switch/case (preprocessor #if cannot use enum values)
+typedef enum {
+  MOCKUP_WEATHER_SUNNY,   // 0 - Clear sky, warm (25°C), sunny icon
+  MOCKUP_WEATHER_RAINY,   // 1 - Moderate rain (15°C), rain icon, 85% humidity
+  MOCKUP_WEATHER_SNOWY,   // 2 - Light snow (0°C), snow icon, 80% humidity
+  MOCKUP_WEATHER_CLOUDY,  // 3 - Overcast clouds, mild (18°C)
+  MOCKUP_WEATHER_THUNDER  // 4 - Thunderstorm, warm (20°C), storm icon
+} mockup_weather_type_t;
+
+// Select your mockup weather scenario here:
+#define MOCKUP_CURRENT_WEATHER MOCKUP_WEATHER_CLOUDY
 
 // NON-VOLATILE STORAGE (NVS) NAMESPACE
 #define NVS_NAMESPACE "weather_epd"
@@ -492,16 +500,5 @@ extern const uint32_t MIN_BATTERY_VOLTAGE;
       ^ defined(MOONPHASE_ALTERNATIVE))
   #error Invalid configuration. Exactly one moon phase style must be selected.
 #endif
-
-/*
- * Mockup weather types for testing
- */
-typedef enum {
-  MOCKUP_WEATHER_SUNNY = 0,   // Clear sky, warm (25°C), sunny icon
-  MOCKUP_WEATHER_RAINY = 1,   // Moderate rain (15°C), rain icon, 85% humidity
-  MOCKUP_WEATHER_SNOWY = 2,   // Light snow (0°C), snow icon, 80% humidity
-  MOCKUP_WEATHER_CLOUDY = 3,  // Overcast clouds, mild (18°C)
-  MOCKUP_WEATHER_THUNDER = 4  // Thunderstorm, warm (20°C), storm icon
-} mockup_weather_type_t;
 
 #endif
