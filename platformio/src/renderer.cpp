@@ -1396,10 +1396,15 @@ int kelvin_to_plot_y(float kelvin, int tempBoundMin, float yPxPerUnit,
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                       tm timeInfo)
 {
+  Serial.println("[DEBUG] drawOutlookGraph START");
+  
   const int xPos0 = 350;
   int xPos1 = DISP_WIDTH;
   const int yPos0 = 216;
   const int yPos1 = DISP_HEIGHT - 46;
+  
+  Serial.println("[DEBUG] Graph area: x=" + String(xPos0) + "-" + String(xPos1) + 
+                 ", y=" + String(yPos0) + "-" + String(yPos1));
 
   // calculate y max/min and intervals
   int yMajorTicks = 5;
@@ -1707,36 +1712,12 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                    ", x0_t=" + String(x0_t) + ", x1_t=" + String(x1_t));
 #endif
 
-    // graph Precipitation
-#ifdef ENABLE_HOURLY_PRECIP_GRAPH
-    // CRITICAL FIX: Ensure we only draw within safe graph area
-    // The graph area is: xPos0 to xPos1 (horizontal), yPos0 to yPos1 (vertical)
-    
-    // Calculate bar height - must not exceed graph height
-    int barHeight = y1_t - y0_t;
-    if (barHeight < 0) barHeight = 0;
-    if (barHeight > (yPos1 - yPos0)) barHeight = yPos1 - yPos0;
-    
-    // Recalculate y0_t based on safe bar height
-    int safe_y0_t = y1_t - barHeight;
-    if (safe_y0_t < yPos0) safe_y0_t = yPos0;
-    
-    // Calculate safe x range
-    int safe_x0 = x0_t;
-    int safe_x1 = x1_t;
-    if (safe_x0 < xPos0) safe_x0 = xPos0;
-    if (safe_x1 > xPos1) safe_x1 = xPos1;
-    
-    // Only draw if we have valid area
-    if (safe_y0_t < y1_t && safe_x0 < safe_x1) {
-      for (int y = y1_t - 1; y >= safe_y0_t; y -= 2)
-      {
-        for (int x = safe_x0 + (safe_x0 % 2); x < safe_x1; x += 2)
-        {
-          display.drawPixel(x, y, GxEPD_BLACK);
-        }
-      }
-    }
+    // graph Precipitation - DISABLED FOR DEBUG
+#ifdef ENABLE_HOURLY_PRECIP_GRAPH_DISABLED
+    // DEBUG: Print what we would draw but don't actually draw
+    Serial.println("[DEBUG] Would draw bar at hour " + String(i) + 
+                   ": x=" + String(x0_t) + "-" + String(x1_t) +
+                   ", y=" + String(y0_t) + "-" + String(y1_t));
 #endif
 
     if ((i % hourInterval) == 0)
