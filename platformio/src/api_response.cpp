@@ -503,19 +503,50 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   // Chunked format: "<hex-size>\r\n<data>\r\n...0\r\n\r\n"
   String cleanedJson = "";
   int pos = 0;
+  int chunksProcessed = 0;
+  
+  Serial.println("[DEBUG] Starting de-chunking...");
+  
   while (pos < (int)jsonString.length()) {
     // Find end of chunk size line (\r\n)
     int lineEnd = jsonString.indexOf("\r\n", pos);
-    if (lineEnd < 0) break;
+    if (lineEnd < 0) {
+      Serial.println("[DEBUG] No more \\r\\n found at pos " + String(pos));
+      break;
+    }
     
     // Extract chunk size (hex string)
     String chunkSizeStr = jsonString.substring(pos, lineEnd);
     chunkSizeStr.trim();
-    if (chunkSizeStr.length() == 0) break;
+    
+    if (chunkSizeStr.length() == 0) {
+      Serial.println("[DEBUG] Empty chunk size at pos " + String(pos));
+      break;
+    }
+    
+    // Check if it looks like a hex number
+    bool isHex = true;
+    for (int i = 0; i < chunkSizeStr.length(); i++) {
+      char c = chunkSizeStr.charAt(i);
+      if (!isxdigit(c)) {
+        isHex = false;
+        break;
+      }
+    }
+    
+    if (!isHex) {
+      Serial.println("[DEBUG] Not a hex chunk size: '" + chunkSizeStr + "'");
+      break;
+    }
     
     // Convert hex to int
     int chunkSize = (int)strtol(chunkSizeStr.c_str(), NULL, 16);
-    if (chunkSize == 0) break; // Last chunk
+    Serial.println("[DEBUG] Chunk " + String(chunksProcessed) + ": size=0x" + chunkSizeStr + " (" + String(chunkSize) + " bytes)");
+    
+    if (chunkSize == 0) {
+      Serial.println("[DEBUG] Last chunk marker found");
+      break; // Last chunk
+    }
     
     // Move to start of chunk data
     pos = lineEnd + 2; // Skip \r\n
@@ -524,13 +555,18 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     if (pos + chunkSize <= (int)jsonString.length()) {
       cleanedJson += jsonString.substring(pos, pos + chunkSize);
       pos += chunkSize + 2; // Skip data + \r\n
+      chunksProcessed++;
     } else {
+      Serial.println("[DEBUG] Chunk extends beyond data: pos=" + String(pos) + ", size=" + String(chunkSize) + ", len=" + String(jsonString.length()));
       break;
     }
   }
   
+  Serial.println("[DEBUG] Chunks processed: " + String(chunksProcessed));
+  
   // If no chunked encoding detected, use original string
   if (cleanedJson.length() == 0) {
+    Serial.println("[DEBUG] No chunks found, using original");
     cleanedJson = jsonString;
   }
   
