@@ -1697,12 +1697,24 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
     // graph Precipitation
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
-    // Draw dotted pattern (checkerboard) to save e-paper refresh time
-    // and create a nice visual effect
-    for (int y = y0_t; y < y1_t && y < DISP_HEIGHT; y += 2) {
-      // Offset x by row parity for checkerboard pattern
-      int x_start = x0_t + ((y - y0_t) % 2);
-      for (int x = x_start; x < x1_t && x < DISP_WIDTH; x += 2) {
+    // SAFETY FIRST: Ensure all coordinates are within valid range
+    int draw_y0 = y0_t;
+    int draw_y1 = y1_t;
+    int draw_x0 = x0_t;
+    int draw_x1 = x1_t;
+    
+    // Clamp to display bounds
+    if (draw_y0 < 0) draw_y0 = 0;
+    if (draw_y1 > DISP_HEIGHT) draw_y1 = DISP_HEIGHT;
+    if (draw_x0 < 0) draw_x0 = 0;
+    if (draw_x1 > DISP_WIDTH) draw_x1 = DISP_WIDTH;
+    
+    // Skip if no valid area
+    if (draw_y0 >= draw_y1 || draw_x0 >= draw_x1) continue;
+    
+    // Draw solid bar (safer than dotted pattern)
+    for (int y = draw_y0; y < draw_y1; y++) {
+      for (int x = draw_x0; x < draw_x1; x++) {
         display.drawPixel(x, y, GxEPD_BLACK);
       }
     }
