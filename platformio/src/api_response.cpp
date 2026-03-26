@@ -657,6 +657,10 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   int wmoCode = current["weather_code"].as<int>();
   wmoToOwmWeather(wmoCode, isDay, r.current.weather);
   
+  // Debug: Show received values for location comparison
+  Serial.println("[Open-Meteo] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
+  Serial.println("[Open-Meteo] Current temp: " + String(r.current.temp - 273.15f, 1) + "C, Weather: " + String(wmoCode) + ", Day: " + String(isDay));
+  
   // Parse hourly forecast
   JsonObject hourly = doc["hourly"];
   JsonArray hourly_time = hourly["time"];
@@ -754,6 +758,18 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   
   // Clear alerts (not provided by Open-Meteo)
   r.alerts.clear();
+  
+  // Debug: Show summary for comparing locations
+  float tempMin = r.hourly[0].temp, tempMax = r.hourly[0].temp;
+  float popMin = r.hourly[0].pop, popMax = r.hourly[0].pop;
+  for (int i = 1; i < hourlyCount; i++) {
+    tempMin = min(tempMin, r.hourly[i].temp);
+    tempMax = max(tempMax, r.hourly[i].temp);
+    popMin = min(popMin, r.hourly[i].pop);
+    popMax = max(popMax, r.hourly[i].pop);
+  }
+  Serial.println("[Open-Meteo] Summary: Temp range " + String(tempMin - 273.15f, 1) + "C to " + String(tempMax - 273.15f, 1) + "C");
+  Serial.println("[Open-Meteo] Summary: POP range " + String(popMin * 100, 0) + "% to " + String(popMax * 100, 0) + "%");
   
   return error;
 } // end deserializeOpenMeteo

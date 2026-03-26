@@ -321,7 +321,7 @@
 // MOCKUP DATA
 //   Set to 1 to use mockup/fake weather data instead of fetching from API
 //   Useful for testing display without WiFi connection
-#define USE_MOCKUP_DATA 1
+#define USE_MOCKUP_DATA 0
 
 // MOCKUP WEATHER TYPE
 //   Select the weather scenario for mockup data
@@ -351,7 +351,7 @@ typedef enum {
 // COMPACT: Shows "Compact (50%)" or "Rain in 45min (50%)"
 // TAKE: Shows "Take (80%)" or "Rain in 45min (80%)"
 // GRAPH_TEST: POP varies from 0% to 120% across hours to test graph scaling
-#define MOCKUP_RAIN_WIDGET_STATE MOCKUP_RAIN_COMPACT
+#define MOCKUP_RAIN_WIDGET_STATE MOCKUP_RAIN_GRAPH_TEST
 
 // NON-VOLATILE STORAGE (NVS) NAMESPACE
 #define NVS_NAMESPACE "weather_epd"

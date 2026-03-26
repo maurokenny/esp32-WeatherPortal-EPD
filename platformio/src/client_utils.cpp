@@ -173,6 +173,7 @@ bool waitForSNTPSync(tm *timeInfo)
                "&forecast_days=8";
 
   String fullUri = "https://" + OPENMETEO_ENDPOINT + uri;
+  Serial.print("[Open-Meteo] ");
   Serial.print(TXT_ATTEMPTING_HTTP_REQ);
   Serial.println(": " + fullUri);
   
