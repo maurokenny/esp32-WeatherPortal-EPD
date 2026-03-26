@@ -1700,42 +1700,44 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     y0_t = static_cast<int>(std::round( yPos1 - (yPxPerUnit * (precipVal)) ));
     y1_t = yPos1;
     
-    // Debug first few hours
-    if (i < 3) {
-      Serial.println("[DEBUG] Hour " + String(i) + ": precipVal=" + String(precipVal) + 
-                     ", yPxPerUnit=" + String(yPxPerUnit) + 
-                     ", y0_t=" + String(y0_t) + ", y1_t=" + String(y1_t) +
-                     ", x0_t=" + String(x0_t) + ", x1_t=" + String(x1_t));
-    }
+    // Debug ALL hours
+    Serial.println("[DEBUG] Hour " + String(i) + ": precipVal=" + String(precipVal) + 
+                   ", yPxPerUnit=" + String(yPxPerUnit) + 
+                   ", y0_t=" + String(y0_t) + ", y1_t=" + String(y1_t) +
+                   ", x0_t=" + String(x0_t) + ", x1_t=" + String(x1_t));
 #endif
 
     // graph Precipitation
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
+    // Store original y0_t for debug
+    int y0_t_original = y0_t;
+    
     // Clamp y0_t to graph boundaries (yPos0 to yPos1)
-    // y0_t must be >= yPos0 (top of graph area)
-    // y0_t must be <= yPos1 (bottom of graph area)
     if (y0_t < yPos0) y0_t = yPos0;
     if (y0_t > yPos1) y0_t = yPos1;
     
-    // Debug if clamping was applied
-    if (i < 3) {
-      Serial.println("[DEBUG] After clamp: y0_t=" + String(y0_t) + ", yPos0=" + String(yPos0) + ", yPos1=" + String(yPos1));
+    // Debug clamping
+    if (y0_t != y0_t_original) {
+      Serial.println("[DEBUG] Hour " + String(i) + " CLAMPED: " + String(y0_t_original) + " -> " + String(y0_t));
     }
     
     // Only draw if there's space to draw (y0_t < y1_t)
     if (y0_t >= y1_t - 1) {
-      if (i < 3) Serial.println("[DEBUG] Skipping hour " + String(i) + " - no space to draw");
+      Serial.println("[DEBUG] Hour " + String(i) + " SKIPPED: no space (y0_t=" + String(y0_t) + ", y1_t=" + String(y1_t) + ")");
     } else {
+      int pixelsDrawn = 0;
       for (int y = y1_t - 1; y > y0_t; y -= 2)
       {
-        // Additional safety: only draw within graph area
         if (y < yPos0 || y >= yPos1) continue;
         for (int x = x0_t + (x0_t % 2); x < x1_t; x += 2)
         {
-          // Additional safety: only draw within graph area
           if (x < xPos0 || x >= xPos1) continue;
           display.drawPixel(x, y, GxEPD_BLACK);
+          pixelsDrawn++;
         }
+      }
+      if (pixelsDrawn == 0) {
+        Serial.println("[DEBUG] Hour " + String(i) + " NO PIXELS drawn!");
       }
     }
 #endif
