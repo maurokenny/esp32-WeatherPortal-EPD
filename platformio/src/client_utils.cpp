@@ -209,21 +209,25 @@ bool waitForSNTPSync(tm *timeInfo)
         rxSuccess = true;
         Serial.println("  [HTTP] Success!");
       }
+      http.end();
+      client.stop();
+      Serial.println("  " + String(httpResponse, DEC) + " "
+                     + getHttpResponsePhrase(httpResponse));
+      return httpResponse;
     }
     http.end();
     
-    if (!rxSuccess && attempts < 2)
+    Serial.println("  " + String(httpResponse, DEC) + " "
+                   + getHttpResponsePhrase(httpResponse));
+    
+    if (attempts < 2)
     {
       Serial.println("  [HTTP] Retrying in 500ms...");
       delay(500);
     }
     
-    Serial.println("  " + String(httpResponse, DEC) + " "
-                   + getHttpResponsePhrase(httpResponse));
     ++attempts;
   }
-  
-  client.stop();
 
   return httpResponse;
 } // getOpenMeteoForecast
@@ -289,21 +293,25 @@ bool waitForSNTPSync(tm *timeInfo)
         rxSuccess = true;
         Serial.println("  [HTTP] Success!");
       }
+      http.end();
+      client.stop();
+      Serial.println("  " + String(httpResponse, DEC) + " "
+                     + getHttpResponsePhrase(httpResponse));
+      return httpResponse;
     }
     http.end();
     
-    if (!rxSuccess && attempts < 2)
+    Serial.println("  " + String(httpResponse, DEC) + " "
+                   + getHttpResponsePhrase(httpResponse));
+    
+    if (attempts < 2)
     {
       Serial.println("  [HTTP] Retrying in 500ms...");
       delay(500);
     }
     
-    Serial.println("  " + String(httpResponse, DEC) + " "
-                   + getHttpResponsePhrase(httpResponse));
     ++attempts;
   }
-  
-  client.stop();
 
   return httpResponse;
 } // getOpenMeteoAirQuality
