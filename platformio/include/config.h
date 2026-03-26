@@ -321,7 +321,7 @@
 // MOCKUP DATA
 //   Set to 1 to use mockup/fake weather data instead of fetching from API
 //   Useful for testing display without WiFi connection
-#define USE_MOCKUP_DATA 0
+#define USE_MOCKUP_DATA 1
 
 // MOCKUP WEATHER TYPE
 //   Select the weather scenario for mockup data

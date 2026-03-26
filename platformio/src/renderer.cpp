@@ -1470,15 +1470,9 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
 #ifdef UNITS_HOURLY_PRECIP_POP
   xPos1 = DISP_WIDTH - 23;
-  float precipBoundMax;
-  if (precipMax > 0)
-  {
-    precipBoundMax = 100.0f;
-  }
-  else
-  {
-    precipBoundMax = 0.0f;
-  }
+  // Always use 100 as max scale for POP (0-100%), even when no precipitation
+  // This avoids division by zero and keeps the scale consistent
+  float precipBoundMax = 100.0f;
 #else
 #ifdef UNITS_HOURLY_PRECIP_MILLIMETERS
   xPos1 = DISP_WIDTH - 24;
