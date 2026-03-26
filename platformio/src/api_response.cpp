@@ -499,20 +499,59 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   Serial.println("[DEBUG] First 200 chars: " + jsonString.substring(0, min(200, (int)jsonString.length())));
   Serial.println("[DEBUG] Last 100 chars: " + jsonString.substring(max(0, (int)jsonString.length() - 100)));
   
+  // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
+  // Chunked format: "<hex-size>\r\n<data>\r\n...0\r\n\r\n"
+  String cleanedJson = "";
+  int pos = 0;
+  while (pos < (int)jsonString.length()) {
+    // Find end of chunk size line (\r\n)
+    int lineEnd = jsonString.indexOf("\r\n", pos);
+    if (lineEnd < 0) break;
+    
+    // Extract chunk size (hex string)
+    String chunkSizeStr = jsonString.substring(pos, lineEnd);
+    chunkSizeStr.trim();
+    if (chunkSizeStr.length() == 0) break;
+    
+    // Convert hex to int
+    int chunkSize = (int)strtol(chunkSizeStr.c_str(), NULL, 16);
+    if (chunkSize == 0) break; // Last chunk
+    
+    // Move to start of chunk data
+    pos = lineEnd + 2; // Skip \r\n
+    
+    // Append chunk data
+    if (pos + chunkSize <= (int)jsonString.length()) {
+      cleanedJson += jsonString.substring(pos, pos + chunkSize);
+      pos += chunkSize + 2; // Skip data + \r\n
+    } else {
+      break;
+    }
+  }
+  
+  // If no chunked encoding detected, use original string
+  if (cleanedJson.length() == 0) {
+    cleanedJson = jsonString;
+  }
+  
+  Serial.println("[DEBUG] After de-chunking: " + String(cleanedJson.length()) + " bytes");
+  
   // Find where JSON actually starts
-  int jsonStart = jsonString.indexOf('{');
+  int jsonStart = cleanedJson.indexOf('{');
   if (jsonStart >= 0) {
-    jsonString = jsonString.substring(jsonStart);
+    cleanedJson = cleanedJson.substring(jsonStart);
   } else {
     Serial.println("[DEBUG] ERROR - No '{' found!");
     return DeserializationError::InvalidInput;
   }
   
   // Find actual end of JSON
-  int lastBrace = jsonString.lastIndexOf('}');
-  if (lastBrace > 0 && lastBrace < (int)jsonString.length() - 1) {
-    jsonString = jsonString.substring(0, lastBrace + 1);
+  int lastBrace = cleanedJson.lastIndexOf('}');
+  if (lastBrace > 0 && lastBrace < (int)cleanedJson.length() - 1) {
+    cleanedJson = cleanedJson.substring(0, lastBrace + 1);
   }
+  
+  jsonString = cleanedJson;
   
   // Check braces balance
   int openBraces = 0, closeBraces = 0;
