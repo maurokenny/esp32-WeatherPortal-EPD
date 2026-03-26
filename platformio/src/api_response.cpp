@@ -475,13 +475,14 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
 DeserializationError deserializeOpenMeteo(WiFiClient &json,
                                           owm_resp_onecall_t &r)
 {
-  // Read entire response into buffer with timeout
-  // Open-Meteo response can be ~15KB, so we need to wait for all data
+  Serial.println("[DEBUG] deserializeOpenMeteo started");
+  
+  // Read entire response into String first for debugging
   String jsonString = "";
   int bytesRead = 0;
   unsigned long startTime = millis();
   
-  // Keep reading until stream is empty or timeout (10 seconds)
+  // Keep reading until stream is empty or timeout
   while (bytesRead < 30000 && (millis() - startTime) < 10000) {
     if (json.available()) {
       char c = json.read();
@@ -490,33 +491,58 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
         bytesRead++;
       }
     } else {
-      // Stream empty, wait a bit for more data
       delay(10);
     }
   }
   
-  // Find where JSON actually starts (first '{' character)
+  Serial.println("[DEBUG] Received " + String(jsonString.length()) + " bytes");
+  Serial.println("[DEBUG] First 200 chars: " + jsonString.substring(0, min(200, (int)jsonString.length())));
+  Serial.println("[DEBUG] Last 100 chars: " + jsonString.substring(max(0, (int)jsonString.length() - 100)));
+  
+  // Find where JSON actually starts
   int jsonStart = jsonString.indexOf('{');
   if (jsonStart >= 0) {
     jsonString = jsonString.substring(jsonStart);
+  } else {
+    Serial.println("[DEBUG] ERROR - No '{' found!");
+    return DeserializationError::InvalidInput;
   }
   
-  // Find actual end of JSON (last })
+  // Find actual end of JSON
   int lastBrace = jsonString.lastIndexOf('}');
-  if (lastBrace > 0 && lastBrace < jsonString.length() - 1) {
+  if (lastBrace > 0 && lastBrace < (int)jsonString.length() - 1) {
     jsonString = jsonString.substring(0, lastBrace + 1);
   }
   
-  // Validate JSON is not empty and starts with {
-  if (jsonString.length() == 0 || jsonString[0] != '{') {
-    return DeserializationError::InvalidInput;
+  // Check braces balance
+  int openBraces = 0, closeBraces = 0;
+  for (int i = 0; i < (int)jsonString.length(); i++) {
+    if (jsonString[i] == '{') openBraces++;
+    if (jsonString[i] == '}') closeBraces++;
   }
+  Serial.println("[DEBUG] Open braces: " + String(openBraces) + ", Close braces: " + String(closeBraces));
+  
+  Serial.println("[DEBUG] JSON length: " + String(jsonString.length()));
+  Serial.println("[DEBUG] Free heap: " + String(ESP.getFreeHeap()));
   
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonString);
   
+  Serial.println("[DEBUG] doc.size(): " + String(doc.size()));
+  
   if (error) {
+    Serial.println("[DEBUG] JSON Error Code: " + String(static_cast<int>(error.code())));
+    Serial.println("[DEBUG] JSON Error: " + String(error.c_str()));
+    Serial.println("[DEBUG] doc.containsKey('latitude'): " + String(doc.containsKey("latitude") ? "yes" : "no"));
+  }
+  
+  if (error && doc.size() == 0) {
+    Serial.println("[DEBUG] Critical error - no data");
     return error;
+  }
+  
+  if (error) {
+    Serial.println("[DEBUG] Partial error - using available data");
   }
   
   // Location data
