@@ -637,6 +637,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonArray hourly_is_day = hourly["is_day"];
   
   int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
+  Serial.println("[DEBUG] Hourly count: " + String(hourlyCount));
   for (int i = 0; i < hourlyCount; i++) {
     r.hourly[i].dt = parseIso8601(hourly_time[i]);
     // Convert Celsius to Kelvin
@@ -648,7 +649,13 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.hourly[i].wind_speed = hourly_wind[i].as<float>();
     r.hourly[i].wind_gust = hourly_gust[i].as<float>();
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
-    r.hourly[i].pop = hourly_pop[i].as<float>() / 100.0f; // Convert % to 0-1
+    
+    // Handle precipitation_probability - check if null
+    float pop_val = hourly_pop[i].as<float>();
+    if (i < 3) {
+      Serial.println("[DEBUG] Hour " + String(i) + " POP raw: " + String(pop_val));
+    }
+    r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
     
     bool hourIsDay = hourly_is_day[i].as<int>() == 1;
     wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
