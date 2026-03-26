@@ -1689,17 +1689,44 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
     x0_t = static_cast<int>(std::round( xPos0 + 1 + (i * xInterval)));
     x1_t = static_cast<int>(std::round( xPos0 + 1 + ((i + 1) * xInterval) ));
+    
+    // Safety check to prevent division by zero
+    if (precipBoundMax <= 0) {
+      Serial.println("[DEBUG] precipBoundMax is zero or negative!");
+      precipBoundMax = 100.0f;
+    }
+    
     yPxPerUnit = (yPos1 - yPos0) / precipBoundMax;
     y0_t = static_cast<int>(std::round( yPos1 - (yPxPerUnit * (precipVal)) ));
     y1_t = yPos1;
+    
+    // Debug first few hours
+    if (i < 3) {
+      Serial.println("[DEBUG] Hour " + String(i) + ": precipVal=" + String(precipVal) + 
+                     ", yPxPerUnit=" + String(yPxPerUnit) + 
+                     ", y0_t=" + String(y0_t) + ", y1_t=" + String(y1_t) +
+                     ", x0_t=" + String(x0_t) + ", x1_t=" + String(x1_t));
+    }
 #endif
 
     // graph Precipitation
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
+    // Clamp values to prevent drawing outside display area
+    if (y0_t < 0) y0_t = 0;
+    if (y0_t > DISP_HEIGHT) y0_t = DISP_HEIGHT;
+    if (y1_t < 0) y1_t = 0;
+    if (y1_t > DISP_HEIGHT) y1_t = DISP_HEIGHT;
+    if (x0_t < 0) x0_t = 0;
+    if (x0_t > DISP_WIDTH) x0_t = DISP_WIDTH;
+    if (x1_t < 0) x1_t = 0;
+    if (x1_t > DISP_WIDTH) x1_t = DISP_WIDTH;
+    
     for (int y = y1_t - 1; y > y0_t; y -= 2)
     {
+      if (y < 0 || y >= DISP_HEIGHT) continue;
       for (int x = x0_t + (x0_t % 2); x < x1_t; x += 2)
       {
+        if (x < 0 || x >= DISP_WIDTH) continue;
         display.drawPixel(x, y, GxEPD_BLACK);
       }
     }
