@@ -388,6 +388,13 @@ void setup()
   
 #else
   // START WIFI
+  // Show connecting screen
+  initDisplay();
+  do
+  {
+    drawLoading(wifi_196x196, "Connecting WiFi...", "Please wait");
+  } while (display.nextPage());
+  
   int wifiRSSI = 0; // "Received Signal Strength Indicator"
   wl_status_t wifiStatus = startWiFi(wifiRSSI);
   if (wifiStatus != WL_CONNECTED)
@@ -431,6 +438,13 @@ void setup()
   }
 
   // MAKE API REQUESTS
+  // Show fetching data screen
+  initDisplay();
+  do
+  {
+    drawLoading(wi_cloud_down_196x196, "Fetching weather...", "Please wait");
+  } while (display.nextPage());
+  
 #ifdef USE_HTTP
   WiFiClient client;
 #elif defined(USE_HTTPS_NO_CERT_VERIF)
@@ -440,11 +454,11 @@ void setup()
   WiFiClientSecure client;
   client.setCACert(cert_Sectigo_RSA_Organization_Validation_Secure_Server_CA);
 #endif
-  int rxStatus = getOWMonecall(client, owm_onecall);
+  int rxStatus = getOpenMeteoForecast(client, owm_onecall);
   if (rxStatus != HTTP_CODE_OK)
   {
     killWiFi();
-    statusStr = "One Call " + OWM_ONECALL_VERSION + " API";
+    statusStr = "Open-Meteo Forecast API";
     tmpStr = String(rxStatus, DEC) + ": " + getHttpResponsePhrase(rxStatus);
     initDisplay();
     do
@@ -454,11 +468,11 @@ void setup()
     powerOffDisplay();
     beginDeepSleep(startTime, &timeInfo);
   }
-  rxStatus = getOWMairpollution(client, owm_air_pollution);
+  rxStatus = getOpenMeteoAirQuality(client, owm_air_pollution);
   if (rxStatus != HTTP_CODE_OK)
   {
     killWiFi();
-    statusStr = "Air Pollution API";
+    statusStr = "Open-Meteo Air Quality API";
     tmpStr = String(rxStatus, DEC) + ": " + getHttpResponsePhrase(rxStatus);
     initDisplay();
     do

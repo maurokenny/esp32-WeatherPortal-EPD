@@ -18,6 +18,10 @@
 #include <Arduino.h>
 #include "config.h"
 
+// WiFi credentials are auto-generated from .env file by load_env.py
+// This file should NOT be committed to version control
+#include "wifi_credentials.h"
+
 // PINS
 // The configuration below is intended for use with the project's official 
 // wiring diagrams using the FireBeetle 2 ESP32-E microcontroller board.
@@ -44,8 +48,11 @@ const uint8_t PIN_BME_PWR =  0;   // Not used (connected to 3.3V)
 const uint8_t BME_ADDRESS = 0x76; // 0x76 if SDO -> GND; 0x77 if SDO -> VCC
 
 // WIFI
-const char *WIFI_SSID     = "ssid";
-const char *WIFI_PASSWORD = "password";
+// Create a .env file in the project root with:
+//   WIFI_SSID=your_network_name
+//   WIFI_PASSWORD=your_password
+const char *WIFI_SSID     = WIFI_SSID_VALUE;
+const char *WIFI_PASSWORD = WIFI_PASSWORD_VALUE;
 const unsigned long WIFI_TIMEOUT = 10000; // ms, WiFi connection timeout.
 
 // HTTP
@@ -78,7 +85,7 @@ const String OWM_ONECALL_VERSION = "3.0";
 
 // LOCATION
 // Set your latitude and longitude.
-// (used to get weather data as part of API requests to OpenWeatherMap)
+// (used to get weather data as part of API requests to Open-Meteo)
 const String LAT = "40.7128";
 const String LON = "-74.0060";
 // City name that will be shown in the top-right corner of the display.

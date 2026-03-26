@@ -216,6 +216,47 @@ DeserializationError deserializeOneCall(WiFiClient &json,
 DeserializationError deserializeAirQuality(WiFiClient &json,
                                            owm_resp_air_pollution_t &r);
 
+/*
+ * Open-Meteo API support
+ */
+
+/**
+ * Convert WMO Weather Interpretation code to OpenWeatherMap-compatible structure.
+ * This allows reusing existing icon mappings designed for OpenWeatherMap codes.
+ * @param wmoCode WMO code (0-99)
+ * @param isDay true for daytime, false for nighttime (affects icon selection)
+ * @param weather output structure to populate with OWM-compatible values
+ */
+void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather);
+
+/**
+ * Parse ISO 8601 datetime string to Unix timestamp.
+ * Format: "2026-03-24T18:15"
+ * @param iso8601 ISO 8601 datetime string
+ * @return Unix timestamp (seconds since epoch)
+ */
+int64_t parseIso8601(const char* iso8601);
+
+/**
+ * Deserialize Open-Meteo API response.
+ * Converts Open-Meteo format to the existing owm_resp_onecall_t structure
+ * for compatibility with the rest of the application.
+ * @param json WiFi client stream containing JSON response
+ * @param r response structure to populate
+ * @return deserialization error code
+ */
+DeserializationError deserializeOpenMeteo(WiFiClient &json,
+                                          owm_resp_onecall_t &r);
+
+/**
+ * Deserialize Open-Meteo Air Quality API response.
+ * @param json WiFi client stream containing JSON response
+ * @param r air quality response structure to populate
+ * @return deserialization error code
+ */
+DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
+                                                    owm_resp_air_pollution_t &r);
+
 
 #endif
 

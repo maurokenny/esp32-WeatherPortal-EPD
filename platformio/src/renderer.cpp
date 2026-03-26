@@ -1838,3 +1838,31 @@ void drawError(const uint8_t *bitmap_196x196,
   return;
 } // end drawError
 
+/* Draws a loading screen with a 196x196 icon and message.
+ * Similar to drawError but uses ACCENT_COLOR for the icon.
+ */
+void drawLoading(const uint8_t *bitmap_196x196,
+                 const String &msgLn1, const String &msgLn2)
+{
+  display.setFont(&FONT_26pt8b);
+  if (!msgLn2.isEmpty())
+  {
+    drawString(DISP_WIDTH / 2,
+               DISP_HEIGHT / 2 + 196 / 2 + 21,
+               msgLn1, CENTER);
+    drawString(DISP_WIDTH / 2,
+               DISP_HEIGHT / 2 + 196 / 2 + 21 + 55,
+               msgLn2, CENTER);
+  }
+  else
+  {
+    drawMultiLnString(DISP_WIDTH / 2,
+                      DISP_HEIGHT / 2 + 196 / 2 + 21,
+                      msgLn1, CENTER, DISP_WIDTH - 200, 2, 55);
+  }
+  display.drawInvertedBitmap(DISP_WIDTH / 2 - 196 / 2,
+                             DISP_HEIGHT / 2 - 196 / 2 - 21,
+                             bitmap_196x196, 196, 196, GxEPD_BLACK);
+  return;
+} // end drawLoading
+

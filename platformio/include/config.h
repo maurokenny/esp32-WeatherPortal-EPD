@@ -156,7 +156,7 @@
 //   eventually the certificates on the esp32 will expire, requiring you to
 //   update the certificates in cert.h and reflash this software.
 //   Running cert.py will generate an updated cert.h file.
-//   The current certificate for api.openweathermap.org is valid until
+//   The current certificate for api.open-meteo.com is valid until
 //   2026-04-10 23:59:59+00:00
 // (uncomment exactly one)
 // #define USE_HTTP
@@ -350,9 +350,10 @@ extern const char *WIFI_SSID;
 extern const char *WIFI_PASSWORD;
 extern const unsigned long WIFI_TIMEOUT;
 extern const unsigned HTTP_CLIENT_TCP_TIMEOUT;
-extern const String OWM_APIKEY;
-extern const String OWM_ENDPOINT;
-extern const String OWM_ONECALL_VERSION;
+// Open-Meteo API endpoints (no API key required)
+extern const String OPENMETEO_ENDPOINT;
+extern const uint16_t OPENMETEO_PORT;
+extern const String OPENMETEO_AIRQUALITY_ENDPOINT;
 extern const String LAT;
 extern const String LON;
 extern const String CITY_STRING;
