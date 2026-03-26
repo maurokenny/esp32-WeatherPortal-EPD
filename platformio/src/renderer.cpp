@@ -964,11 +964,11 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   int popPercent = static_cast<int>(std::round(maxPop * 100));
   int centerX = x + 64; // Center of 128px width
   
-  // Draw umbrella icon 128x128 (larger icon, moved up)
-  display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
-  
   // State 1: No rain (POP < 30%)
+  // Shows: Umbrella with X overlay + "No rain (X%)"
   if (maxPop < 0.30f) {
+    // Draw umbrella icon
+    display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     // Draw thick X over icon (3 parallel lines for thickness)
     for (int offset = -1; offset <= 1; offset++) {
       display.drawLine(x + X_LINE1_START_X + offset, y + X_LINE_START_Y, 
@@ -981,7 +981,11 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     drawString(centerX, y + TEXT_OFFSET_Y, "No rain (" + String(popPercent) + "%)", CENTER);
   }
   // State 2: Rain coming later (POP 30-70%)
+  // Shows: Closed umbrella icon + "Compact" or "Rain in Ymin"
   else if (maxPop < 0.70f) {
+    // Draw closed umbrella icon (U+1F302 🌂 style)
+    display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_closed_umbrella_128x128, 128, 128, GxEPD_BLACK);
+    
     display.setFont(&FONT_8pt8b);
     if (minutesUntilRain > 0) {
       // Show when rain is expected with probability in parentheses
@@ -997,7 +1001,11 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     }
   }
   // State 3: Umbrella now (POP >= 70%)
+  // Shows: Open umbrella icon + "Take" or "Rain in Ymin"
   else {
+    // Draw open umbrella icon
+    display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
+    
     display.setFont(&FONT_8pt8b);
     if (minutesUntilRain > 0) {
       // Show when rain is expected with probability in parentheses

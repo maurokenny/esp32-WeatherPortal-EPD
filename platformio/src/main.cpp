@@ -179,6 +179,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   owm_onecall.current.wind_deg = 180;
   
   // Hourly forecast (24 hours) - varied weather icons
+  // Configure rain data based on MOCKUP_RAIN_WIDGET_STATE
   for (int i = 0; i < 24; i++) {
     owm_onecall.hourly[i].dt = now + (i * 3600);
     owm_onecall.hourly[i].temp = 293.15f + (i % 5) - 2.0f;  // ~20°C in Kelvin
@@ -186,14 +187,36 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     owm_onecall.hourly[i].pressure = 1013;
     owm_onecall.hourly[i].humidity = 60 + (i % 10);
     
-    // Simulate rain in 45 minutes (index 1 with offset) with 80% probability
-    if (i == 1) {
-      owm_onecall.hourly[i].dt = now + (45 * 60);  // 45 minutes from now
-      owm_onecall.hourly[i].pop = 0.80f;  // 80% rain in 45 minutes
-    } else if (i == 3) {
-      owm_onecall.hourly[i].pop = 0.60f;  // 60% rain in 3 hours
-    } else {
-      owm_onecall.hourly[i].pop = 0.0f;   // No rain
+    // Configure POP (Probability of Precipitation) based on selected widget state
+    switch (MOCKUP_RAIN_WIDGET_STATE) {
+      case MOCKUP_RAIN_NO_RAIN:
+        // POP < 30% - shows "No rain (X%)" with X over icon
+        owm_onecall.hourly[i].pop = (i == 0) ? 0.10f : 0.05f;  // 10% max
+        break;
+        
+      case MOCKUP_RAIN_COMPACT:
+        // POP 30-70% - shows "Compact (X%)" or "Rain in Ymin (X%)"
+        if (i == 1) {
+          owm_onecall.hourly[i].dt = now + (45 * 60);  // 45 minutes from now
+          owm_onecall.hourly[i].pop = 0.50f;  // 50% rain in 45 minutes
+        } else if (i == 3) {
+          owm_onecall.hourly[i].pop = 0.40f;  // 40% rain in 3 hours
+        } else {
+          owm_onecall.hourly[i].pop = 0.10f;  // Low probability
+        }
+        break;
+        
+      case MOCKUP_RAIN_TAKE:
+        // POP >= 70% - shows "Take (X%)" or "Rain in Ymin (X%)"
+        if (i == 1) {
+          owm_onecall.hourly[i].dt = now + (45 * 60);  // 45 minutes from now
+          owm_onecall.hourly[i].pop = 0.80f;  // 80% rain in 45 minutes
+        } else if (i == 0) {
+          owm_onecall.hourly[i].pop = 0.75f;  // 75% rain now
+        } else {
+          owm_onecall.hourly[i].pop = 0.20f;  // Lower probability
+        }
+        break;
     }
     
     // Varied weather icons for hourly forecast
@@ -255,6 +278,19 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
         owm_onecall.hourly[i].rain_1h = 0.0f;
         break;
     }
+  }
+  
+  // Log selected rain widget state
+  switch (MOCKUP_RAIN_WIDGET_STATE) {
+    case MOCKUP_RAIN_NO_RAIN:
+      Serial.println("Mockup: Rain widget = NO RAIN (<30% POP)");
+      break;
+    case MOCKUP_RAIN_COMPACT:
+      Serial.println("Mockup: Rain widget = COMPACT (30-70% POP)");
+      break;
+    case MOCKUP_RAIN_TAKE:
+      Serial.println("Mockup: Rain widget = TAKE (>=70% POP)");
+      break;
   }
   
   // Daily forecast (5 days) - each day with different weather type

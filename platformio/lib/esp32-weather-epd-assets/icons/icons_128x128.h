@@ -642,6 +642,7 @@
 #include "128x128/wi_tornado_128x128.h"
 #include "128x128/wi_train_128x128.h"
 #include "128x128/wi_tsunami_128x128.h"
+#include "128x128/wi_closed_umbrella_128x128.h"
 #include "128x128/wi_umbrella_128x128.h"
 #include "128x128/wi_volcano_128x128.h"
 #include "128x128/wi_wind_0deg_128x128.h"
