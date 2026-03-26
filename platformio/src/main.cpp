@@ -91,10 +91,10 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   owm_onecall.current.visibility = 10000;
   owm_onecall.current.wind_speed = 15.0f;
   owm_onecall.current.wind_deg = 180;
-  owm_onecall.current.weather.id = 803;  // Clouds (broken clouds)
-  owm_onecall.current.weather.main = "Clouds";
-  owm_onecall.current.weather.description = "scattered clouds";
-  owm_onecall.current.weather.icon = "03d";
+  owm_onecall.current.weather.id = 500;  // Rain (light rain)
+  owm_onecall.current.weather.main = "Rain";
+  owm_onecall.current.weather.description = "light rain";
+  owm_onecall.current.weather.icon = "10d";
   
   // Hourly forecast (24 hours)
   for (int i = 0; i < 24; i++) {
@@ -103,7 +103,16 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     owm_onecall.hourly[i].feels_like = owm_onecall.hourly[i].temp - 1.0f;
     owm_onecall.hourly[i].pressure = 1013;
     owm_onecall.hourly[i].humidity = 60 + (i % 10);
-    owm_onecall.hourly[i].pop = (i % 3 == 0) ? 0.3f + (i % 5) * 0.1f : 0.0f;
+    // Simulate rain in 45 minutes (index 1 with offset) with 80% probability
+    // Index 0 = now, Index 1 = 45 min (to test minutes display)
+    if (i == 1) {
+      owm_onecall.hourly[i].dt = now + (45 * 60);  // 45 minutes from now
+      owm_onecall.hourly[i].pop = 0.80f;  // 80% rain in 45 minutes
+    } else if (i == 3) {
+      owm_onecall.hourly[i].pop = 0.60f;  // 60% rain in 3 hours
+    } else {
+      owm_onecall.hourly[i].pop = 0.0f;   // No rain
+    }
     owm_onecall.hourly[i].rain_1h = (i % 3 == 0) ? 2.5f + (i % 4) : 0.0f;  // mm of rain
     owm_onecall.hourly[i].weather.id = (i % 3 == 0) ? 500 : 803;  // 500=Rain, 803=Clouds
     owm_onecall.hourly[i].weather.main = (i % 3 == 0) ? "Rain" : "Clouds";
@@ -120,7 +129,7 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     owm_onecall.daily[i].weather.main = "Clouds";
     owm_onecall.daily[i].weather.description = "scattered clouds";
     owm_onecall.daily[i].weather.icon = "03d";
-    owm_onecall.daily[i].pop = (i % 2 == 0) ? 0.2f : 0.0f;
+    owm_onecall.daily[i].pop = 0.0f;  // No rain
   }
   
   Serial.println("Mockup data filled successfully!");

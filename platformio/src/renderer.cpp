@@ -924,53 +924,93 @@ void drawCurrentDewpoint(const owm_current_t &current)
 
 //End defining functions for left panel.
 
-/* Draws a compact umbrella widget (96x96) showing rain alert status.
+/* Draws a compact umbrella widget (128x128) showing rain alert status.
  * x, y: top-left position
  * hourly: hourly forecast data
  * hours: number of hours to check
+ * current_dt: current timestamp to calculate time until rain
  */
-void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours)
+void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int64_t current_dt)
 {
+  // Position configuration - adjust these to move elements
+  const int ICON_OFFSET_Y = -5;        // Vertical offset of umbrella icon
+  const int TEXT_OFFSET_Y = 116;       // Vertical offset of text line
+  const int X_LINE1_START_X = 10;      // X start position for first diagonal line
+  const int X_LINE1_END_X = 118;       // X end position for first diagonal line
+  const int X_LINE_START_Y = -2;       // Y start position for X lines
+  const int X_LINE_END_Y = 106;        // Y end position for X lines
+  
   // Find max POP and first hour with rain in the next N hours
   float maxPop = 0.0f;
-  int firstRainHour = -1;
+  int firstRainIndex = -1;
+  int64_t rainTimestamp = 0;
   
   for (int i = 0; i < hours && i < HOURLY_GRAPH_MAX; i++) {
     if (hourly[i].pop > maxPop) {
       maxPop = hourly[i].pop;
     }
-    if (firstRainHour == -1 && hourly[i].pop >= 0.30f) {
-      firstRainHour = i;
+    if (firstRainIndex == -1 && hourly[i].pop >= 0.30f) {
+      firstRainIndex = i;
+      rainTimestamp = hourly[i].dt;
     }
   }
   
-  int popPercent = static_cast<int>(std::round(maxPop * 100));
-  int centerX = x + 48; // Center of 96px width
+  // Calculate time until rain (in minutes)
+  int minutesUntilRain = -1;
+  if (firstRainIndex >= 0 && rainTimestamp > current_dt) {
+    minutesUntilRain = static_cast<int>((rainTimestamp - current_dt) / 60);
+  }
   
-  // Draw umbrella icon 48x48 centered
-  display.drawInvertedBitmap(x + 24, y + 10, wi_umbrella_64x64, 48, 48, GxEPD_BLACK);
+  int popPercent = static_cast<int>(std::round(maxPop * 100));
+  int centerX = x + 64; // Center of 128px width
+  
+  // Draw umbrella icon 128x128 (larger icon, moved up)
+  display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
   
   // State 1: No rain (POP < 30%)
   if (maxPop < 0.30f) {
-    // Draw X over icon
-    display.drawLine(x + 28, y + 14, x + 68, y + 54, GxEPD_BLACK);
-    display.drawLine(x + 68, y + 14, x + 28, y + 54, GxEPD_BLACK);
-    // Text below
+    // Draw thick X over icon (3 parallel lines for thickness)
+    for (int offset = -1; offset <= 1; offset++) {
+      display.drawLine(x + X_LINE1_START_X + offset, y + X_LINE_START_Y, 
+                       x + X_LINE1_END_X + offset, y + X_LINE_END_Y, GxEPD_BLACK);
+      display.drawLine(x + X_LINE1_END_X + offset, y + X_LINE_START_Y, 
+                       x + X_LINE1_START_X + offset, y + X_LINE_END_Y, GxEPD_BLACK);
+    }
+    // Text below with probability in parentheses
     display.setFont(&FONT_8pt8b);
-    drawString(centerX, y + 64, "No rain", CENTER);
-    drawString(centerX, y + 78, String(popPercent) + "%", CENTER);
+    drawString(centerX, y + TEXT_OFFSET_Y, "No rain (" + String(popPercent) + "%)", CENTER);
   }
-  // State 2: Compact umbrella (POP 30-70%)
+  // State 2: Rain coming later (POP 30-70%)
   else if (maxPop < 0.70f) {
     display.setFont(&FONT_8pt8b);
-    drawString(centerX, y + 64, "Compact", CENTER);
-    drawString(centerX, y + 78, String(popPercent) + "%", CENTER);
+    if (minutesUntilRain > 0) {
+      // Show when rain is expected with probability in parentheses
+      String timeStr;
+      if (minutesUntilRain < 60) {
+        timeStr = String(minutesUntilRain) + "min";
+      } else {
+        timeStr = String(minutesUntilRain / 60) + "h";
+      }
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain in " + timeStr + " (" + String(popPercent) + "%)", CENTER);
+    } else {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Compact (" + String(popPercent) + "%)", CENTER);
+    }
   }
   // State 3: Umbrella now (POP >= 70%)
   else {
     display.setFont(&FONT_8pt8b);
-    drawString(centerX, y + 64, "Take", CENTER);
-    drawString(centerX, y + 78, String(popPercent) + "%", CENTER);
+    if (minutesUntilRain > 0) {
+      // Show when rain is expected with probability in parentheses
+      String timeStr;
+      if (minutesUntilRain < 60) {
+        timeStr = String(minutesUntilRain) + "min";
+      } else {
+        timeStr = String(minutesUntilRain / 60) + "h";
+      }
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain in " + timeStr + " (" + String(popPercent) + "%)", CENTER);
+    } else {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Take (" + String(popPercent) + "%)", CENTER);
+    }
   }
 }
 
@@ -983,131 +1023,104 @@ void drawCurrentConditions(const owm_current_t &current,
                            float inTemp, float inHumidity,
                            const owm_hourly_t *hourly)
 {
-  String dataStr, unitStr;
-  
-  // LEFT: Temperature 164x196 at (0, 0) - ORIGINAL SIZE & POSITION
+    String dataStr, unitStr;
+
+    // ==================== LEFT SIDE: Large Temperature Widget ====================
 #ifdef UNITS_TEMP_KELVIN
-  dataStr = String(static_cast<int>(std::round(current.temp)));
-  unitStr = TXT_UNITS_TEMP_KELVIN;
+    dataStr = String(static_cast<int>(std::round(current.temp)));
+    unitStr = TXT_UNITS_TEMP_KELVIN;
 #endif
 #ifdef UNITS_TEMP_CELSIUS
-  dataStr = String(static_cast<int>(
-            std::round(kelvin_to_celsius(current.temp))));
-  unitStr = TXT_UNITS_TEMP_CELSIUS;
+    dataStr = String(static_cast<int>(std::round(kelvin_to_celsius(current.temp))));
+    unitStr = TXT_UNITS_TEMP_CELSIUS;
 #endif
 #ifdef UNITS_TEMP_FAHRENHEIT
-  dataStr = String(static_cast<int>(
-            std::round(kelvin_to_fahrenheit(current.temp))));
-  unitStr = TXT_UNITS_TEMP_FAHRENHEIT;
+    dataStr = String(static_cast<int>(std::round(kelvin_to_fahrenheit(current.temp))));
+    unitStr = TXT_UNITS_TEMP_FAHRENHEIT;
 #endif
-  // FONT_**_temperature fonts only have the character set used for displaying
-  // temperature (0123456789.-\260)
-  display.setFont(&FONT_48pt8b_temperature);
-#ifndef DISP_BW_V1
-    drawString(0 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
-#elif defined(DISP_BW_V1)
-    drawString(0 + 164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
-#endif
-  display.setFont(&FONT_14pt8b);
-  drawString(display.getCursorX(), 196 / 2 - 69 / 2 + 20, unitStr, LEFT);
 
-  // current feels like
+    // Temperature (large font)
+    display.setFont(&FONT_48pt8b_temperature);
+    drawString(164 / 2 - 20, 196 / 2 + 69 / 2, dataStr, CENTER);
+
+    // Unit
+    display.setFont(&FONT_14pt8b);
+    drawString(display.getCursorX(), 196 / 2 - 69 / 2 + 20, unitStr, LEFT);
+
+    // Feels Like
 #ifdef UNITS_TEMP_KELVIN
-  dataStr = String(TXT_FEELS_LIKE) + ' '
-            + String(static_cast<int>(std::round(current.feels_like)));
+    dataStr = String(TXT_FEELS_LIKE) + " " + String(static_cast<int>(std::round(current.feels_like)));
 #endif
 #ifdef UNITS_TEMP_CELSIUS
-  dataStr = String(TXT_FEELS_LIKE) + ' '
-            + String(static_cast<int>(std::round(
-                     kelvin_to_celsius(current.feels_like))))
-            + '\260';
+    dataStr = String(TXT_FEELS_LIKE) + " " 
+              + String(static_cast<int>(std::round(kelvin_to_celsius(current.feels_like)))) + '\260';
 #endif
 #ifdef UNITS_TEMP_FAHRENHEIT
-  dataStr = String(TXT_FEELS_LIKE) + ' '
-            + String(static_cast<int>(std::round(
-                     kelvin_to_fahrenheit(current.feels_like))))
-            + '\260';
-#endif
-  display.setFont(&FONT_12pt8b);
-#ifndef DISP_BW_V1
-  drawString(0 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
-#elif defined(DISP_BW_V1)
-  drawString(0 + 164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
+    dataStr = String(TXT_FEELS_LIKE) + " " 
+              + String(static_cast<int>(std::round(kelvin_to_fahrenheit(current.feels_like)))) + '\260';
 #endif
 
-  // RIGHT COLUMN: Cloud icon 96x96 at (164, 10) - TOP, REDUCED
-  display.drawInvertedBitmap(164 + 26, 10,
-                             getCurrentConditionsBitmap96(current, today),
-                             96, 96, GxEPD_BLACK);
+    display.setFont(&FONT_12pt8b);
+    drawString(164 / 2, 98 + 69 / 2 + 12 + 17, dataStr, CENTER);
 
-  // RIGHT COLUMN: Umbrella widget 96x96 at (164, 106) - BOTTOM, REDUCED
-  if (hourly != nullptr) {
-    drawUmbrellaWidget(164, 106, hourly, 6);
-  }
-  // line dividing top and bottom display areas
-  // display.drawLine(0, 196, DISP_WIDTH - 1, 196, GxEPD_BLACK);
+    // ==================== RIGHT SIDE: Cloud (top) + Umbrella (bottom) ====================
+    const int rightX = 164 + 16;   // same X position as original right column
 
-  // draw current data of the left panel
+    // 1. Cloud / Current Condition Icon (Top) - 96x96 bitmap
+    display.drawInvertedBitmap(rightX + 16, 0,
+        getCurrentConditionsBitmap96(current, today),
+        96, 96, GxEPD_BLACK);
 
-    # ifdef POS_SUNRISE
-     drawCurrentSunrise(current);
-    # endif
+    // 2. Umbrella Widget (Bottom) - closer to cloud
+    if (hourly != nullptr) {
+        drawUmbrellaWidget(rightX, 75, hourly, 6, current.dt);   // pass current time to calculate minutes
+    }
 
-    # ifdef POS_SUNSET
-      drawCurrentSunset(current);
-    # endif
+    // ==================== LEFT PANEL: All other current data (unchanged) ====================
+#ifdef POS_SUNRISE
+    drawCurrentSunrise(current);
+#endif
+#ifdef POS_SUNSET
+    drawCurrentSunset(current);
+#endif
+#ifdef POS_WIND
+    drawCurrentWind(current);
+#endif
+#ifdef POS_HUMIDITY
+    drawCurrentHumidity(current);
+#endif
+#ifdef POS_UVI
+    drawCurrentUVI(current);
+#endif
+#ifdef POS_PRESSURE
+    drawCurrentPressure(current);
+#endif
+#ifdef POS_VISIBILITY
+    drawCurrentVisibility(current);
+#endif
+#ifdef POS_AIR_QULITY
+    drawCurrentAirQuality(owm_air_pollution);
+#endif
+#ifdef POS_INTEMP
+    drawCurrentInTemp(inTemp);
+#endif
+#ifdef POS_INHUMIDITY
+    drawCurrentInHumidity(inHumidity);
+#endif
+#ifdef POS_MOONRISE
+    drawCurrentMoonrise(today);
+#endif
+#ifdef POS_MOONSET
+    drawCurrentMoonset(today);
+#endif
+#ifdef POS_MOONPHASE
+    drawCurrentMoonphase(today);
+#endif
+#ifdef POS_DEWPOINT
+    drawCurrentDewpoint(current);
+#endif
 
-    # ifdef POS_WIND
-      drawCurrentWind(current);
-    # endif
-
-    # ifdef POS_HUMIDITY
-      drawCurrentHumidity(current);
-    # endif
-
-    # ifdef POS_UVI
-      drawCurrentUVI(current);
-    # endif
-
-    # ifdef POS_PRESSURE
-      drawCurrentPressure(current);
-    # endif
-
-    # ifdef POS_VISIBILITY
-      drawCurrentVisibility(current);
-    # endif
-
-    # ifdef POS_AIR_QULITY
-      drawCurrentAirQuality(owm_air_pollution);
-    # endif
-
-    # ifdef POS_INTEMP
-      drawCurrentInTemp(inTemp);
-    # endif
-
-    # ifdef POS_INHUMIDITY
-      drawCurrentInHumidity(inHumidity);
-    # endif
-
-    # ifdef POS_MOONRISE
-     drawCurrentMoonrise(today);
-    # endif
-
-    # ifdef POS_MOONSET
-      drawCurrentMoonset(today);
-    # endif
-
-    # ifdef POS_MOONPHASE
-      drawCurrentMoonphase(today);
-    # endif
-  
-    # ifdef POS_DEWPOINT
-      drawCurrentDewpoint(current);
-    # endif
-  
-    // end drawing left panel
-
-  return;
+    return;
 } // end drawCurrentConditions
 
 /* This function is responsible for drawing the five day forecast.

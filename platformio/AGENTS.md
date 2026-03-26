@@ -45,7 +45,8 @@ platformio/
 │   ├── display_utils.cpp  # Display helper functions
 │   ├── conversions.cpp    # Unit conversion utilities
 │   ├── locale.cpp         # Locale-specific formatting
-│   └── _strftime.cpp      # Custom strftime implementation
+│   ├── _strftime.cpp      # Custom strftime implementation
+│   └── test_gxepd2.cpp    # Display test utilities
 ├── include/               # Header files
 │   ├── config.h          # Compile-time configuration and feature flags
 │   ├── api_response.h    # API response data structures
@@ -56,7 +57,19 @@ platformio/
 │   ├── conversions.h     # Unit conversion declarations
 │   ├── display_utils.h   # Display utility declarations
 │   ├── cert.h            # SSL certificates for HTTPS
+│   ├── wifi_credentials.h # WiFi credentials loader
+│   ├── test_gxepd2.h     # Display test declarations
 │   └── locales/          # Locale definition files (*.inc)
+│       ├── locale_de_DE.inc
+│       ├── locale_en_GB.inc
+│       ├── locale_en_US.inc
+│       ├── locale_es_ES.inc
+│       ├── locale_et_EE.inc
+│       ├── locale_fi_FI.inc
+│       ├── locale_fr_FR.inc
+│       ├── locale_it_IT.inc
+│       ├── locale_nl_BE.inc
+│       └── locale_pt_BR.inc
 ├── lib/                  # Private libraries
 │   └── esp32-weather-epd-assets/
 │       ├── fonts/        # Font files (multiple typefaces, multiple sizes)
@@ -172,27 +185,46 @@ pio run --target clean
 
 The `config.h` file includes compile-time validation. If you select invalid combinations (e.g., multiple display types), the build will fail with a descriptive error message.
 
-## Development Conventions
+## Code Style Guidelines
 
-### Code Style
+### Copyright Headers
+All files include GPL v3 license headers:
+```cpp
+/* Filename for esp32-weather-epd.
+ * Copyright (C) 2022-2025  Luke Marzen
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+```
 
-- **Copyright Headers**: All files include GPL v3 license headers
-- **Comments**: Use `/* ... */` style for multi-line comments, `//` for single-line
-- **Naming Conventions**:
-  - Constants: `UPPER_CASE` (e.g., `PIN_BAT_ADC`, `DISP_WIDTH`)
-  - Types: `snake_case_t` suffix (e.g., `owm_current_t`, `alignment_t`)
-  - Functions: `camelCase` (e.g., `beginDeepSleep`, `drawString`)
-  - Variables: `camelCase` (e.g., `batteryVoltage`, `timeInfo`)
-  - Macros: `UPPER_CASE` with underscores
+### Comments
+- Use `/* ... */` style for multi-line comments
+- Use `//` for single-line comments
+
+### Naming Conventions
+- **Constants**: `UPPER_CASE` (e.g., `PIN_BAT_ADC`, `DISP_WIDTH`)
+- **Types**: `snake_case_t` suffix (e.g., `owm_current_t`, `alignment_t`)
+- **Functions**: `camelCase` (e.g., `beginDeepSleep`, `drawString`)
+- **Variables**: `camelCase` (e.g., `batteryVoltage`, `timeInfo`)
+- **Macros**: `UPPER_CASE` with underscores
 
 ### File Organization
-
 - Headers in `include/`, implementations in `src/`
 - One module per file (e.g., `renderer.cpp` + `renderer.h`)
 - Locale data in separate `.inc` files under `include/locales/`
 
 ### Memory Management
-
 - Large data structures are allocated statically (not on stack):
   ```cpp
   static owm_resp_onecall_t owm_onecall;
@@ -202,7 +234,6 @@ The `config.h` file includes compile-time validation. If you select invalid comb
 - Deep sleep is used extensively to minimize power consumption
 
 ### Error Handling
-
 - WiFi connection failures display error screens
 - API errors show HTTP status codes and messages
 - Sensor read failures display dashes ('-') for missing data
