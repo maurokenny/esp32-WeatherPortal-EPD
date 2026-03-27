@@ -160,18 +160,41 @@ bool waitForSNTPSync(tm *timeInfo)
   String uri = "/v1/forecast"
                "?latitude=" + LAT + 
                "&longitude=" + LON +
-               "&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
-               "is_day,precipitation,rain,showers,snowfall,weather_code,"
-               "cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,"
-               "wind_direction_10m,wind_gusts_10m,visibility,uv_index"
-               "&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,"
-               "precipitation_probability,precipitation,"
-               "weather_code,cloud_cover,surface_pressure,"
-               "wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day"
-               "&daily=weather_code,temperature_2m_max,temperature_2m_min,"
-               "sunrise,sunset,precipitation_probability_max,precipitation_sum"
-               "&timezone=auto"
-               "&forecast_days=8";
+               "&current=temperature_2m,apparent_temperature,is_day,weather_code,"
+               "precipitation,rain,showers,snowfall";
+
+#ifdef POS_HUMIDITY
+  uri += ",relative_humidity_2m";
+#endif
+#ifdef POS_WIND
+  uri += ",wind_speed_10m,wind_direction_10m,wind_gusts_10m";
+#endif
+#ifdef POS_PRESSURE
+  uri += ",pressure_msl,surface_pressure";
+#endif
+#ifdef POS_VISIBILITY
+  uri += ",visibility";
+#endif
+#ifdef POS_UVI
+  uri += ",uv_index";
+#endif
+
+  uri += "&hourly=temperature_2m,precipitation_probability,precipitation,"
+         "wind_speed_10m,wind_direction_10m,wind_gusts_10m";
+#if DISPLAY_HOURLY_ICONS
+  uri += ",weather_code,is_day";
+#endif
+
+  uri += "&daily=weather_code,temperature_2m_max,temperature_2m_min";
+#if defined(POS_SUNRISE) || defined(POS_SUNSET)
+  uri += ",sunrise,sunset";
+#endif
+#if DISPLAY_DAILY_PRECIP
+  uri += ",precipitation_probability_max,precipitation_sum";
+#endif
+
+  uri += "&timezone=auto"
+         "&forecast_days=8";
 
   String fullUri = "https://" + OPENMETEO_ENDPOINT + uri;
   Serial.println("[Open-Meteo API] Request: " + fullUri);

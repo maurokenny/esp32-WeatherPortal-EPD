@@ -699,6 +699,7 @@ void setup()
     powerOffDisplay();
     beginDeepSleep(startTime, &timeInfo);
   }
+#ifdef POS_AIR_QULITY
   rxStatus = getOpenMeteoAirQuality(client, owm_air_pollution);
   if (rxStatus != HTTP_CODE_OK)
   {
@@ -713,6 +714,7 @@ void setup()
     powerOffDisplay();
     beginDeepSleep(startTime, &timeInfo);
   }
+#endif
   killWiFi(); // WiFi no longer needed
 #endif
 
