@@ -912,12 +912,13 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
   JsonArray hourly_no2 = hourly["nitrogen_dioxide"];
   JsonArray hourly_so2 = hourly["sulphur_dioxide"];
   JsonArray hourly_o3 = hourly["ozone"];
-  JsonArray hourly_aqi = hourly["european_aqi"];
   
   int count = min((int)hourly_time.size(), OWM_NUM_AIR_POLLUTION);
   for (int i = 0; i < count; i++) {
     r.dt[i] = parseIso8601(hourly_time[i]);
-    r.main_aqi[i] = hourly_aqi[i].as<int>();
+    // AQI is calculated locally by calc_aqi() using pollutant concentrations
+    // based on the configured AQI_SCALE for the locale
+    r.main_aqi[i] = 0;  // Will be calculated from components
     r.components.pm10[i] = hourly_pm10[i].as<float>();
     r.components.pm2_5[i] = hourly_pm25[i].as<float>();
     r.components.co[i] = hourly_co[i].as<float>();
@@ -925,7 +926,7 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
     r.components.so2[i] = hourly_so2[i].as<float>();
     r.components.o3[i] = hourly_o3[i].as<float>();
     
-    // Default values for unused components
+    // Default values for unused components (not provided by Open-Meteo)
     r.components.no[i] = 0.0f;
     r.components.nh3[i] = 0.0f;
   }
@@ -1162,12 +1163,12 @@ DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t 
   JsonArray hourly_no2 = hourly["nitrogen_dioxide"];
   JsonArray hourly_so2 = hourly["sulphur_dioxide"];
   JsonArray hourly_o3 = hourly["ozone"];
-  JsonArray hourly_aqi = hourly["european_aqi"];
   
   int count = min((int)hourly_time.size(), OWM_NUM_AIR_POLLUTION);
   for (int i = 0; i < count; i++) {
     r.dt[i] = parseIso8601(hourly_time[i]);
-    r.main_aqi[i] = hourly_aqi[i].as<int>();
+    // AQI is calculated locally by calc_aqi() using pollutant concentrations
+    r.main_aqi[i] = 0;
     r.components.pm10[i] = hourly_pm10[i].as<float>();
     r.components.pm2_5[i] = hourly_pm25[i].as<float>();
     r.components.co[i] = hourly_co[i].as<float>();

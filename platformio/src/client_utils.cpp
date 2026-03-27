@@ -253,7 +253,7 @@ bool waitForSNTPSync(tm *timeInfo)
                "?latitude=" + LAT + 
                "&longitude=" + LON +
                "&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
-               "sulphur_dioxide,ozone,european_aqi"
+               "sulphur_dioxide,ozone"
                "&timezone=auto";
 
   String fullUri = "https://" + OPENMETEO_AIRQUALITY_ENDPOINT + uri;
