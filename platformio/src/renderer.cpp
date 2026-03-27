@@ -1447,6 +1447,19 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   // Limit to 24 hours from current time
   int endIndex = min(startIndex + 24, HOURLY_GRAPH_MAX);
   int numHours = endIndex - startIndex;
+  
+  // Debug: Show current time and first hour
+  char curTimeBuf[12] = {};
+  time_t cur_ts = (time_t)current_dt;
+  tm *cur_tm = localtime(&cur_ts);
+  _strftime(curTimeBuf, sizeof(curTimeBuf), "%H:%M", cur_tm);
+  
+  char firstHourBuf[12] = {};
+  time_t first_ts = (time_t)hourly[startIndex].dt;
+  tm *first_tm = localtime(&first_ts);
+  _strftime(firstHourBuf, sizeof(firstHourBuf), "%H:%M", first_tm);
+  
+  Serial.println("[DEBUG] Graph: current=" + String(curTimeBuf) + ", startIndex=" + String(startIndex) + ", firstHour=" + String(firstHourBuf) + ", numHours=" + String(numHours));
 
   // calculate y max/min and intervals using only future hours
   int yMajorTicks = 5;
@@ -1463,8 +1476,10 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
   float precipMax = hourly[startIndex].pop;
+  Serial.println("[DEBUG] PoP Graph - startIndex: " + String(startIndex) + ", first PoP: " + String(hourly[startIndex].pop * 100, 1) + "%");
 #else
   float precipMax = hourly[startIndex].rain_1h + hourly[startIndex].snow_1h;
+  Serial.println("[DEBUG] Precip Graph - startIndex: " + String(startIndex) + ", first precip: " + String(precipMax, 1) + "mm");
 #endif
 #endif
   int yTempMajorTicks = 5;
@@ -1724,9 +1739,15 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
-    float precipVal = hourly[i].pop * 100;
+    float precipVal = hourly[hourlyIdx].pop * 100;
+    if (i < 3) {
+      Serial.println("[DEBUG] Plotting hour " + String(i) + " (hourlyIdx=" + String(hourlyIdx) + "): PoP=" + String(precipVal, 0) + "%");
+    }
 #else
-    float precipVal = hourly[i].rain_1h + hourly[i].snow_1h;
+    float precipVal = hourly[hourlyIdx].rain_1h + hourly[hourlyIdx].snow_1h;
+    if (i < 3) {
+      Serial.println("[DEBUG] Plotting hour " + String(i) + " (hourlyIdx=" + String(hourlyIdx) + "): precip=" + String(precipVal, 1) + "mm");
+    }
 #ifdef UNITS_HOURLY_PRECIP_CENTIMETERS
     precipVal = millimeters_to_centimeters(precipVal);
 #endif
@@ -1912,6 +1933,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
       tm *timeInfo = localtime(&ts);
       _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
       drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
+      Serial.println("[DEBUG] XTick i=" + String(i) + ", hourlyIdx=" + String(hourlyIdx) + ", time=" + String(timeBuffer));
     }
 
   }
@@ -1930,6 +1952,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     tm *timeInfo = localtime(&ts);
     _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
     drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
+    Serial.println("[DEBUG] LastTick: endIndex=" + String(endIndex) + ", time=" + String(timeBuffer));
   }
 
   return;
