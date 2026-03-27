@@ -1010,6 +1010,7 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   
   // State 1: No rain (POP < 20%)
   // Shows: Umbrella with X overlay + "No rain (X%)"
+  // Note: POP < 20% is always "No rain", regardless of wind
   if (maxPop < 0.20f) {
     Serial.println("[DEBUG] Drawing STATE 1: No rain");
     // Draw umbrella icon
@@ -1025,10 +1026,24 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     display.setFont(&FONT_8pt8b);
     drawString(centerX, y + TEXT_OFFSET_Y, "No rain (" + String(popPercent) + "%)", CENTER);
   }
-  // State 3: Take umbrella (POP >= 70% OR wind >= 18 km/h)
-  // Shows: Open umbrella icon + "Rain in/at..." 
-  else if (maxPop >= 0.70f || windKmh >= WIND_THRESHOLD_KMH) {
-    Serial.println("[DEBUG] Drawing STATE 3: Take umbrella");
+  // State 3: Take umbrella (POP >= 70%)
+  // Shows: Open umbrella icon + "Rain at..." 
+  else if (maxPop >= 0.70f) {
+    Serial.println("[DEBUG] Drawing STATE 3: Take umbrella (high POP)");
+    // Draw open umbrella icon
+    display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
+    
+    display.setFont(&FONT_8pt8b);
+    if (minutesUntilRain > 0) {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + rainTimeStr + " (" + String(popPercent) + "%)", CENTER);
+    } else {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain now (" + String(popPercent) + "%)", CENTER);
+    }
+  }
+  // State 4: Take umbrella (POP 20-69% AND wind >= 18 km/h)
+  // Shows: Open umbrella icon + "Rain at..." 
+  else if (windKmh >= WIND_THRESHOLD_KMH) {
+    Serial.println("[DEBUG] Drawing STATE 4: Take umbrella (windy)");
     // Draw open umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
@@ -1040,7 +1055,7 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     }
   }
   // State 2: Compact (POP 20-69% AND wind < 18 km/h)
-  // Shows: Closed umbrella icon + "Rain in/at..."
+  // Shows: Closed umbrella icon + "Rain at..."
   else {
     Serial.println("[DEBUG] Drawing STATE 2: Compact");
     // Draw closed umbrella icon (U+1F302 🌂 style)
