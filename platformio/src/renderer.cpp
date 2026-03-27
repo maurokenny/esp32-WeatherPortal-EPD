@@ -1739,6 +1739,21 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #endif
     }
 
+    // Draw x tick and label every 2 hours - MOVED HERE to always draw regardless of precipitation
+    if ((i % hourInterval) == 0)
+    {
+      int xTick = static_cast<int>(std::round(xPos0 + (i * xInterval)));
+      // draw x tick marks
+      display.drawLine(xTick    , yPos1 + 1, xTick    , yPos1 + 4, GxEPD_BLACK);
+      display.drawLine(xTick + 1, yPos1 + 1, xTick + 1, yPos1 + 4, GxEPD_BLACK);
+      // draw x axis labels - use timestamp from hourly data
+      char timeBuffer[12] = {};
+      time_t ts = (time_t)hourly[hourlyIdx].dt;
+      tm *timeInfo = localtime(&ts);
+      _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
+      drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
+    }
+
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
     float precipVal = hourly[hourlyIdx].pop * 100;
@@ -1920,20 +1935,6 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     //   }
     // }
 #endif
-
-    // Draw x tick and label every 2 hours
-    if ((i % hourInterval) == 0)
-    {
-      // draw x tick marks
-      display.drawLine(xTick    , yPos1 + 1, xTick    , yPos1 + 4, GxEPD_BLACK);
-      display.drawLine(xTick + 1, yPos1 + 1, xTick + 1, yPos1 + 4, GxEPD_BLACK);
-      // draw x axis labels - use timestamp from hourly data
-      char timeBuffer[12] = {};
-      time_t ts = (time_t)hourly[hourlyIdx].dt;
-      tm *timeInfo = localtime(&ts);
-      _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
-      drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
-    }
 
   }
 
