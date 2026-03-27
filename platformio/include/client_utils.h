@@ -31,12 +31,14 @@ wl_status_t startWiFi(int &wifiRSSI);
 void killWiFi();
 bool waitForSNTPSync(tm *timeInfo);
 bool printLocalTime(tm *timeInfo);
+
+// Open-Meteo API functions (replaces OpenWeatherMap)
 #ifdef USE_HTTP
-  int getOWMonecall(WiFiClient &client, owm_resp_onecall_t &r);
-  int getOWMairpollution(WiFiClient &client, owm_resp_air_pollution_t &r);
+  int getOpenMeteoForecast(WiFiClient &client, owm_resp_onecall_t &r);
+  int getOpenMeteoAirQuality(WiFiClient &client, owm_resp_air_pollution_t &r);
 #else
-  int getOWMonecall(WiFiClientSecure &client, owm_resp_onecall_t &r);
-  int getOWMairpollution(WiFiClientSecure &client, owm_resp_air_pollution_t &r);
+  int getOpenMeteoForecast(WiFiClientSecure &client, owm_resp_onecall_t &r);
+  int getOpenMeteoAirQuality(WiFiClientSecure &client, owm_resp_air_pollution_t &r);
 #endif
 
 /* Open-Meteo API support */

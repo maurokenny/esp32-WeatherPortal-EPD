@@ -58,6 +58,7 @@
 wl_status_t startWiFi(int &wifiRSSI)
 {
   WiFi.mode(WIFI_STA);
+  Serial.printf("[WiFi] Connecting to ESSID: '%s'\n", WIFI_SSID);
   Serial.printf("%s '%s'", TXT_CONNECTING_TO, WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -77,10 +78,12 @@ wl_status_t startWiFi(int &wifiRSSI)
   {
     wifiRSSI = WiFi.RSSI(); // get WiFi signal strength now, because the WiFi
                             // will be turned off to save power!
+    Serial.printf("[WiFi] Connected to ESSID: '%s'\n", WIFI_SSID);
     Serial.println("IP: " + WiFi.localIP().toString());
   }
   else
   {
+    Serial.printf("[WiFi] Failed to connect to ESSID: '%s'\n", WIFI_SSID);
     Serial.printf("%s '%s'\n", TXT_COULD_NOT_CONNECT_TO, WIFI_SSID);
   }
   return connection_status;
@@ -137,37 +140,42 @@ bool waitForSNTPSync(tm *timeInfo)
   return printLocalTime(timeInfo);
 } // waitForSNTPSync
 
-/* Perform an HTTP GET request to OpenWeatherMap's "One Call" API
+/* Perform an HTTP GET request to Open-Meteo Forecast API
  * If data is received, it will be parsed and stored in the global variable
  * owm_onecall.
  *
  * Returns the HTTP Status Code.
  */
 #ifdef USE_HTTP
-  int getOWMonecall(WiFiClient &client, owm_resp_onecall_t &r)
+  int getOpenMeteoForecast(WiFiClient &client, owm_resp_onecall_t &r)
 #else
-  int getOWMonecall(WiFiClientSecure &client, owm_resp_onecall_t &r)
+  int getOpenMeteoForecast(WiFiClientSecure &client, owm_resp_onecall_t &r)
 #endif
 {
   int attempts = 0;
   bool rxSuccess = false;
   DeserializationError jsonErr = {};
-  String uri = "/data/" + OWM_ONECALL_VERSION
-               + "/onecall?lat=" + LAT + "&lon=" + LON + "&lang=" + OWM_LANG
-               + "&units=standard&exclude=minutely";
-#if !DISPLAY_ALERTS
-  // exclude alerts
-  uri += ",alerts";
-#endif
+  
+  // Open-Meteo API endpoint
+  String uri = "/v1/forecast"
+               "?latitude=" + LAT + 
+               "&longitude=" + LON +
+               "&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
+               "is_day,precipitation,rain,showers,snowfall,weather_code,"
+               "cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,"
+               "wind_direction_10m,wind_gusts_10m,visibility"
+               "&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,"
+               "precipitation_probability,weather_code,cloud_cover,surface_pressure,"
+               "wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day"
+               "&daily=weather_code,temperature_2m_max,temperature_2m_min,"
+               "sunrise,sunset,precipitation_probability_max,precipitation_sum"
+               "&timezone=auto"
+               "&forecast_days=8";
 
-  // This string is printed to terminal to help with debugging. The API key is
-  // censored to reduce the risk of users exposing their key.
-  String sanitizedUri = OWM_ENDPOINT + uri + "&appid={API key}";
-
-  uri += "&appid=" + OWM_APIKEY;
-
-  Serial.print(TXT_ATTEMPTING_HTTP_REQ);
-  Serial.println(": " + sanitizedUri);
+  String fullUri = "https://" + OPENMETEO_ENDPOINT + uri;
+  Serial.println("[Open-Meteo API] Request: " + fullUri);
+  Serial.flush();
+  
   int httpResponse = 0;
   while (!rxSuccess && attempts < 3)
   {
@@ -181,66 +189,77 @@ bool waitForSNTPSync(tm *timeInfo)
     HTTPClient http;
     http.setConnectTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
     http.setTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
-    http.begin(client, OWM_ENDPOINT, OWM_PORT, uri);
+    http.begin(client, OPENMETEO_ENDPOINT, OPENMETEO_PORT, uri);
+    
+    Serial.println("  [HTTP] GET attempt " + String(attempts + 1) + "/3...");
     httpResponse = http.GET();
+    Serial.println("  [HTTP] Response code: " + String(httpResponse));
+    
     if (httpResponse == HTTP_CODE_OK)
     {
-      jsonErr = deserializeOneCall(http.getStream(), r);
+      jsonErr = deserializeOpenMeteo(http.getStream(), r);
       if (jsonErr)
       {
         // -256 offset distinguishes these errors from httpClient errors
         httpResponse = -256 - static_cast<int>(jsonErr.code());
+        Serial.println("  [JSON] Parse error: " + String(jsonErr.c_str()));
       }
-      rxSuccess = !jsonErr;
+      else
+      {
+        rxSuccess = true;
+        Serial.println("  [HTTP] Success!");
+      }
+      http.end();
+      client.stop();
+      Serial.println("  " + String(httpResponse, DEC) + " "
+                     + getHttpResponsePhrase(httpResponse));
+      return httpResponse;
     }
-    client.stop();
     http.end();
+    
     Serial.println("  " + String(httpResponse, DEC) + " "
                    + getHttpResponsePhrase(httpResponse));
+    
+    if (attempts < 2)
+    {
+      Serial.println("  [HTTP] Retrying in 500ms...");
+      delay(500);
+    }
+    
     ++attempts;
   }
 
   return httpResponse;
-} // getOWMonecall
+} // getOpenMeteoForecast
 
-/* Perform an HTTP GET request to OpenWeatherMap's "Air Pollution" API
+/* Perform an HTTP GET request to Open-Meteo Air Quality API
  * If data is received, it will be parsed and stored in the global variable
  * owm_air_pollution.
  *
  * Returns the HTTP Status Code.
  */
 #ifdef USE_HTTP
-  int getOWMairpollution(WiFiClient &client, owm_resp_air_pollution_t &r)
+  int getOpenMeteoAirQuality(WiFiClient &client, owm_resp_air_pollution_t &r)
 #else
-  int getOWMairpollution(WiFiClientSecure &client, owm_resp_air_pollution_t &r)
+  int getOpenMeteoAirQuality(WiFiClientSecure &client, owm_resp_air_pollution_t &r)
 #endif
 {
   int attempts = 0;
   bool rxSuccess = false;
   DeserializationError jsonErr = {};
 
-  // set start and end to appropriate values so that the last 24 hours of air
-  // pollution history is returned. Unix, UTC.
-  time_t now;
-  int64_t end = time(&now);
-  // minus 1 is important here, otherwise we could get an extra hour of history
-  int64_t start = end - ((3600 * OWM_NUM_AIR_POLLUTION) - 1);
-  char endStr[22];
-  char startStr[22];
-  sprintf(endStr, "%lld", end);
-  sprintf(startStr, "%lld", start);
-  String uri = "/data/2.5/air_pollution/history?lat=" + LAT + "&lon=" + LON
-               + "&start=" + startStr + "&end=" + endStr
-               + "&appid=" + OWM_APIKEY;
-  // This string is printed to terminal to help with debugging. The API key is
-  // censored to reduce the risk of users exposing their key.
-  String sanitizedUri = OWM_ENDPOINT +
-               "/data/2.5/air_pollution/history?lat=" + LAT + "&lon=" + LON
-               + "&start=" + startStr + "&end=" + endStr
-               + "&appid={API key}";
+  // Open-Meteo Air Quality API endpoint
+  String uri = "/v1/air-quality"
+               "?latitude=" + LAT + 
+               "&longitude=" + LON +
+               "&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
+               "sulphur_dioxide,ozone"
+               "&timezone=auto";
 
-  Serial.print(TXT_ATTEMPTING_HTTP_REQ);
-  Serial.println(": " + sanitizedUri);
+  String fullUri = "https://" + OPENMETEO_AIRQUALITY_ENDPOINT + uri;
+  Serial.println("[Open-Meteo Air Quality API] Request: " + fullUri);
+  Serial.flush();
+  
   int httpResponse = 0;
   while (!rxSuccess && attempts < 3)
   {
@@ -254,27 +273,48 @@ bool waitForSNTPSync(tm *timeInfo)
     HTTPClient http;
     http.setConnectTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
     http.setTimeout(HTTP_CLIENT_TCP_TIMEOUT); // default 5000ms
-    http.begin(client, OWM_ENDPOINT, OWM_PORT, uri);
+    http.begin(client, OPENMETEO_AIRQUALITY_ENDPOINT, OPENMETEO_PORT, uri);
+    
+    Serial.println("  [HTTP] GET attempt " + String(attempts + 1) + "/3...");
     httpResponse = http.GET();
+    Serial.println("  [HTTP] Response code: " + String(httpResponse));
+    
     if (httpResponse == HTTP_CODE_OK)
     {
-      jsonErr = deserializeAirQuality(http.getStream(), r);
+      jsonErr = deserializeOpenMeteoAirQuality(http.getStream(), r);
       if (jsonErr)
       {
         // -256 offset to distinguishes these errors from httpClient errors
         httpResponse = -256 - static_cast<int>(jsonErr.code());
+        Serial.println("  [JSON] Parse error: " + String(jsonErr.c_str()));
       }
-      rxSuccess = !jsonErr;
+      else
+      {
+        rxSuccess = true;
+        Serial.println("  [HTTP] Success!");
+      }
+      http.end();
+      client.stop();
+      Serial.println("  " + String(httpResponse, DEC) + " "
+                     + getHttpResponsePhrase(httpResponse));
+      return httpResponse;
     }
-    client.stop();
     http.end();
+    
     Serial.println("  " + String(httpResponse, DEC) + " "
                    + getHttpResponsePhrase(httpResponse));
+    
+    if (attempts < 2)
+    {
+      Serial.println("  [HTTP] Retrying in 500ms...");
+      delay(500);
+    }
+    
     ++attempts;
   }
 
   return httpResponse;
-} // getOWMairpollution
+} // getOpenMeteoAirQuality
 
 /* Prints debug information about heap usage.
  */

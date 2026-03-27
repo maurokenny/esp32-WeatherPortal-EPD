@@ -668,6 +668,20 @@ const uint8_t *getCurrentConditionsBitmap196(const owm_current_t &current,
   return getConditionsBitmap<196>(id, day, moon, cloudy, windy);
 } // end getCurrentConditionsBitmap196
 
+/* Returns a 96x96 bitmap for the current weather conditions.
+ */
+const uint8_t *getCurrentConditionsBitmap96(const owm_current_t &current,
+                                            const owm_daily_t   &today)
+{
+  const int id = current.weather.id;
+  const bool day = isDay(current.weather.icon);
+  const bool moon = isMoonInSky(current.dt, today.moonrise, today.moonset,
+                                today.moon_phase);
+  const bool cloudy = isCloudy(current.clouds);
+  const bool windy = isWindy(current.wind_speed, current.wind_gust);
+  return getConditionsBitmap<96>(id, day, moon, cloudy, windy);
+} // end getCurrentConditionsBitmap96
+
 /* Returns a 32x32 bitmap for a given alert.
  *
  * The purpose of this function is to return a relevant bitmap for an alert.

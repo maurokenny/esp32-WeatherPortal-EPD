@@ -106,21 +106,21 @@ DeserializationError deserializeOneCall(WiFiClient &json,
   i = 0;
   for (JsonObject hourly : doc["hourly"].as<JsonArray>())
   {
-    r.hourly[i].dt         = hourly["dt"]        .as<int64_t>();
-    r.hourly[i].temp       = hourly["temp"]      .as<float>();
+    r.hourly[i].dt         = hourly["dt"]         .as<int64_t>();
+    r.hourly[i].temp       = hourly["temp"]       .as<float>();
     r.hourly[i].feels_like = hourly["feels_like"].as<float>();
-    r.hourly[i].pressure   = hourly["pressure"]  .as<int>();
-    r.hourly[i].humidity   = hourly["humidity"]  .as<int>();
-    r.hourly[i].dew_point  = hourly["dew_point"] .as<float>();
-    r.hourly[i].clouds     = hourly["clouds"]    .as<int>();
-    r.hourly[i].uvi        = hourly["uvi"]       .as<float>();
-    r.hourly[i].visibility = hourly["visibility"].as<int>();
+    r.hourly[i].pressure   = hourly["pressure"]   .as<int>();
+    r.hourly[i].humidity   = hourly["humidity"]   .as<int>();
+    r.hourly[i].dew_point  = hourly["dew_point"]  .as<float>();
+    r.hourly[i].clouds     = hourly["clouds"]     .as<int>();
+    r.hourly[i].uvi        = hourly["uvi"]        .as<float>();
+    r.hourly[i].visibility = hourly["visibility"] .as<int>();
     r.hourly[i].wind_speed = hourly["wind_speed"].as<float>();
     r.hourly[i].wind_gust  = hourly["wind_gust"] .as<float>();
     r.hourly[i].wind_deg   = hourly["wind_deg"]  .as<int>();
     r.hourly[i].pop        = hourly["pop"]       .as<float>();
-    r.hourly[i].rain_1h    = hourly["rain"]["1h"].as<float>();
-    r.hourly[i].snow_1h    = hourly["snow"]["1h"].as<float>();
+    r.hourly[i].rain_1h    = hourly["rain"]["1h"] .as<float>();
+    r.hourly[i].snow_1h    = hourly["snow"]["1h"] .as<float>();
     JsonObject hourly_weather = hourly["weather"][0];
     r.hourly[i].weather.id          = hourly_weather["id"]         .as<int>();
     r.hourly[i].weather.main        = hourly_weather["main"]       .as<const char *>();
@@ -137,29 +137,30 @@ DeserializationError deserializeOneCall(WiFiClient &json,
   i = 0;
   for (JsonObject daily : doc["daily"].as<JsonArray>())
   {
-    r.daily[i].dt         = daily["dt"]        .as<int64_t>();
-    r.daily[i].sunrise    = daily["sunrise"]   .as<int64_t>();
-    r.daily[i].sunset     = daily["sunset"]    .as<int64_t>();
-    r.daily[i].moonrise   = daily["moonrise"]  .as<int64_t>();
-    r.daily[i].moonset    = daily["moonset"]   .as<int64_t>();
-    r.daily[i].moon_phase = daily["moon_phase"].as<float>();
-    JsonObject daily_temp = daily["temp"];
-    r.daily[i].temp.morn  = daily_temp["morn"] .as<float>();
-    r.daily[i].temp.day   = daily_temp["day"]  .as<float>();
-    r.daily[i].temp.eve   = daily_temp["eve"]  .as<float>();
-    r.daily[i].temp.night = daily_temp["night"].as<float>();
-    r.daily[i].temp.min   = daily_temp["min"]  .as<float>();
-    r.daily[i].temp.max   = daily_temp["max"]  .as<float>();
-    JsonObject daily_feels_like = daily["feels_like"];
-    r.daily[i].feels_like.morn  = daily_feels_like["morn"] .as<float>();
-    r.daily[i].feels_like.day   = daily_feels_like["day"]  .as<float>();
-    r.daily[i].feels_like.eve   = daily_feels_like["eve"]  .as<float>();
-    r.daily[i].feels_like.night = daily_feels_like["night"].as<float>();
-    r.daily[i].pressure   = daily["pressure"]  .as<int>();
-    r.daily[i].humidity   = daily["humidity"]  .as<int>();
-    r.daily[i].dew_point  = daily["dew_point"] .as<float>();
-    r.daily[i].clouds     = daily["clouds"]    .as<int>();
-    r.daily[i].uvi        = daily["uvi"]       .as<float>();
+    r.daily[i].dt       = daily["dt"]      .as<int64_t>();
+    r.daily[i].sunrise  = daily["sunrise"] .as<int64_t>();
+    r.daily[i].sunset   = daily["sunset"]  .as<int64_t>();
+    // r.daily[i].moonrise = daily["moonrise"].as<int64_t>();
+    // r.daily[i].moonset  = daily["moonset"] .as<int64_t>();
+    // r.daily[i].moon_phase = daily["moon_phase"].as<float>();
+
+    r.daily[i].temp.morn  = daily["temp"]["morn"].as<float>();
+    r.daily[i].temp.day   = daily["temp"]["day"] .as<float>();
+    r.daily[i].temp.eve   = daily["temp"]["eve"] .as<float>();
+    r.daily[i].temp.night = daily["temp"]["night"].as<float>();
+    r.daily[i].temp.min   = daily["temp"]["min"] .as<float>();
+    r.daily[i].temp.max   = daily["temp"]["max"] .as<float>();
+
+    r.daily[i].feels_like.morn  = daily["feels_like"]["morn"].as<float>();
+    r.daily[i].feels_like.day   = daily["feels_like"]["day"] .as<float>();
+    r.daily[i].feels_like.eve   = daily["feels_like"]["eve"] .as<float>();
+    r.daily[i].feels_like.night = daily["feels_like"]["night"].as<float>();
+
+    r.daily[i].pressure  = daily["pressure"] .as<int>();
+    r.daily[i].humidity  = daily["humidity"] .as<int>();
+    r.daily[i].dew_point = daily["dew_point"].as<float>();
+    r.daily[i].clouds    = daily["clouds"]   .as<int>();
+    r.daily[i].uvi       = daily["uvi"]      .as<float>();
     r.daily[i].visibility = daily["visibility"].as<int>();
     r.daily[i].wind_speed = daily["wind_speed"].as<float>();
     r.daily[i].wind_gust  = daily["wind_gust"] .as<float>();
@@ -182,16 +183,14 @@ DeserializationError deserializeOneCall(WiFiClient &json,
 
 #if DISPLAY_ALERTS
   i = 0;
-  for (JsonObject alerts : doc["alerts"].as<JsonArray>())
+  for (JsonObject alert : doc["alerts"].as<JsonArray>())
   {
-    owm_alerts_t new_alert = {};
-    // new_alert.sender_name = alerts["sender_name"].as<const char *>();
-    new_alert.event       = alerts["event"]      .as<const char *>();
-    new_alert.start       = alerts["start"]      .as<int64_t>();
-    new_alert.end         = alerts["end"]        .as<int64_t>();
-    // new_alert.description = alerts["description"].as<const char *>();
-    new_alert.tags        = alerts["tags"][0]    .as<const char *>();
-    r.alerts.push_back(new_alert);
+    r.alerts[i].sender_name = alert["sender_name"].as<const char *>();
+    r.alerts[i].event       = alert["event"]      .as<const char *>();
+    r.alerts[i].start       = alert["start"]      .as<int64_t>();
+    r.alerts[i].end         = alert["end"]        .as<int64_t>();
+    r.alerts[i].description = alert["description"].as<const char *>();
+    r.alerts[i].tags        = alert["tags"]       .as<const char *>();
 
     if (i == OWM_NUM_ALERTS - 1)
     {
@@ -207,11 +206,16 @@ DeserializationError deserializeOneCall(WiFiClient &json,
 DeserializationError deserializeAirQuality(WiFiClient &json,
                                            owm_resp_air_pollution_t &r)
 {
-  int i = 0;
+  int i;
+
+  JsonDocument filter;
+  filter["coord"] = true;
+  filter["list"]  = true;
 
   JsonDocument doc;
 
-  DeserializationError error = deserializeJson(doc, json);
+  DeserializationError error = deserializeJson(doc, json,
+                                         DeserializationOption::Filter(filter));
 #if DEBUG_LEVEL >= 1
   Serial.println("[debug] doc.overflowed() : "
                  + String(doc.overflowed()));
@@ -223,9 +227,11 @@ DeserializationError deserializeAirQuality(WiFiClient &json,
     return error;
   }
 
-  r.coord.lat = doc["coord"]["lat"].as<float>();
-  r.coord.lon = doc["coord"]["lon"].as<float>();
+  JsonObject coord = doc["coord"];
+  r.coord.lat = coord["lat"].as<float>();
+  r.coord.lon = coord["lon"].as<float>();
 
+  i = 0;
   for (JsonObject list : doc["list"].as<JsonArray>())
   {
 
@@ -254,36 +260,37 @@ DeserializationError deserializeAirQuality(WiFiClient &json,
 } // end deserializeAirQuality
 
 /*
- * Open-Meteo API support functions
+ * Open-Meteo API support
  */
 
 /**
  * Parse ISO 8601 datetime string to Unix timestamp.
  * Format: "2026-03-24T18:15"
- * Note: This is a simplified parser assuming UTC input from Open-Meteo
- * with timezone offset applied separately.
+ * Note: This function assumes UTC input and does not handle timezone offsets.
  */
 int64_t parseIso8601(const char* iso8601)
 {
-  struct tm tm = {0};
-  int year, month, day, hour, minute;
-  
-  // Parse format: YYYY-MM-DDTHH:MM
-  if (sscanf(iso8601, "%4d-%2d-%2dT%2d:%2d", 
-             &year, &month, &day, &hour, &minute) != 5) {
+  if (iso8601 == nullptr || strlen(iso8601) < 16) {
     return 0;
   }
   
-  tm.tm_year = year - 1900;
-  tm.tm_mon = month - 1;
-  tm.tm_mday = day;
-  tm.tm_hour = hour;
-  tm.tm_min = minute;
-  tm.tm_sec = 0;
-  tm.tm_isdst = -1;
+  struct tm timeinfo = {};
+  // Parse format: YYYY-MM-DDTHH:MM
+  int year, month, day, hour, minute;
+  if (sscanf(iso8601, "%d-%d-%dT%d:%d", &year, &month, &day, &hour, &minute) != 5) {
+    return 0;
+  }
   
-  return mktime(&tm);
-} // end parseIso8601
+  timeinfo.tm_year = year - 1900;
+  timeinfo.tm_mon = month - 1;
+  timeinfo.tm_mday = day;
+  timeinfo.tm_hour = hour;
+  timeinfo.tm_min = minute;
+  timeinfo.tm_sec = 0;
+  timeinfo.tm_isdst = 0;
+  
+  return mktime(&timeinfo);
+}
 
 /**
  * Convert WMO Weather Interpretation code to OpenWeatherMap-compatible structure.
@@ -292,12 +299,7 @@ int64_t parseIso8601(const char* iso8601)
  */
 void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
 {
-  // Default values
-  weather.id = 800;
-  weather.main = "Clear";
-  weather.description = "clear sky";
-  weather.icon = isDay ? "01d" : "01n";
-  
+  // Map WMO code to OWM-compatible values
   switch (wmoCode) {
     case 0: // Clear sky
       weather.id = 800;
@@ -328,12 +330,12 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
       weather.id = 741;
       weather.main = "Fog";
       weather.description = "fog";
-      weather.icon = isDay ? "50d" : "50n";
+      weather.icon = "50d";
       break;
     case 51: // Light drizzle
       weather.id = 300;
       weather.main = "Drizzle";
-      weather.description = "light drizzle";
+      weather.description = "light intensity drizzle";
       weather.icon = isDay ? "09d" : "09n";
       break;
     case 53: // Moderate drizzle
@@ -345,19 +347,19 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
     case 55: // Dense drizzle
       weather.id = 302;
       weather.main = "Drizzle";
-      weather.description = "heavy drizzle";
+      weather.description = "heavy intensity drizzle";
       weather.icon = isDay ? "09d" : "09n";
       break;
     case 56: // Light freezing drizzle
-      weather.id = 310;
-      weather.main = "Rain";
-      weather.description = "light freezing rain";
+      weather.id = 311;
+      weather.main = "Drizzle";
+      weather.description = "light intensity drizzle rain";
       weather.icon = isDay ? "09d" : "09n";
       break;
     case 57: // Dense freezing drizzle
-      weather.id = 310;
-      weather.main = "Rain";
-      weather.description = "freezing rain";
+      weather.id = 312;
+      weather.main = "Drizzle";
+      weather.description = "heavy intensity drizzle rain";
       weather.icon = isDay ? "09d" : "09n";
       break;
     case 61: // Slight rain
@@ -375,7 +377,7 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
     case 65: // Heavy rain
       weather.id = 502;
       weather.main = "Rain";
-      weather.description = "heavy rain";
+      weather.description = "heavy intensity rain";
       weather.icon = isDay ? "10d" : "10n";
       break;
     case 66: // Light freezing rain
@@ -390,19 +392,19 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
       weather.description = "heavy freezing rain";
       weather.icon = isDay ? "13d" : "13n";
       break;
-    case 71: // Slight snow
+    case 71: // Slight snow fall
       weather.id = 600;
       weather.main = "Snow";
       weather.description = "light snow";
       weather.icon = isDay ? "13d" : "13n";
       break;
-    case 73: // Moderate snow
+    case 73: // Moderate snow fall
       weather.id = 601;
       weather.main = "Snow";
       weather.description = "snow";
       weather.icon = isDay ? "13d" : "13n";
       break;
-    case 75: // Heavy snow
+    case 75: // Heavy snow fall
       weather.id = 602;
       weather.main = "Snow";
       weather.description = "heavy snow";
@@ -411,13 +413,13 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
     case 77: // Snow grains
       weather.id = 600;
       weather.main = "Snow";
-      weather.description = "snow grains";
+      weather.description = "light snow";
       weather.icon = isDay ? "13d" : "13n";
       break;
     case 80: // Slight rain showers
       weather.id = 520;
       weather.main = "Rain";
-      weather.description = "light shower rain";
+      weather.description = "light intensity shower rain";
       weather.icon = isDay ? "09d" : "09n";
       break;
     case 81: // Moderate rain showers
@@ -429,7 +431,7 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
     case 82: // Violent rain showers
       weather.id = 522;
       weather.main = "Rain";
-      weather.description = "heavy shower rain";
+      weather.description = "heavy intensity shower rain";
       weather.icon = isDay ? "09d" : "09n";
       break;
     case 85: // Slight snow showers
@@ -447,26 +449,24 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
     case 95: // Thunderstorm
       weather.id = 200;
       weather.main = "Thunderstorm";
-      weather.description = "thunderstorm";
+      weather.description = "thunderstorm with light rain";
       weather.icon = isDay ? "11d" : "11n";
       break;
-    case 96: // Thunderstorm with hail
-      weather.id = 201;
-      weather.main = "Thunderstorm";
-      weather.description = "thunderstorm with hail";
-      weather.icon = isDay ? "11d" : "11n";
-      break;
+    case 96: // Thunderstorm with slight hail
     case 99: // Thunderstorm with heavy hail
       weather.id = 202;
       weather.main = "Thunderstorm";
-      weather.description = "heavy thunderstorm";
+      weather.description = "thunderstorm with heavy rain";
       weather.icon = isDay ? "11d" : "11n";
       break;
-    default:
-      // Keep default clear sky values
+    default: // Unknown
+      weather.id = 800;
+      weather.main = "Clear";
+      weather.description = "clear sky";
+      weather.icon = isDay ? "01d" : "01n";
       break;
   }
-} // end wmoToOwmWeather
+}
 
 /**
  * Deserialize Open-Meteo API response.
@@ -475,10 +475,8 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
 DeserializationError deserializeOpenMeteo(WiFiClient &json,
                                           owm_resp_onecall_t &r)
 {
-  Serial.println("DEBUG: deserializeOpenMeteo started");
   
   // Read entire response into String first for debugging
-  Serial.println("DEBUG: Reading HTTP response into buffer...");
   String jsonString = "";
   int bytesRead = 0;
   unsigned long startTime = millis();
@@ -490,417 +488,672 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
       if (c >= 0) {
         jsonString += c;
         bytesRead++;
-        if (bytesRead % 1000 == 0) {
-          Serial.println("DEBUG: Read " + String(bytesRead) + " bytes so far...");
-        }
+      }
+    } else {
+      delay(10);
+    }
+  }
+  
+  
+  // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
+  // Chunked format: "<hex-size>\r\n<data>\r\n...0\r\n\r\n"
+  String cleanedJson = "";
+  int pos = 0;
+  int chunksProcessed = 0;
+  
+  
+  while (pos < (int)jsonString.length()) {
+    // Find end of chunk size line (\r\n)
+    int lineEnd = jsonString.indexOf("\r\n", pos);
+    if (lineEnd < 0) {
+      break;
+    }
+    
+    // Extract chunk size (hex string)
+    String chunkSizeStr = jsonString.substring(pos, lineEnd);
+    chunkSizeStr.trim();
+    
+    if (chunkSizeStr.length() == 0) {
+      break;
+    }
+    
+    // Check if it looks like a hex number
+    bool isHex = true;
+    for (int i = 0; i < chunkSizeStr.length(); i++) {
+      char c = chunkSizeStr.charAt(i);
+      if (!isxdigit(c)) {
+        isHex = false;
+        break;
+      }
+    }
+    
+    if (!isHex) {
+      break;
+    }
+    
+    // Convert hex to int
+    int chunkSize = (int)strtol(chunkSizeStr.c_str(), NULL, 16);
+    
+    if (chunkSize == 0) {
+      break; // Last chunk
+    }
+    
+    // Move to start of chunk data
+    pos = lineEnd + 2; // Skip \r\n
+    
+    // Append chunk data
+    if (pos + chunkSize <= (int)jsonString.length()) {
+      cleanedJson += jsonString.substring(pos, pos + chunkSize);
+      pos += chunkSize + 2; // Skip data + \r\n
+      chunksProcessed++;
+    } else {
+      break;
+    }
+  }
+  
+  
+  // If no chunked encoding detected, use original string
+  if (cleanedJson.length() == 0) {
+    cleanedJson = jsonString;
+  }
+  
+  
+  // Find where JSON actually starts
+  int jsonStart = cleanedJson.indexOf('{');
+  if (jsonStart >= 0) {
+    cleanedJson = cleanedJson.substring(jsonStart);
+  } else {
+    return DeserializationError::InvalidInput;
+  }
+  
+  // Find actual end of JSON
+  int lastBrace = cleanedJson.lastIndexOf('}');
+  if (lastBrace > 0 && lastBrace < (int)cleanedJson.length() - 1) {
+    cleanedJson = cleanedJson.substring(0, lastBrace + 1);
+  }
+  
+  jsonString = cleanedJson;
+  
+  // Check braces balance
+  int openBraces = 0, closeBraces = 0;
+  for (int i = 0; i < (int)jsonString.length(); i++) {
+    if (jsonString[i] == '{') openBraces++;
+    if (jsonString[i] == '}') closeBraces++;
+  }
+  
+  
+#if SAVE_API_RESPONSE_TO_HEADER
+  // Print the JSON in a format that can be copied to saved_api_response.h
+  Serial.println("\n\n========== BEGIN API RESPONSE - COPY TO saved_api_response.h ==========\n");
+  Serial.println("#ifndef SAVED_OPENMETEO_FORECAST_JSON");
+  Serial.println("#define SAVED_OPENMETEO_FORECAST_JSON \\");
+  
+  // Print JSON in chunks to avoid Serial buffer issues
+  const int CHUNK_SIZE = 100;
+  for (int i = 0; i < (int)jsonString.length(); i += CHUNK_SIZE) {
+    String chunk = jsonString.substring(i, min(i + CHUNK_SIZE, (int)jsonString.length()));
+    // Escape quotes and backslashes for C string
+    chunk.replace("\\", "\\\\");
+    chunk.replace("\"", "\\\"");
+    Serial.print("\"");
+    Serial.print(chunk);
+    if (i + CHUNK_SIZE >= (int)jsonString.length()) {
+      Serial.println("\"");
+    } else {
+      Serial.println("\\");
+    }
+  }
+  Serial.println("#endif");
+  Serial.println("\n========== END API RESPONSE ==========\n");
+  
+  // Delay to allow user to copy from serial monitor
+  Serial.println("[SAVED] API response printed above. Copy between markers to saved_api_response.h");
+  Serial.println("[SAVED] Waiting 30 seconds for you to copy...");
+  delay(30000);
+#endif
+  
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonString);
+  
+  
+  if (error) {
+  }
+  
+  if (error && doc.size() == 0) {
+    return error;
+  }
+  
+  if (error) {
+  }
+  
+  // Location data
+  r.lat = doc["latitude"].as<float>();
+  r.lon = doc["longitude"].as<float>();
+  r.timezone = doc["timezone"].as<const char *>();
+  r.timezone_offset = doc["utc_offset_seconds"].as<int>();
+  
+  // Parse current weather
+  JsonObject current = doc["current"];
+  const char* timeStr = current["time"];
+  if (timeStr != nullptr) {
+    r.current.dt = parseIso8601(timeStr);
+  } else {
+    r.current.dt = 0;
+  }
+  
+  // Open-Meteo returns temperatures in Celsius, convert to Kelvin
+  r.current.temp = current["temperature_2m"].as<float>() + 273.15f;
+  r.current.feels_like = current["apparent_temperature"].as<float>() + 273.15f;
+  r.current.pressure = current["surface_pressure"].as<int>();
+  r.current.humidity = current["relative_humidity_2m"].as<int>();
+  r.current.dew_point = current["dew_point_2m"].as<float>() + 273.15f;
+  r.current.clouds = current["cloud_cover"].as<int>();
+  r.current.uvi = current["uv_index"].as<float>();
+  r.current.visibility = current["visibility"].as<int>();
+  r.current.wind_speed = current["wind_speed_10m"].as<float>();
+  r.current.wind_gust = current["wind_gusts_10m"].as<float>();
+  r.current.wind_deg = current["wind_direction_10m"].as<int>();
+  r.current.rain_1h = current["rain"].as<float>();
+  r.current.snow_1h = current["snowfall"].as<float>() * 10.0f; // cm to mm
+  
+  // Determine if day or night
+  bool isDay = current["is_day"].as<int>() == 1;
+  
+  // Convert WMO weather code to OWM format
+  int wmoCode = current["weather_code"].as<int>();
+  wmoToOwmWeather(wmoCode, isDay, r.current.weather);
+  
+  // Debug: Show received values for location comparison
+  Serial.println("[Open-Meteo] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
+  Serial.println("[Open-Meteo] Current temp: " + String(r.current.temp - 273.15f, 1) + "C, Weather: " + String(wmoCode) + ", Day: " + String(isDay));
+  
+  // Parse daily forecast first (needed for sunrise/sunset which are not in current)
+  JsonObject daily = doc["daily"];
+  JsonArray daily_time = daily["time"];
+  JsonArray daily_max = daily["temperature_2m_max"];
+  JsonArray daily_min = daily["temperature_2m_min"];
+  JsonArray daily_sunrise = daily["sunrise"];
+  JsonArray daily_sunset = daily["sunset"];
+  JsonArray daily_code = daily["weather_code"];
+  JsonArray daily_pop = daily["precipitation_probability_max"];
+  JsonArray daily_precip = daily["precipitation_sum"];
+  
+  int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
+  for (int i = 0; i < dailyCount; i++) {
+    r.daily[i].dt = parseIso8601(daily_time[i]);
+    // Convert Celsius to Kelvin
+    r.daily[i].temp.max = daily_max[i].as<float>() + 273.15f;
+    r.daily[i].temp.min = daily_min[i].as<float>() + 273.15f;
+    r.daily[i].sunrise = parseIso8601(daily_sunrise[i]);
+    r.daily[i].sunset = parseIso8601(daily_sunset[i]);
+    r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
+    
+    // Read daily precipitation (mm)
+    r.daily[i].rain = daily_precip[i].as<float>();
+    r.daily[i].snow = 0.0f;
+    
+    // Daily always uses day icons
+    wmoToOwmWeather(daily_code[i].as<int>(), true, r.daily[i].weather);
+    
+    // Default values
+    r.daily[i].moonrise = 0;
+    r.daily[i].moonset = 0;
+    r.daily[i].moon_phase = 0.0f;
+    r.daily[i].temp.morn = r.daily[i].temp.min;
+    r.daily[i].temp.day = (r.daily[i].temp.min + r.daily[i].temp.max) / 2.0f;
+    r.daily[i].temp.eve = r.daily[i].temp.max;
+    r.daily[i].temp.night = r.daily[i].temp.min;
+    r.daily[i].feels_like.morn = r.daily[i].temp.morn;
+    r.daily[i].feels_like.day = r.daily[i].temp.day;
+    r.daily[i].feels_like.eve = r.daily[i].temp.eve;
+    r.daily[i].feels_like.night = r.daily[i].temp.night;
+    r.daily[i].pressure = 1013;
+    r.daily[i].humidity = 60;
+    r.daily[i].dew_point = r.daily[i].temp.min - 2.0f;
+    r.daily[i].clouds = 50;
+    r.daily[i].uvi = 0.0f;
+    r.daily[i].visibility = 10000;
+    r.daily[i].wind_speed = 5.0f;
+    r.daily[i].wind_gust = 10.0f;
+    r.daily[i].wind_deg = 0;
+  }
+  
+  // Copy sunrise/sunset from daily[0] to current (Open-Meteo doesn't provide these in current)
+  if (dailyCount > 0) {
+    r.current.sunrise = r.daily[0].sunrise;
+    r.current.sunset = r.daily[0].sunset;
+    Serial.println("[Open-Meteo] Sunrise: " + String(r.current.sunrise) + ", Sunset: " + String(r.current.sunset));
+  } else {
+    r.current.sunrise = 0;
+    r.current.sunset = 0;
+  }
+  
+  // Parse hourly forecast
+  JsonObject hourly = doc["hourly"];
+  JsonArray hourly_time = hourly["time"];
+  JsonArray hourly_temp = hourly["temperature_2m"];
+  JsonArray hourly_feels = hourly["apparent_temperature"];
+  JsonArray hourly_humidity = hourly["relative_humidity_2m"];
+  JsonArray hourly_pressure = hourly["surface_pressure"];
+  JsonArray hourly_clouds = hourly["cloud_cover"];
+  JsonArray hourly_wind = hourly["wind_speed_10m"];
+  JsonArray hourly_gust = hourly["wind_gusts_10m"];
+  JsonArray hourly_deg = hourly["wind_direction_10m"];
+  JsonArray hourly_pop = hourly["precipitation_probability"];
+  JsonArray hourly_precip = hourly["precipitation"];
+  JsonArray hourly_code = hourly["weather_code"];
+  JsonArray hourly_is_day = hourly["is_day"];
+  
+  int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
+  for (int i = 0; i < hourlyCount; i++) {
+    r.hourly[i].dt = parseIso8601(hourly_time[i]);
+    // Convert Celsius to Kelvin
+    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
+    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
+    r.hourly[i].humidity = hourly_humidity[i].as<int>();
+    r.hourly[i].pressure = hourly_pressure[i].as<int>();
+    r.hourly[i].clouds = hourly_clouds[i].as<int>();
+    r.hourly[i].wind_speed = hourly_wind[i].as<float>();
+    r.hourly[i].wind_gust = hourly_gust[i].as<float>();
+    r.hourly[i].wind_deg = hourly_deg[i].as<int>();
+    
+    // Handle precipitation_probability - check if null
+    float pop_val = hourly_pop[i].as<float>();
+    if (i < 3) {
+    }
+    r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
+    
+    // Read actual precipitation (mm)
+    r.hourly[i].rain_1h = hourly_precip[i].as<float>();
+    r.hourly[i].snow_1h = 0.0f; // Open-Meteo doesn't separate snow in basic endpoint
+    
+    bool hourIsDay = hourly_is_day[i].as<int>() == 1;
+    wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
+    
+    // Default values for fields not provided by Open-Meteo
+    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f; // Estimate (already in Kelvin)
+    r.hourly[i].uvi = 0.0f;
+    r.hourly[i].visibility = 10000;
+  }
+  
+  // Clear alerts (not provided by Open-Meteo)
+  r.alerts.clear();
+  
+  // Debug: Show summary for comparing locations
+  float tempMin = r.hourly[0].temp, tempMax = r.hourly[0].temp;
+  float popMin = r.hourly[0].pop, popMax = r.hourly[0].pop;
+  for (int i = 1; i < hourlyCount; i++) {
+    tempMin = min(tempMin, r.hourly[i].temp);
+    tempMax = max(tempMax, r.hourly[i].temp);
+    popMin = min(popMin, r.hourly[i].pop);
+    popMax = max(popMax, r.hourly[i].pop);
+  }
+  Serial.println("[Open-Meteo] Summary: Temp range " + String(tempMin - 273.15f, 1) + "C to " + String(tempMax - 273.15f, 1) + "C");
+  Serial.println("[Open-Meteo] Summary: POP range " + String(popMin * 100, 0) + "% to " + String(popMax * 100, 0) + "%");
+  
+  return error;
+} // end deserializeOpenMeteo
+
+/**
+ * Deserialize Open-Meteo Air Quality API response.
+ */
+DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
+                                                    owm_resp_air_pollution_t &r)
+{
+  // Read entire response into buffer with timeout
+  String jsonString = "";
+  int bytesRead = 0;
+  unsigned long startTime = millis();
+  
+  // Keep reading until stream is empty or timeout (10 seconds)
+  while (bytesRead < 15000 && (millis() - startTime) < 10000) {
+    if (json.available()) {
+      char c = json.read();
+      if (c >= 0) {
+        jsonString += c;
+        bytesRead++;
       }
     } else {
       // Stream empty, wait a bit for more data
       delay(10);
     }
   }
-  Serial.println("DEBUG: Received " + String(jsonString.length()) + " bytes");
   
-  // Find where JSON actually starts (first '{' character)
-  int jsonStart = jsonString.indexOf('{');
-  if (jsonStart > 0) {
-    Serial.println("DEBUG: Found JSON start at position " + String(jsonStart));
-    Serial.println("DEBUG: Skipping " + String(jsonStart) + " bytes of HTTP headers");
-    jsonString = jsonString.substring(jsonStart);
-  } else if (jsonStart == 0) {
-    Serial.println("DEBUG: JSON starts at position 0 (no headers to skip)");
-  } else {
-    Serial.println("DEBUG: ERROR - No '{' found in response!");
-  }
-  
-  Serial.println("DEBUG: First 200 chars after cleaning: " + jsonString.substring(0, 200));
-  
-  // Find actual end of JSON (last })
-  int lastBrace = jsonString.lastIndexOf('}');
-  if (lastBrace > 0 && lastBrace < jsonString.length() - 1) {
-    Serial.println("DEBUG: Trimming extra data after position " + String(lastBrace));
-    jsonString = jsonString.substring(0, lastBrace + 1);
-  }
-  
-  Serial.println("DEBUG: Last 100 chars: " + jsonString.substring(jsonString.length() - 100));
-  
-  // Check if JSON is complete
-  if (jsonString[jsonString.length() - 1] == '}') {
-    Serial.println("DEBUG: JSON appears complete (ends with })");
-  } else {
-    Serial.println("DEBUG: WARNING - JSON may be truncated!");
-  }
-  
-  Serial.println("DEBUG: Creating JsonDocument...");
-  Serial.println("DEBUG: Free heap before JSON: " + String(ESP.getFreeHeap()));
-  
-  // ArduinoJson 7 - parse without filter
-  // Allocate with enough capacity - Open-Meteo response is ~15KB
-  JsonDocument doc;
-
-  Serial.println("DEBUG: Starting deserializeJson...");
-  Serial.println("DEBUG: JSON string length: " + String(jsonString.length()));
-  
-  // Check if we got valid JSON
-  if (jsonString.length() == 0) {
-    Serial.println("DEBUG: ERROR - Empty JSON string!");
-  }
-  if (jsonString[0] != '{') {
-    Serial.println("DEBUG: ERROR - JSON doesn't start with '{'!");
-    Serial.println("DEBUG: First char: " + String(jsonString[0]));
-  }
-  
-  // Try to validate JSON by checking brackets
-  int openBraces = 0, closeBraces = 0;
-  for (int i = 0; i < jsonString.length(); i++) {
-    if (jsonString[i] == '{') openBraces++;
-    if (jsonString[i] == '}') closeBraces++;
-  }
-  Serial.println("DEBUG: Open braces: " + String(openBraces) + ", Close braces: " + String(closeBraces));
-  
-  // Use Stream instead of String to save memory
-  Serial.println("DEBUG: Converting to Stream for parsing...");
-  Serial.println("DEBUG: Free heap before deserialize: " + String(ESP.getFreeHeap()));
-  
-  // Temporarily remove filter to test if it's causing issues
-  Serial.println("DEBUG: Parsing WITHOUT filter...");
-  DeserializationError error = deserializeJson(doc, jsonString);
-  Serial.println("DEBUG: deserializeJson completed");
-  Serial.println("DEBUG: JSON doc size: " + String(doc.size()));
-  Serial.println("DEBUG: Free heap after deserialize: " + String(ESP.getFreeHeap()));
-  
-  if (error) {
-    Serial.println("DEBUG: JSON Error Code: " + String(static_cast<int>(error.code())));
-    Serial.println("DEBUG: JSON Error: " + String(error.c_str()));
+  // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
+  String cleanedJson = "";
+  int pos = 0;
+  while (pos < (int)jsonString.length()) {
+    int lineEnd = jsonString.indexOf("\r\n", pos);
+    if (lineEnd < 0) break;
     
-    // Try to print what we can access anyway
-    Serial.println("DEBUG: Attempting to access partial data...");
-    Serial.println("DEBUG: doc.containsKey('latitude'): " + String(doc.containsKey("latitude") ? "yes" : "no"));
-    if (doc.containsKey("latitude")) {
-      Serial.println("DEBUG: latitude value: " + String(doc["latitude"].as<float>()));
+    String chunkSizeStr = jsonString.substring(pos, lineEnd);
+    chunkSizeStr.trim();
+    if (chunkSizeStr.length() == 0) break;
+    
+    int chunkSize = (int)strtol(chunkSizeStr.c_str(), NULL, 16);
+    if (chunkSize == 0) break;
+    
+    pos = lineEnd + 2;
+    
+    if (pos + chunkSize <= (int)jsonString.length()) {
+      cleanedJson += jsonString.substring(pos, pos + chunkSize);
+      pos += chunkSize + 2;
+    } else {
+      break;
     }
   }
   
-  // Debug: Print some raw JSON values
-  Serial.println("DEBUG: Raw latitude from JSON: " + String(doc["latitude"].as<float>()));
-  Serial.println("DEBUG: Raw longitude from JSON: " + String(doc["longitude"].as<float>()));
+  if (cleanedJson.length() == 0) {
+    cleanedJson = jsonString;
+  }
   
-  JsonObject current_debug = doc["current"];
-  Serial.println("DEBUG: Raw temp from JSON: " + String(current_debug["temperature_2m"].as<float>()));
-  Serial.println("DEBUG: Raw humidity from JSON: " + String(current_debug["relative_humidity_2m"].as<int>()));
-  Serial.println("DEBUG: Raw weather_code from JSON: " + String(current_debug["weather_code"].as<int>()));
+  // Find where JSON actually starts
+  int jsonStart = cleanedJson.indexOf('{');
+  if (jsonStart >= 0) {
+    cleanedJson = cleanedJson.substring(jsonStart);
+  }
   
-#if DEBUG_LEVEL >= 1
-  Serial.println("[debug] doc.overflowed() : "
-                 + String(doc.overflowed()));
-#endif
-#if DEBUG_LEVEL >= 2
-  serializeJsonPretty(doc, Serial);
-#endif
-  if (error && doc.size() == 0) {
-    Serial.println("DEBUG: Critical error - no data available");
+  // Find actual end of JSON
+  int lastBrace = cleanedJson.lastIndexOf('}');
+  if (lastBrace > 0 && lastBrace < (int)cleanedJson.length() - 1) {
+    cleanedJson = cleanedJson.substring(0, lastBrace + 1);
+  }
+  
+  jsonString = cleanedJson;
+  
+  // Validate JSON is not empty and starts with {
+  if (jsonString.length() == 0 || jsonString[0] != '{') {
+    return DeserializationError::InvalidInput;
+  }
+  
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonString);
+  
+  if (error) {
     return error;
   }
   
-  if (error) {
-    Serial.println("DEBUG: Partial error - using available data");
-    // Continue with partial data
+  // Location
+  r.coord.lat = doc["latitude"].as<float>();
+  r.coord.lon = doc["longitude"].as<float>();
+  
+  // Parse hourly air quality data
+  JsonObject hourly = doc["hourly"];
+  JsonArray hourly_time = hourly["time"];
+  JsonArray hourly_pm10 = hourly["pm10"];
+  JsonArray hourly_pm25 = hourly["pm2_5"];
+  JsonArray hourly_co = hourly["carbon_monoxide"];
+  JsonArray hourly_no2 = hourly["nitrogen_dioxide"];
+  JsonArray hourly_so2 = hourly["sulphur_dioxide"];
+  JsonArray hourly_o3 = hourly["ozone"];
+  
+  int count = min((int)hourly_time.size(), OWM_NUM_AIR_POLLUTION);
+  for (int i = 0; i < count; i++) {
+    r.dt[i] = parseIso8601(hourly_time[i]);
+    // AQI is calculated locally by calc_aqi() using pollutant concentrations
+    // based on the configured AQI_SCALE for the locale
+    r.main_aqi[i] = 0;  // Will be calculated from components
+    r.components.pm10[i] = hourly_pm10[i].as<float>();
+    r.components.pm2_5[i] = hourly_pm25[i].as<float>();
+    r.components.co[i] = hourly_co[i].as<float>();
+    r.components.no2[i] = hourly_no2[i].as<float>();
+    r.components.so2[i] = hourly_so2[i].as<float>();
+    r.components.o3[i] = hourly_o3[i].as<float>();
+    
+    // Default values for unused components (not provided by Open-Meteo)
+    r.components.no[i] = 0.0f;
+    r.components.nh3[i] = 0.0f;
   }
+  
+  return error;
+} // end deserializeOpenMeteoAirQuality
 
-  Serial.println("DEBUG: Parsing location data...");
+/*
+ * Load API response from saved header file (for offline testing)
+ */
+#if LOAD_API_FROM_HEADER
+  #include "saved_api_response.h"
+#endif
+
+/**
+ * Load Open-Meteo forecast from saved header file.
+ * Only available when LOAD_API_FROM_HEADER is enabled.
+ */
+DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
+{
+#if !LOAD_API_FROM_HEADER
+  return DeserializationError::EmptyInput;
+#else
+  Serial.println("[Header Loader] Loading forecast from saved_api_response.h");
+  
+  const char* jsonData = SAVED_OPENMETEO_FORECAST_JSON;
+  if (strlen(jsonData) == 0) {
+    Serial.println("[Header Loader] ERROR: SAVED_OPENMETEO_FORECAST_JSON is empty!");
+    Serial.println("[Header Loader] Please capture API response first with SAVE_API_RESPONSE_TO_HEADER");
+    return DeserializationError::EmptyInput;
+  }
+  
+  Serial.println("[Header Loader] JSON size: " + String(strlen(jsonData)) + " bytes");
+  
+  // Create a temporary stream from the string
+  String jsonString = String(jsonData);
+  
+  // Reuse the existing parsing logic by converting String to a "stream-like" approach
+  // We'll parse directly using the String
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonString);
+  
+  if (error) {
+    Serial.println("[Header Loader] JSON parse error: " + String(error.c_str()));
+    return error;
+  }
+  
+  // Now populate the response structure using same logic as deserializeOpenMeteo
   // Location data
   r.lat = doc["latitude"].as<float>();
   r.lon = doc["longitude"].as<float>();
   r.timezone = doc["timezone"].as<const char *>();
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
-
-  Serial.println("DEBUG: Parsing current weather...");
-  // Parse current weather
-  Serial.println("DEBUG: Checking if doc['current'] exists...");
-  if (doc["current"].isNull()) {
-    Serial.println("DEBUG: ERROR - doc['current'] is null!");
-  } else {
-    Serial.println("DEBUG: doc['current'] exists");
-  }
-  JsonObject current = doc["current"];
   
-  Serial.println("DEBUG: Getting time...");
+  // Parse current weather
+  JsonObject current = doc["current"];
   const char* timeStr = current["time"];
-  Serial.println("DEBUG: timeStr = " + String(timeStr ? timeStr : "null"));
   if (timeStr != nullptr) {
     r.current.dt = parseIso8601(timeStr);
   } else {
-    r.current.dt = 0; // Fallback to 0 if time is not available
+    r.current.dt = 0;
   }
   
-  Serial.println("DEBUG: Getting temperature...");
-  if (current["temperature_2m"].isNull()) {
-    Serial.println("DEBUG: WARNING - temperature_2m is null");
-  }
-  r.current.temp = current["temperature_2m"].as<float>();
-  Serial.println("DEBUG: temperature_2m raw: " + String(current["temperature_2m"].as<float>()));
-  Serial.println("DEBUG: r.current.temp after assignment: " + String(r.current.temp));
-  
-  Serial.println("DEBUG: Getting apparent_temperature...");
-  r.current.feels_like = current["apparent_temperature"].as<float>();
-  
-  Serial.println("DEBUG: Getting surface_pressure...");
+  // Open-Meteo returns temperatures in Celsius, convert to Kelvin
+  r.current.temp = current["temperature_2m"].as<float>() + 273.15f;
+  r.current.feels_like = current["apparent_temperature"].as<float>() + 273.15f;
   r.current.pressure = current["surface_pressure"].as<int>();
-  
-  Serial.println("DEBUG: Getting relative_humidity_2m...");
   r.current.humidity = current["relative_humidity_2m"].as<int>();
-  
-  Serial.println("DEBUG: Getting dew_point_2m...");
-  r.current.dew_point = current["dew_point_2m"].as<float>();
-  
-  Serial.println("DEBUG: Getting cloud_cover...");
+  r.current.dew_point = current["dew_point_2m"].as<float>() + 273.15f;
   r.current.clouds = current["cloud_cover"].as<int>();
-  
-  Serial.println("DEBUG: Getting uv_index...");
   r.current.uvi = current["uv_index"].as<float>();
-  
-  Serial.println("DEBUG: Getting visibility...");
   r.current.visibility = current["visibility"].as<int>();
-  
-  Serial.println("DEBUG: Getting wind_speed_10m...");
   r.current.wind_speed = current["wind_speed_10m"].as<float>();
-  
-  Serial.println("DEBUG: Getting wind_gusts_10m...");
   r.current.wind_gust = current["wind_gusts_10m"].as<float>();
-  
-  Serial.println("DEBUG: Getting wind_direction_10m...");
   r.current.wind_deg = current["wind_direction_10m"].as<int>();
-  
-  Serial.println("DEBUG: Getting rain...");
   r.current.rain_1h = current["rain"].as<float>();
+  r.current.snow_1h = current["snowfall"].as<float>() * 10.0f;
   
-  Serial.println("DEBUG: Getting snowfall...");
-  r.current.snow_1h = current["snowfall"].as<float>() * 10.0f; // cm to mm
+  bool isDay = current["is_day"].as<int>() == 1;
+  int wmoCode = current["weather_code"].as<int>();
+  wmoToOwmWeather(wmoCode, isDay, r.current.weather);
   
-  // Debug: Verify current data was stored
-  Serial.println("DEBUG: After parsing current:");
-  Serial.println("  temp: " + String(r.current.temp));
-  Serial.println("  humidity: " + String(r.current.humidity));
-  Serial.println("  pressure: " + String(r.current.pressure));
-  Serial.println("  wind_speed: " + String(r.current.wind_speed));
-  Serial.println("  weather.id: " + String(r.current.weather.id));
-
-  // Sunrise/sunset not in Open-Meteo current, will use first daily value
-  r.current.sunrise = 0;
-  r.current.sunset = 0;
-
-  // Convert WMO weather code to OWM format
-  int wmoCurrent = current["weather_code"].as<int>();
-  // Assume daytime for current weather (6:00-18:00)
-  bool isDay = true;
-  if (r.current.dt > 0) {
-    time_t t = r.current.dt;
-    struct tm *timeInfo = gmtime(&t);
-    int hour = timeInfo->tm_hour;
-    isDay = (hour >= 6 && hour < 18);
-  }
-  Serial.println("DEBUG: Converting WMO weather code...");
-  wmoToOwmWeather(wmoCurrent, isDay, r.current.weather);
-  Serial.println("DEBUG: Current weather parsed");
-
-  Serial.println("DEBUG: Parsing hourly forecast...");
+  // Parse hourly forecast
+  JsonObject hourly = doc["hourly"];
+  JsonArray hourly_time = hourly["time"];
+  JsonArray hourly_temp = hourly["temperature_2m"];
+  JsonArray hourly_feels = hourly["apparent_temperature"];
+  JsonArray hourly_humidity = hourly["relative_humidity_2m"];
+  JsonArray hourly_pressure = hourly["surface_pressure"];
+  JsonArray hourly_clouds = hourly["cloud_cover"];
+  JsonArray hourly_wind = hourly["wind_speed_10m"];
+  JsonArray hourly_gust = hourly["wind_gusts_10m"];
+  JsonArray hourly_deg = hourly["wind_direction_10m"];
+  JsonArray hourly_pop = hourly["precipitation_probability"];
+  JsonArray hourly_precip = hourly["precipitation"];
+  JsonArray hourly_code = hourly["weather_code"];
+  JsonArray hourly_is_day = hourly["is_day"];
   
-  // Check if hourly exists and is accessible
-  Serial.println("DEBUG: Checking hourly object...");
-  if (doc["hourly"].isNull()) {
-    Serial.println("DEBUG: ERROR - hourly is null!");
-  } else {
-    Serial.println("DEBUG: hourly object exists");
-    Serial.println("DEBUG: hourly type: " + String(doc["hourly"].is<JsonObject>() ? "object" : "other"));
-  }
-  
-  // Parse hourly forecast (arrays)
-  Serial.println("DEBUG: Accessing hourly arrays...");
-  
-  JsonObject hourly_obj = doc["hourly"];
-  Serial.println("DEBUG: hourly_obj.size() = " + String(hourly_obj.size()));
-  
-  // List all keys in hourly
-  Serial.println("DEBUG: Keys in hourly:");
-  for (JsonPair kv : hourly_obj) {
-    Serial.println("  - " + String(kv.key().c_str()));
-  }
-  
-  JsonArray hourly_time = hourly_obj["time"];
-  JsonArray hourly_temp = hourly_obj["temperature_2m"];
-  
-  Serial.println("DEBUG: Checking if temperature_2m exists...");
-  if (hourly_obj["temperature_2m"].isNull()) {
-    Serial.println("DEBUG: ERROR - temperature_2m is null!");
-  } else {
-    Serial.println("DEBUG: temperature_2m type: " + String(hourly_obj["temperature_2m"].is<JsonArray>() ? "array" : "other"));
-    Serial.println("DEBUG: temperature_2m[0] raw: " + String(hourly_obj["temperature_2m"][0].as<float>()));
-  }
-  
-  JsonArray hourly_feels = hourly_obj["apparent_temperature"];
-  JsonArray hourly_humidity = hourly_obj["relative_humidity_2m"];
-  JsonArray hourly_pressure = hourly_obj["surface_pressure"];
-  JsonArray hourly_clouds = hourly_obj["cloud_cover"];
-  JsonArray hourly_uv = hourly_obj["uv_index"];
-  JsonArray hourly_visibility = hourly_obj["visibility"];
-  JsonArray hourly_dew = hourly_obj["dew_point_2m"];
-  JsonArray hourly_wind_speed = hourly_obj["wind_speed_10m"];
-  JsonArray hourly_wind_gust = hourly_obj["wind_gusts_10m"];
-  JsonArray hourly_wind_deg = hourly_obj["wind_direction_10m"];
-  JsonArray hourly_pop = hourly_obj["precipitation_probability"];
-  JsonArray hourly_rain = hourly_obj["rain"];
-  JsonArray hourly_snow = hourly_obj["snowfall"];
-  JsonArray hourly_weather = hourly_obj["weather_code"];
-
-  Serial.println("DEBUG: hourly_time.size() = " + String(hourly_time.size()));
-  
-  int hourlyCount = min((int)OWM_NUM_HOURLY, (int)hourly_time.size());
-  Serial.println("DEBUG: hourlyCount = " + String(hourlyCount));
-  
-  for (int i = 0; i < hourlyCount && i < 3; i++) { // Limit to first 3 for debug
-    Serial.println("DEBUG: Parsing hourly[" + String(i) + "]...");
+  int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
+  for (int i = 0; i < hourlyCount; i++) {
     r.hourly[i].dt = parseIso8601(hourly_time[i]);
-    Serial.println("DEBUG: hourly[" + String(i) + "].dt = " + String(r.hourly[i].dt));
-    r.hourly[i].temp = hourly_temp[i].as<float>();
-    Serial.println("DEBUG: hourly[" + String(i) + "].temp = " + String(r.hourly[i].temp));
-    r.hourly[i].feels_like = hourly_feels[i].as<float>();
+    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
+    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
     r.hourly[i].humidity = hourly_humidity[i].as<int>();
     r.hourly[i].pressure = hourly_pressure[i].as<int>();
     r.hourly[i].clouds = hourly_clouds[i].as<int>();
-    r.hourly[i].uvi = hourly_uv[i].as<float>();
-    r.hourly[i].visibility = hourly_visibility[i].as<int>();
-    r.hourly[i].dew_point = hourly_dew[i].as<float>();
-    r.hourly[i].wind_speed = hourly_wind_speed[i].as<float>();
-    r.hourly[i].wind_gust = hourly_wind_gust[i].as<float>();
-    r.hourly[i].wind_deg = hourly_wind_deg[i].as<int>();
-    r.hourly[i].pop = hourly_pop[i].as<float>() / 100.0f; // percentage to 0-1
-    r.hourly[i].rain_1h = hourly_rain[i].as<float>();
-    r.hourly[i].snow_1h = hourly_snow[i].as<float>() * 10.0f; // cm to mm
+    r.hourly[i].wind_speed = hourly_wind[i].as<float>();
+    r.hourly[i].wind_gust = hourly_gust[i].as<float>();
+    r.hourly[i].wind_deg = hourly_deg[i].as<int>();
     
-    int wmoHourly = hourly_weather[i].as<int>();
-    // Determine if day or night for this hour
-    bool hourlyIsDay = true;
-    if (r.hourly[i].dt > 0) {
-      time_t t = r.hourly[i].dt;
-      struct tm *timeInfo = gmtime(&t);
-      int hour = timeInfo->tm_hour;
-      hourlyIsDay = (hour >= 6 && hour < 18);
-    }
-    wmoToOwmWeather(wmoHourly, hourlyIsDay, r.hourly[i].weather);
-  }
-  // Note: hourly sunrise/sunset not available from Open-Meteo
-
-  // Parse daily forecast
-  Serial.println("DEBUG: Checking daily object...");
-  if (doc["daily"].isNull()) {
-    Serial.println("DEBUG: ERROR - daily is null!");
-    // Check if 'daily' key exists in doc
-    bool hasDaily = false;
-    for (JsonPair kv : doc.as<JsonObject>()) {
-      if (strcmp(kv.key().c_str(), "daily") == 0) {
-        hasDaily = true;
-        break;
-      }
-    }
-    Serial.println("DEBUG: 'daily' key exists in doc: " + String(hasDaily ? "yes" : "no"));
+    float pop_val = hourly_pop[i].as<float>();
+    r.hourly[i].pop = pop_val / 100.0f;
     
-    // List all keys in doc
-    Serial.println("DEBUG: All keys in doc:");
-    for (JsonPair kv : doc.as<JsonObject>()) {
-      Serial.println("  - " + String(kv.key().c_str()));
-    }
-  } else {
-    Serial.println("DEBUG: daily object exists");
-    JsonObject daily_obj = doc["daily"];
-    Serial.println("DEBUG: daily.size() = " + String(daily_obj.size()));
-    Serial.println("DEBUG: Keys in daily:");
-    for (JsonPair kv : daily_obj) {
-      Serial.println("  - " + String(kv.key().c_str()));
-    }
+    // Read actual precipitation (mm)
+    r.hourly[i].rain_1h = hourly_precip[i].as<float>();
+    r.hourly[i].snow_1h = 0.0f;
+    
+    bool hourIsDay = hourly_is_day[i].as<int>() == 1;
+    wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
+    
+    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f;
+    r.hourly[i].uvi = 0.0f;
+    r.hourly[i].visibility = 10000;
   }
   
-  JsonArray daily_time = doc["daily"]["time"];
-  JsonArray daily_weather = doc["daily"]["weather_code"];
-  JsonArray daily_max = doc["daily"]["temperature_2m_max"];
-  JsonArray daily_min = doc["daily"]["temperature_2m_min"];
-  JsonArray daily_sunrise = doc["daily"]["sunrise"];
-  JsonArray daily_sunset = doc["daily"]["sunset"];
-  JsonArray daily_uv_max = doc["daily"]["uv_index_max"];
-  JsonArray daily_precip_sum = doc["daily"]["precipitation_sum"];
-  JsonArray daily_precip_prob = doc["daily"]["precipitation_probability_max"];
-
-  Serial.println("DEBUG: daily_time.size() = " + String(daily_time.size()));
-  int dailyCount = min((int)OWM_NUM_DAILY, (int)daily_time.size());
-  Serial.println("DEBUG: dailyCount = " + String(dailyCount));
+  // Parse daily forecast
+  JsonObject daily = doc["daily"];
+  JsonArray daily_time = daily["time"];
+  JsonArray daily_max = daily["temperature_2m_max"];
+  JsonArray daily_min = daily["temperature_2m_min"];
+  JsonArray daily_sunrise = daily["sunrise"];
+  JsonArray daily_sunset = daily["sunset"];
+  JsonArray daily_code = daily["weather_code"];
+  JsonArray daily_pop = daily["precipitation_probability_max"];
+  JsonArray daily_precip = daily["precipitation_sum"];
+  
+  int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
   for (int i = 0; i < dailyCount; i++) {
     r.daily[i].dt = parseIso8601(daily_time[i]);
+    r.daily[i].temp.max = daily_max[i].as<float>() + 273.15f;
+    r.daily[i].temp.min = daily_min[i].as<float>() + 273.15f;
     r.daily[i].sunrise = parseIso8601(daily_sunrise[i]);
     r.daily[i].sunset = parseIso8601(daily_sunset[i]);
-    r.daily[i].temp.max = daily_max[i].as<float>();
-    r.daily[i].temp.min = daily_min[i].as<float>();
-    // Approximate values for missing fields
-    r.daily[i].temp.morn = daily_min[i].as<float>();
-    r.daily[i].temp.day = (daily_max[i].as<float>() + daily_min[i].as<float>()) / 2.0f;
-    r.daily[i].temp.eve = daily_max[i].as<float>();
-    r.daily[i].temp.night = daily_min[i].as<float>();
-    r.daily[i].uvi = daily_uv_max[i].as<float>();
-    r.daily[i].rain = daily_precip_sum[i].as<float>();
-    r.daily[i].pop = daily_precip_prob[i].as<float>() / 100.0f;
+    r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
     
-    // Moon data not available from Open-Meteo
+    // Read daily precipitation (mm)
+    r.daily[i].rain = daily_precip[i].as<float>();
+    r.daily[i].snow = 0.0f; // Open-Meteo separates snowfall if needed
+    
+    wmoToOwmWeather(daily_code[i].as<int>(), true, r.daily[i].weather);
+    
     r.daily[i].moonrise = 0;
     r.daily[i].moonset = 0;
     r.daily[i].moon_phase = 0.0f;
-    
-    // Feels-like not available in daily, use average
-    r.daily[i].feels_like.morn = daily_min[i].as<float>();
+    r.daily[i].temp.morn = r.daily[i].temp.min;
+    r.daily[i].temp.day = (r.daily[i].temp.min + r.daily[i].temp.max) / 2.0f;
+    r.daily[i].temp.eve = r.daily[i].temp.max;
+    r.daily[i].temp.night = r.daily[i].temp.min;
+    r.daily[i].feels_like.morn = r.daily[i].temp.morn;
     r.daily[i].feels_like.day = r.daily[i].temp.day;
-    r.daily[i].feels_like.eve = daily_max[i].as<float>();
-    r.daily[i].feels_like.night = daily_min[i].as<float>();
-    
-    // Use max temp day values for other fields
-    r.daily[i].pressure = r.current.pressure; // Use current as approximation
-    r.daily[i].humidity = r.current.humidity;
-    r.daily[i].dew_point = r.current.dew_point;
-    r.daily[i].clouds = r.current.clouds;
-    r.daily[i].visibility = r.current.visibility;
-    r.daily[i].wind_speed = r.current.wind_speed;
-    r.daily[i].wind_gust = r.current.wind_gust;
-    r.daily[i].wind_deg = r.current.wind_deg;
-    r.daily[i].snow = 0.0f;
-    
-    int wmoDaily = daily_weather[i].as<int>();
-    wmoToOwmWeather(wmoDaily, true, r.daily[i].weather); // always day icon for daily
+    r.daily[i].feels_like.eve = r.daily[i].temp.eve;
+    r.daily[i].feels_like.night = r.daily[i].temp.night;
+    r.daily[i].pressure = 1013;
+    r.daily[i].humidity = 60;
+    r.daily[i].dew_point = r.daily[i].temp.min - 2.0f;
+    r.daily[i].clouds = 50;
+    r.daily[i].uvi = 0.0f;
+    r.daily[i].visibility = 10000;
+    r.daily[i].wind_speed = 5.0f;
+    r.daily[i].wind_gust = 10.0f;
+    r.daily[i].wind_deg = 0;
   }
-
-  // Update current sunrise/sunset from first daily entry
-  if (dailyCount > 0) {
-    r.current.sunrise = r.daily[0].sunrise;
-    r.current.sunset = r.daily[0].sunset;
-  }
-
-  Serial.println("DEBUG: Clearing alerts...");
-  // Clear alerts (not supported by Open-Meteo)
-  r.alerts.clear();
-
-  // Debug: Final verification
-  Serial.println("DEBUG: Final data verification:");
-  Serial.println("  lat: " + String(r.lat));
-  Serial.println("  lon: " + String(r.lon));
-  Serial.println("  current.temp: " + String(r.current.temp));
-  Serial.println("  current.humidity: " + String(r.current.humidity));
-  Serial.println("  current.pressure: " + String(r.current.pressure));
-  Serial.println("  daily[0].temp.max: " + String(r.daily[0].temp.max));
-  Serial.println("  daily[0].temp.min: " + String(r.daily[0].temp.min));
-  Serial.println("  hourly[0].temp: " + String(r.hourly[0].temp));
-
-  // Debug: Verify one more time before returning
-  Serial.println("DEBUG: Right before returning:");
-  Serial.println("  r.current.temp: " + String(r.current.temp));
-  Serial.println("  r.current.humidity: " + String(r.current.humidity));
-  Serial.println("  r.current.pressure: " + String(r.current.pressure));
   
-  Serial.println("DEBUG: deserializeOpenMeteo completed successfully");
+  r.alerts.clear();
+  
+  Serial.println("[Header Loader] Successfully loaded data from header");
+  Serial.println("[Header Loader] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
+  
   return error;
-} // end deserializeOpenMeteo
+#endif // LOAD_API_FROM_HEADER
+}
 
+/**
+ * Load Open-Meteo air quality from saved header file.
+ * Only available when LOAD_API_FROM_HEADER is enabled.
+ */
+DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t &r)
+{
+#if !LOAD_API_FROM_HEADER
+  return DeserializationError::EmptyInput;
+#else
+  Serial.println("[Header Loader] Loading air quality from saved_api_response.h");
+  
+  const char* jsonData = SAVED_OPENMETEO_AIRQUALITY_JSON;
+  if (strlen(jsonData) == 0) {
+    Serial.println("[Header Loader] WARNING: SAVED_OPENMETEO_AIRQUALITY_JSON is empty, using defaults");
+    // Fill with default values
+    r.coord.lat = 0;
+    r.coord.lon = 0;
+    for (int i = 0; i < OWM_NUM_AIR_POLLUTION; i++) {
+      r.main_aqi[i] = 1;
+      r.components.pm2_5[i] = 10.0f;
+      r.components.pm10[i] = 20.0f;
+      r.components.o3[i] = 30.0f;
+      r.components.no2[i] = 15.0f;
+      r.components.so2[i] = 5.0f;
+      r.components.co[i] = 400.0f;
+      r.components.no[i] = 0.0f;
+      r.components.nh3[i] = 0.0f;
+      r.dt[i] = 0;
+    }
+    return DeserializationError::Ok;
+  }
+  
+  String jsonString = String(jsonData);
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonString);
+  
+  if (error) {
+    Serial.println("[Header Loader] JSON parse error: " + String(error.c_str()));
+    return error;
+  }
+  
+  // Location
+  r.coord.lat = doc["latitude"].as<float>();
+  r.coord.lon = doc["longitude"].as<float>();
+  
+  // Parse hourly air quality data
+  JsonObject hourly = doc["hourly"];
+  JsonArray hourly_time = hourly["time"];
+  JsonArray hourly_pm10 = hourly["pm10"];
+  JsonArray hourly_pm25 = hourly["pm2_5"];
+  JsonArray hourly_co = hourly["carbon_monoxide"];
+  JsonArray hourly_no2 = hourly["nitrogen_dioxide"];
+  JsonArray hourly_so2 = hourly["sulphur_dioxide"];
+  JsonArray hourly_o3 = hourly["ozone"];
+  
+  int count = min((int)hourly_time.size(), OWM_NUM_AIR_POLLUTION);
+  for (int i = 0; i < count; i++) {
+    r.dt[i] = parseIso8601(hourly_time[i]);
+    // AQI is calculated locally by calc_aqi() using pollutant concentrations
+    r.main_aqi[i] = 0;
+    r.components.pm10[i] = hourly_pm10[i].as<float>();
+    r.components.pm2_5[i] = hourly_pm25[i].as<float>();
+    r.components.co[i] = hourly_co[i].as<float>();
+    r.components.no2[i] = hourly_no2[i].as<float>();
+    r.components.so2[i] = hourly_so2[i].as<float>();
+    r.components.o3[i] = hourly_o3[i].as<float>();
+    r.components.no[i] = 0.0f;
+    r.components.nh3[i] = 0.0f;
+  }
+  
+  Serial.println("[Header Loader] Successfully loaded air quality from header");
+  return error;
+#endif // LOAD_API_FROM_HEADER
+}

@@ -23,12 +23,15 @@
 
 // E-PAPER PANEL
 // This project supports the following E-Paper panels:
-//   DISP_BW_V2 - 7.5in e-Paper (v2)      800x480px  Black/White
-//   DISP_3C_B  - 7.5in e-Paper (B)       800x480px  Red/Black/White
-//   DISP_7C_F  - 7.3in ACeP e-Paper (F)  800x480px  7-Color
-//   DISP_BW_V1 - 7.5in e-Paper (v1)      640x384px  Black/White
+//   DISP_BW_V2     - 7.5in e-Paper (v2)      800x480px  Black/White
+//   DISP_BW_V2_ALT - 7.5in e-Paper (v2)      800x480px  Black/White (Alternative driver for FPC-C001 panels)
+//   DISP_3C_B      - 7.5in e-Paper (B)       800x480px  Red/Black/White
+//   DISP_7C_F      - 7.3in ACeP e-Paper (F)  800x480px  7-Color
+//   DISP_BW_V1     - 7.5in e-Paper (v1)      640x384px  Black/White
 // Uncomment the macro that identifies your physical panel.
-#define DISP_BW_V2
+// Use DISP_BW_V2_ALT if your display has FPC-C001 marking and low contrast issues.
+// #define DISP_BW_V2
+#define DISP_BW_V2_ALT
 // #define DISP_3C_B
 // #define DISP_7C_F
 // #define DISP_BW_V1
@@ -127,13 +130,19 @@
 // #define UNITS_HOURLY_PRECIP_CENTIMETERS
 // #define UNITS_HOURLY_PRECIP_INCHES
 
+// HOURLY PRECIPITATION GRAPH
+// Enable/disable the precipitation graph in the hourly outlook
+// When disabled, only the temperature line is shown
+#define ENABLE_HOURLY_PRECIP_GRAPH
+// #define DISABLE_HOURLY_PRECIP_GRAPH
+
 // UNITS - PRECIPITATION (DAILY)
 // Measure of precipitation.
 // This can either be Probability of Precipitation (PoP) or daily volume.
 //   Metric   : Millimeters
 //   Imperial : Inches
-// #define UNITS_DAILY_PRECIP_POP
-#define UNITS_DAILY_PRECIP_MILLIMETERS
+#define UNITS_DAILY_PRECIP_POP
+// #define UNITS_DAILY_PRECIP_MILLIMETERS
 // #define UNITS_DAILY_PRECIP_CENTIMETERS
 // #define UNITS_DAILY_PRECIP_INCHES
 
@@ -153,12 +162,12 @@
 //   eventually the certificates on the esp32 will expire, requiring you to
 //   update the certificates in cert.h and reflash this software.
 //   Running cert.py will generate an updated cert.h file.
-//   The current certificate for api.openweathermap.org is valid until
+//   The current certificate for api.open-meteo.com is valid until
 //   2026-04-10 23:59:59+00:00
 // (uncomment exactly one)
 // #define USE_HTTP
 // #define USE_HTTPS_NO_CERT_VERIF
-#define USE_HTTPS_NO_CERT_VERIF
+#define USE_HTTPS_NO_CERT_VERIF // REQUIRES MANUAL UPDATE WHEN CERT EXPIRES
 // #define USE_HTTPS_WITH_CERT_VERIF // REQUIRES MANUAL UPDATE WHEN CERT EXPIRES
 
 // WIND DIRECTION INDICATOR
@@ -300,9 +309,9 @@
 //   Extra information that can be displayed on the status bar. Set to 1 to
 //   enable.
 #define STATUS_BAR_EXTRAS_BAT_PERCENTAGE 1
-#define STATUS_BAR_EXTRAS_BAT_VOLTAGE    0
+#define STATUS_BAR_EXTRAS_BAT_VOLTAGE    1
 #define STATUS_BAR_EXTRAS_WIFI_STRENGTH  1
-#define STATUS_BAR_EXTRAS_WIFI_RSSI      0
+#define STATUS_BAR_EXTRAS_WIFI_RSSI      1
 
 // BATTERY MONITORING
 //   You may choose to power your weather display with or without a battery.
@@ -315,6 +324,54 @@
 //   Set to 0 if powering via USB/power supply (disables low voltage sleep)
 #define USING_BATTERY 0
 
+// MOCKUP DATA
+//   Set to 1 to use mockup/fake weather data instead of fetching from API
+//   Useful for testing display without WiFi connection
+#define USE_MOCKUP_DATA 0
+
+// SAVE API RESPONSE TO HEADER FILE
+//   Set to 1 to print the API response to Serial in a format that can be copied
+//   to include/saved_api_response.h for offline testing
+//   After enabling this, flash and check serial monitor - copy the output between
+//   the "=== BEGIN API RESPONSE ===" and "=== END API RESPONSE ===" markers
+#define SAVE_API_RESPONSE_TO_HEADER 0
+
+// LOAD API RESPONSE FROM HEADER
+//   Set to 1 to load API response from include/saved_api_response.h
+//   Only used when USE_MOCKUP_DATA is 1
+//   This allows testing with real captured data without API calls
+#define LOAD_API_FROM_HEADER 0
+
+// MOCKUP WEATHER TYPE
+//   Select the weather scenario for mockup data
+//   Using enum with switch/case (preprocessor #if cannot use enum values)
+typedef enum {
+  MOCKUP_WEATHER_SUNNY,   // 0 - Clear sky, warm (25°C), sunny icon
+  MOCKUP_WEATHER_RAINY,   // 1 - Moderate rain (15°C), rain icon, 85% humidity
+  MOCKUP_WEATHER_SNOWY,   // 2 - Light snow (0°C), snow icon, 80% humidity
+  MOCKUP_WEATHER_CLOUDY,  // 3 - Overcast clouds, mild (18°C)
+  MOCKUP_WEATHER_THUNDER  // 4 - Thunderstorm, warm (20°C), storm icon
+} mockup_weather_type_t;
+
+// Select your mockup weather scenario here:
+#define MOCKUP_CURRENT_WEATHER MOCKUP_WEATHER_RAINY
+
+// Mockup Rain Widget states for testing umbrella widget display
+// Controls what message appears below the umbrella icon
+typedef enum {
+  MOCKUP_RAIN_NO_RAIN,      // 0 - "No rain (X%)" - POP < 30%, shows X over icon
+  MOCKUP_RAIN_COMPACT,      // 1 - "Compact (X%)" or "Rain in Ymin" - POP 30-70%
+  MOCKUP_RAIN_TAKE,         // 2 - "Take (X%)" or "Rain in Ymin" - POP >= 70%
+  MOCKUP_RAIN_GRAPH_TEST    // 3 - Varied POP for graph testing (0% -> 120%)
+} mockup_rain_widget_state_t;
+
+// Select rain widget state for mockup mode:
+// NO_RAIN: Shows X over umbrella, "No rain (10%)"
+// COMPACT: Shows "Compact (50%)" or "Rain in 45min (50%)"
+// TAKE: Shows "Take (80%)" or "Rain in 45min (80%)"
+// GRAPH_TEST: POP varies from 0% to 120% across hours to test graph scaling
+#define MOCKUP_RAIN_WIDGET_STATE MOCKUP_RAIN_GRAPH_TEST
+
 // NON-VOLATILE STORAGE (NVS) NAMESPACE
 #define NVS_NAMESPACE "weather_epd"
 
@@ -323,7 +380,7 @@
 //   level 0: basic status information, assists troubleshooting (default)
 //   level 1: increased verbosity for debugging
 //   level 2: print api responses to serial monitor
-#define DEBUG_LEVEL 0
+#define DEBUG_LEVEL 2
 
 // Set the below constants in "config.cpp"
 extern const uint8_t PIN_BAT_ADC;
@@ -343,13 +400,10 @@ extern const char *WIFI_SSID;
 extern const char *WIFI_PASSWORD;
 extern const unsigned long WIFI_TIMEOUT;
 extern const unsigned HTTP_CLIENT_TCP_TIMEOUT;
+// Open-Meteo API endpoints (no API key required)
 extern const String OPENMETEO_ENDPOINT;
 extern const uint16_t OPENMETEO_PORT;
-
-// Legacy OpenWeatherMap constants (kept for compatibility)
-extern const String OWM_APIKEY;
-extern const String OWM_ENDPOINT;
-extern const String OWM_ONECALL_VERSION;
+extern const String OPENMETEO_AIRQUALITY_ENDPOINT;
 extern const String LAT;
 extern const String LON;
 extern const String CITY_STRING;
@@ -378,9 +432,10 @@ extern const uint32_t MIN_BATTERY_VOLTAGE;
 #define USE_12H_FORMAT 0  // 0 = 24h format (14h), 1 = 12h format (02 PM)
 
 // CONFIG VALIDATION - DO NOT MODIFY
-#if !(  defined(DISP_BW_V2)  \
-      ^ defined(DISP_3C_B)   \
-      ^ defined(DISP_7C_F)   \
+#if !(  defined(DISP_BW_V2)     \
+      ^ defined(DISP_BW_V2_ALT) \
+      ^ defined(DISP_3C_B)      \
+      ^ defined(DISP_7C_F)      \
       ^ defined(DISP_BW_V1))
   #error Invalid configuration. Exactly one display panel must be selected.
 #endif
