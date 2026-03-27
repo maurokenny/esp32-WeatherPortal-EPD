@@ -976,7 +976,7 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     if (hourly[i].wind_speed > maxWindSpeed) {
       maxWindSpeed = hourly[i].wind_speed;
     }
-    if (firstRainIndex == -1 && hourly[i].pop >= 0.30f) {
+    if (firstRainIndex == -1 && hourly[i].pop >= 0.20f) {
       firstRainIndex = i;
       rainTimestamp = hourly[i].dt;
     }
@@ -1008,9 +1008,9 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     rainTimeStr = "at " + String(timeBuffer);
   }
   
-  // State 1: No rain (POP < 30%)
+  // State 1: No rain (POP < 20%)
   // Shows: Umbrella with X overlay + "No rain (X%)"
-  if (maxPop < 0.30f) {
+  if (maxPop < 0.20f) {
     Serial.println("[DEBUG] Drawing STATE 1: No rain");
     // Draw umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
@@ -1039,7 +1039,7 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
       drawString(centerX, y + TEXT_OFFSET_Y, "Rain now (" + String(popPercent) + "%)", CENTER);
     }
   }
-  // State 2: Compact (POP 30-69% AND wind < 18 km/h)
+  // State 2: Compact (POP 20-69% AND wind < 18 km/h)
   // Shows: Closed umbrella icon + "Rain in/at..."
   else {
     Serial.println("[DEBUG] Drawing STATE 2: Compact");
