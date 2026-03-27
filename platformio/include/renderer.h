@@ -1,4 +1,4 @@
-/* Renderer declarations for esp32-weather-epd using Waveshare library.
+/* Renderer declarations for esp32-weather-epd.
  * Copyright (C) 2022-2025  Luke Marzen
  *
  * This program is free software: you can redistribute it and/or modify
@@ -76,12 +76,10 @@ void drawMultiLnString(int16_t x, int16_t y, const String &text,
                        uint16_t max_lines, int16_t line_spacing,
                        uint16_t color=GxEPD_BLACK);
 void initDisplay();
-void refreshDisplay();
 void powerOffDisplay();
 void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours);
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
-                           const owm_hourly_t &currentHour,
                            const owm_resp_air_pollution_t &owm_air_pollution,
                            float inTemp, float inHumidity,
                            const owm_hourly_t *hourly = nullptr);
@@ -111,8 +109,5 @@ void drawCurrentVisibility(const owm_current_t &current);
 void drawCurrentAirQuality(const owm_resp_air_pollution_t &owm_air_pollution);
 void drawCurrentMoonphase(const owm_daily_t &today);
 void drawCurrentDewpoint(const owm_current_t &current);
-
-// Helper function
-const char* getDayName(int dayOfWeek);
 
 #endif

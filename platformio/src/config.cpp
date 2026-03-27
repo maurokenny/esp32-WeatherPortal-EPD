@@ -170,11 +170,7 @@ const unsigned long VERY_LOW_BATTERY_SLEEP_INTERVAL = 120; // (minutes)
 const uint32_t MAX_BATTERY_VOLTAGE = 4200; // (millivolts)
 const uint32_t MIN_BATTERY_VOLTAGE = 3000; // (millivolts)
 
-// OPEN-METEO API
-// Open-Meteo is a free weather API that does not require an API key.
-// https://open-meteo.com/
-const String OPENMETEO_ENDPOINT = "api.open-meteo.com";
-const uint16_t OPENMETEO_PORT = 443;
+// OPEN-METEO AIR QUALITY API
 const String OPENMETEO_AIRQUALITY_ENDPOINT = "air-quality-api.open-meteo.com";
 
 // See config.h for the below options
