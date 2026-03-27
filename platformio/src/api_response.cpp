@@ -691,57 +691,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   Serial.println("[Open-Meteo] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
   Serial.println("[Open-Meteo] Current temp: " + String(r.current.temp - 273.15f, 1) + "C, Weather: " + String(wmoCode) + ", Day: " + String(isDay));
   
-  // Parse hourly forecast
-  JsonObject hourly = doc["hourly"];
-  JsonArray hourly_time = hourly["time"];
-  JsonArray hourly_temp = hourly["temperature_2m"];
-  JsonArray hourly_feels = hourly["apparent_temperature"];
-  JsonArray hourly_humidity = hourly["relative_humidity_2m"];
-  JsonArray hourly_pressure = hourly["surface_pressure"];
-  JsonArray hourly_clouds = hourly["cloud_cover"];
-  JsonArray hourly_wind = hourly["wind_speed_10m"];
-  JsonArray hourly_gust = hourly["wind_gusts_10m"];
-  JsonArray hourly_deg = hourly["wind_direction_10m"];
-  JsonArray hourly_pop = hourly["precipitation_probability"];
-  JsonArray hourly_precip = hourly["precipitation"];
-  JsonArray hourly_code = hourly["weather_code"];
-  JsonArray hourly_is_day = hourly["is_day"];
-  
-  int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
-  Serial.println("[DEBUG] Hourly count: " + String(hourlyCount));
-  for (int i = 0; i < hourlyCount; i++) {
-    r.hourly[i].dt = parseIso8601(hourly_time[i]);
-    // Convert Celsius to Kelvin
-    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
-    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
-    r.hourly[i].humidity = hourly_humidity[i].as<int>();
-    r.hourly[i].pressure = hourly_pressure[i].as<int>();
-    r.hourly[i].clouds = hourly_clouds[i].as<int>();
-    r.hourly[i].wind_speed = hourly_wind[i].as<float>();
-    r.hourly[i].wind_gust = hourly_gust[i].as<float>();
-    r.hourly[i].wind_deg = hourly_deg[i].as<int>();
-    
-    // Handle precipitation_probability - check if null
-    float pop_val = hourly_pop[i].as<float>();
-    if (i < 3) {
-      Serial.println("[DEBUG] Hour " + String(i) + " POP raw: " + String(pop_val));
-    }
-    r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
-    
-    // Read actual precipitation (mm)
-    r.hourly[i].rain_1h = hourly_precip[i].as<float>();
-    r.hourly[i].snow_1h = 0.0f; // Open-Meteo doesn't separate snow in basic endpoint
-    
-    bool hourIsDay = hourly_is_day[i].as<int>() == 1;
-    wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
-    
-    // Default values for fields not provided by Open-Meteo
-    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f; // Estimate (already in Kelvin)
-    r.hourly[i].uvi = 0.0f;
-    r.hourly[i].visibility = 10000;
-  }
-  
-  // Parse daily forecast
+  // Parse daily forecast first (needed for sunrise/sunset which are not in current)
   JsonObject daily = doc["daily"];
   JsonArray daily_time = daily["time"];
   JsonArray daily_max = daily["temperature_2m_max"];
@@ -790,6 +740,66 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.daily[i].wind_speed = 5.0f;
     r.daily[i].wind_gust = 10.0f;
     r.daily[i].wind_deg = 0;
+  }
+  
+  // Copy sunrise/sunset from daily[0] to current (Open-Meteo doesn't provide these in current)
+  if (dailyCount > 0) {
+    r.current.sunrise = r.daily[0].sunrise;
+    r.current.sunset = r.daily[0].sunset;
+    Serial.println("[Open-Meteo] Sunrise: " + String(r.current.sunrise) + ", Sunset: " + String(r.current.sunset));
+  } else {
+    r.current.sunrise = 0;
+    r.current.sunset = 0;
+  }
+  
+  // Parse hourly forecast
+  JsonObject hourly = doc["hourly"];
+  JsonArray hourly_time = hourly["time"];
+  JsonArray hourly_temp = hourly["temperature_2m"];
+  JsonArray hourly_feels = hourly["apparent_temperature"];
+  JsonArray hourly_humidity = hourly["relative_humidity_2m"];
+  JsonArray hourly_pressure = hourly["surface_pressure"];
+  JsonArray hourly_clouds = hourly["cloud_cover"];
+  JsonArray hourly_wind = hourly["wind_speed_10m"];
+  JsonArray hourly_gust = hourly["wind_gusts_10m"];
+  JsonArray hourly_deg = hourly["wind_direction_10m"];
+  JsonArray hourly_pop = hourly["precipitation_probability"];
+  JsonArray hourly_precip = hourly["precipitation"];
+  JsonArray hourly_code = hourly["weather_code"];
+  JsonArray hourly_is_day = hourly["is_day"];
+  
+  int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
+  Serial.println("[DEBUG] Hourly count: " + String(hourlyCount));
+  for (int i = 0; i < hourlyCount; i++) {
+    r.hourly[i].dt = parseIso8601(hourly_time[i]);
+    // Convert Celsius to Kelvin
+    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
+    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
+    r.hourly[i].humidity = hourly_humidity[i].as<int>();
+    r.hourly[i].pressure = hourly_pressure[i].as<int>();
+    r.hourly[i].clouds = hourly_clouds[i].as<int>();
+    r.hourly[i].wind_speed = hourly_wind[i].as<float>();
+    r.hourly[i].wind_gust = hourly_gust[i].as<float>();
+    r.hourly[i].wind_deg = hourly_deg[i].as<int>();
+    
+    // Handle precipitation_probability - check if null
+    float pop_val = hourly_pop[i].as<float>();
+    if (i < 3) {
+      Serial.println("[DEBUG] Hour " + String(i) + " POP raw: " + String(pop_val));
+    }
+    r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
+    
+    // Read actual precipitation (mm)
+    r.hourly[i].rain_1h = hourly_precip[i].as<float>();
+    r.hourly[i].snow_1h = 0.0f; // Open-Meteo doesn't separate snow in basic endpoint
+    
+    bool hourIsDay = hourly_is_day[i].as<int>() == 1;
+    wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
+    
+    // Default values for fields not provided by Open-Meteo
+    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f; // Estimate (already in Kelvin)
+    r.hourly[i].uvi = 0.0f;
+    r.hourly[i].visibility = 10000;
   }
   
   // Clear alerts (not provided by Open-Meteo)
