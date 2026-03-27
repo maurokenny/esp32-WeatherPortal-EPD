@@ -1452,15 +1452,15 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   
   // Find starting index - begin at current hour
   int startIndex = 0;
-  for (int i = 0; i < HOURLY_GRAPH_MAX; i++) {
+  for (int i = 0; i < OWM_NUM_HOURLY; i++) {
     if (hourly[i].dt >= current_dt) {
       startIndex = i;
       break;
     }
   }
   
-  // Limit to 24 hours from current time
-  int endIndex = min(startIndex + 24, HOURLY_GRAPH_MAX);
+  // Limit to 24 hours from current time (but not exceeding available data)
+  int endIndex = min(startIndex + 24, OWM_NUM_HOURLY);
   int numHours = endIndex - startIndex;
   
   // Debug: Show current time and first hour
@@ -1474,7 +1474,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   tm *first_tm = localtime(&first_ts);
   _strftime(firstHourBuf, sizeof(firstHourBuf), "%H:%M", first_tm);
   
-  Serial.println("[DEBUG] Graph: current=" + String(curTimeBuf) + ", startIndex=" + String(startIndex) + ", firstHour=" + String(firstHourBuf) + ", numHours=" + String(numHours));
+  Serial.println("[DEBUG] Graph: current=" + String(curTimeBuf) + ", startIndex=" + String(startIndex) + ", firstHour=" + String(firstHourBuf) + ", numHours=" + String(numHours) + ", endIndex=" + String(endIndex));
 
   // calculate y max/min and intervals using only future hours
   int yMajorTicks = 5;
