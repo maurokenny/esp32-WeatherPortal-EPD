@@ -535,7 +535,25 @@ void setup()
   // Use mockup data instead of WiFi/API
   int wifiRSSI = -50; // Fake good signal
   timeConfigured = true; // Mockup always has valid time
+  
+#if LOAD_API_FROM_HEADER
+  // Load from saved header file instead of generating mock data
+  Serial.println("[Main] Loading data from saved_api_response.h");
+  DeserializationError headerErr = loadOpenMeteoFromHeader(owm_onecall);
+  if (headerErr) {
+    Serial.println("[Main] Failed to load from header, falling back to generated mock data");
+    fillMockupData(owm_onecall, timeInfo);
+  } else {
+    // Also try to load air quality
+    loadOpenMeteoAirQualityFromHeader(owm_air_pollution);
+    // Set current time from the loaded data
+    time_t now = owm_onecall.current.dt;
+    localtime_r(&now, &timeInfo);
+  }
+#else
+  // Use generated mockup data
   fillMockupData(owm_onecall, timeInfo);
+#endif
   
 #else
   // START WIFI
@@ -695,7 +713,7 @@ void setup()
   {
     drawCurrentConditions(owm_onecall.current, owm_onecall.daily[0],
                           owm_air_pollution, inTemp, inHumidity, owm_onecall.hourly);
-    drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, timeInfo);
+    drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, timeInfo, owm_onecall.current.dt);
     drawForecast(owm_onecall.daily, timeInfo);
     drawLocationDate(CITY_STRING, dateStr);
 #if DISPLAY_ALERTS

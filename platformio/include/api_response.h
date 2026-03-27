@@ -257,6 +257,23 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
 DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
                                                     owm_resp_air_pollution_t &r);
 
+/**
+ * Load Open-Meteo forecast from saved header file.
+ * Only available when LOAD_API_FROM_HEADER is enabled in config.h.
+ * This allows offline testing with captured API data.
+ * @param r response structure to populate
+ * @return deserialization error code
+ */
+DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r);
+
+/**
+ * Load Open-Meteo air quality from saved header file.
+ * Only available when LOAD_API_FROM_HEADER is enabled in config.h.
+ * @param r air quality response structure to populate
+ * @return deserialization error code
+ */
+DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t &r);
+
 
 #endif
 

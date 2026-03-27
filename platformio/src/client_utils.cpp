@@ -168,7 +168,7 @@ bool waitForSNTPSync(tm *timeInfo)
                "precipitation_probability,weather_code,cloud_cover,surface_pressure,"
                "wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day"
                "&daily=weather_code,temperature_2m_max,temperature_2m_min,"
-               "sunrise,sunset,precipitation_probability_max"
+               "sunrise,sunset,precipitation_probability_max,precipitation_sum"
                "&timezone=auto"
                "&forecast_days=8";
 

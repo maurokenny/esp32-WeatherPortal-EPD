@@ -329,6 +329,19 @@
 //   Useful for testing display without WiFi connection
 #define USE_MOCKUP_DATA 0
 
+// SAVE API RESPONSE TO HEADER FILE
+//   Set to 1 to print the API response to Serial in a format that can be copied
+//   to include/saved_api_response.h for offline testing
+//   After enabling this, flash and check serial monitor - copy the output between
+//   the "=== BEGIN API RESPONSE ===" and "=== END API RESPONSE ===" markers
+#define SAVE_API_RESPONSE_TO_HEADER 0
+
+// LOAD API RESPONSE FROM HEADER
+//   Set to 1 to load API response from include/saved_api_response.h
+//   Only used when USE_MOCKUP_DATA is 1
+//   This allows testing with real captured data without API calls
+#define LOAD_API_FROM_HEADER 0
+
 // MOCKUP WEATHER TYPE
 //   Select the weather scenario for mockup data
 //   Using enum with switch/case (preprocessor #if cannot use enum values)

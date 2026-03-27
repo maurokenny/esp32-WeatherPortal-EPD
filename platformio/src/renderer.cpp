@@ -932,6 +932,7 @@ void drawCurrentDewpoint(const owm_current_t &current)
  */
 void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int64_t current_dt)
 {
+  Serial.println(">>> drawUmbrellaWidget START <<<");
   // Position configuration - adjust these to move elements
   const int ICON_OFFSET_Y = -15;        // Vertical offset of umbrella icon
   const int TEXT_OFFSET_Y = 110;       // Vertical offset of text line
@@ -939,21 +940,50 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   const int X_LINE1_END_X = 118;       // X end position for first diagonal line
   const int X_LINE_START_Y = -2;       // Y start position for X lines
   const int X_LINE_END_Y = 106;        // Y end position for X lines
+  const float WIND_THRESHOLD_KMH = 18.0f; // Wind threshold for umbrella decision (km/h)
+  const int MAX_ANALYSIS_HOURS = 24;      // Limit to 24 hours (1 day)
   
-  // Find max POP and first hour with rain in the next N hours
+  // Find max POP and first hour with rain in the next 24 hours
   float maxPop = 0.0f;
   int firstRainIndex = -1;
   int64_t rainTimestamp = 0;
   
-  for (int i = 0; i < hours && i < HOURLY_GRAPH_MAX; i++) {
+  // Find max wind speed in the same period
+  float maxWindSpeed = 0.0f;
+  
+  // Use provided hours or max 24, whichever is smaller
+  int analysisHours = (hours < MAX_ANALYSIS_HOURS) ? hours : MAX_ANALYSIS_HOURS;
+  
+  // Find starting index - skip hours that have already passed
+  int startIndex = 0;
+  Serial.println("[DEBUG] current_dt: " + String(current_dt));
+  for (int i = 0; i < analysisHours && i < HOURLY_GRAPH_MAX; i++) {
+    Serial.println("[DEBUG] hourly[" + String(i) + "].dt: " + String(hourly[i].dt) + " pop: " + String(hourly[i].pop));
+    if (hourly[i].dt >= current_dt) {
+      startIndex = i;
+      Serial.println("[DEBUG] Found startIndex: " + String(startIndex));
+      break;
+    }
+  }
+  if (startIndex == 0) {
+    Serial.println("[DEBUG] WARNING: startIndex is 0, all hours may have passed!");
+  }
+  
+  for (int i = startIndex; i < analysisHours && i < HOURLY_GRAPH_MAX; i++) {
     if (hourly[i].pop > maxPop) {
       maxPop = hourly[i].pop;
+    }
+    if (hourly[i].wind_speed > maxWindSpeed) {
+      maxWindSpeed = hourly[i].wind_speed;
     }
     if (firstRainIndex == -1 && hourly[i].pop >= 0.30f) {
       firstRainIndex = i;
       rainTimestamp = hourly[i].dt;
     }
   }
+  
+  // Convert wind speed to km/h for decision
+  float windKmh = maxWindSpeed * 3.6f;
   
   // Calculate time until rain (in minutes)
   int minutesUntilRain = -1;
@@ -964,9 +994,24 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   int popPercent = static_cast<int>(std::round(maxPop * 100));
   int centerX = x + 64; // Center of 128px width
   
+  Serial.println("[DEBUG] maxPop: " + String(maxPop) + " popPercent: " + String(popPercent));
+  Serial.println("[DEBUG] firstRainIndex: " + String(firstRainIndex) + " minutesUntilRain: " + String(minutesUntilRain));
+  
+  // Helper to format rain time string - always show exact time (at HH:MM)
+  String rainTimeStr;
+  if (minutesUntilRain > 0) {
+    // Always show actual hour (e.g., "at 20:00") instead of relative time
+    time_t rainTime = rainTimestamp;
+    tm *rainTm = localtime(&rainTime);
+    char timeBuffer[6];
+    strftime(timeBuffer, sizeof(timeBuffer), "%H:%M", rainTm);
+    rainTimeStr = "at " + String(timeBuffer);
+  }
+  
   // State 1: No rain (POP < 30%)
   // Shows: Umbrella with X overlay + "No rain (X%)"
   if (maxPop < 0.30f) {
+    Serial.println("[DEBUG] Drawing STATE 1: No rain");
     // Draw umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     // Draw thick X over icon (3 parallel lines for thickness)
@@ -980,46 +1025,35 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     display.setFont(&FONT_8pt8b);
     drawString(centerX, y + TEXT_OFFSET_Y, "No rain (" + String(popPercent) + "%)", CENTER);
   }
-  // State 2: Rain coming later (POP 30-70%)
-  // Shows: Closed umbrella icon + "Compact" or "Rain in Ymin"
-  else if (maxPop < 0.70f) {
-    // Draw closed umbrella icon (U+1F302 🌂 style)
-    display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_closed_umbrella_128x128, 128, 128, GxEPD_BLACK);
-    
-    display.setFont(&FONT_8pt8b);
-    if (minutesUntilRain > 0) {
-      // Show when rain is expected with probability in parentheses
-      String timeStr;
-      if (minutesUntilRain < 60) {
-        timeStr = String(minutesUntilRain) + "min";
-      } else {
-        timeStr = String(minutesUntilRain / 60) + "h";
-      }
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain in " + timeStr + " (" + String(popPercent) + "%)", CENTER);
-    } else {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Compact (" + String(popPercent) + "%)", CENTER);
-    }
-  }
-  // State 3: Umbrella now (POP >= 70%)
-  // Shows: Open umbrella icon + "Take" or "Rain in Ymin"
-  else {
+  // State 3: Take umbrella (POP >= 70% OR wind >= 18 km/h)
+  // Shows: Open umbrella icon + "Rain in/at..." 
+  else if (maxPop >= 0.70f || windKmh >= WIND_THRESHOLD_KMH) {
+    Serial.println("[DEBUG] Drawing STATE 3: Take umbrella");
     // Draw open umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
     display.setFont(&FONT_8pt8b);
     if (minutesUntilRain > 0) {
-      // Show when rain is expected with probability in parentheses
-      String timeStr;
-      if (minutesUntilRain < 60) {
-        timeStr = String(minutesUntilRain) + "min";
-      } else {
-        timeStr = String(minutesUntilRain / 60) + "h";
-      }
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain in " + timeStr + " (" + String(popPercent) + "%)", CENTER);
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + rainTimeStr + " (" + String(popPercent) + "%)", CENTER);
     } else {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Take (" + String(popPercent) + "%)", CENTER);
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain now (" + String(popPercent) + "%)", CENTER);
     }
   }
+  // State 2: Compact (POP 30-69% AND wind < 18 km/h)
+  // Shows: Closed umbrella icon + "Rain in/at..."
+  else {
+    Serial.println("[DEBUG] Drawing STATE 2: Compact");
+    // Draw closed umbrella icon (U+1F302 🌂 style)
+    display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_closed_umbrella_128x128, 128, 128, GxEPD_BLACK);
+    
+    display.setFont(&FONT_8pt8b);
+    if (minutesUntilRain > 0) {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + rainTimeStr + " (" + String(popPercent) + "%)", CENTER);
+    } else {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain soon (" + String(popPercent) + "%)", CENTER);
+    }
+  }
+  Serial.println(">>> drawUmbrellaWidget END <<<");
 }
 
 /* This function is responsible for drawing the current conditions and
@@ -1084,7 +1118,7 @@ void drawCurrentConditions(const owm_current_t &current,
 
     // 2. Umbrella Widget (Bottom) - closer to cloud
     if (hourly != nullptr) {
-        drawUmbrellaWidget(rightX, 75, hourly, 6, current.dt);   // pass current time to calculate minutes
+        drawUmbrellaWidget(rightX, 75, hourly, 24, current.dt);   // analyze 24 hours to find future rain
     }
 
     // ==================== LEFT PANEL: All other current data (unchanged) ====================
@@ -1394,35 +1428,48 @@ int kelvin_to_plot_y(float kelvin, int tempBoundMin, float yPxPerUnit,
  * number of hours(up to 48).
  */
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
-                      tm timeInfo)
+                      tm timeInfo, int64_t current_dt)
 {
   const int xPos0 = 350;
   int xPos1 = DISP_WIDTH;
   const int yPos0 = 216;
   const int yPos1 = DISP_HEIGHT - 46;
+  
+  // Find starting index - begin at current hour
+  int startIndex = 0;
+  for (int i = 0; i < HOURLY_GRAPH_MAX; i++) {
+    if (hourly[i].dt >= current_dt) {
+      startIndex = i;
+      break;
+    }
+  }
+  
+  // Limit to 24 hours from current time
+  int endIndex = min(startIndex + 24, HOURLY_GRAPH_MAX);
+  int numHours = endIndex - startIndex;
 
-  // calculate y max/min and intervals
+  // calculate y max/min and intervals using only future hours
   int yMajorTicks = 5;
 #ifdef UNITS_TEMP_KELVIN
-  float tempMin = hourly[0].temp;
+  float tempMin = hourly[startIndex].temp;
 #endif
 #ifdef UNITS_TEMP_CELSIUS
-  float tempMin = kelvin_to_celsius(hourly[0].temp);
+  float tempMin = kelvin_to_celsius(hourly[startIndex].temp);
 #endif
 #ifdef UNITS_TEMP_FAHRENHEIT
-  float tempMin = kelvin_to_fahrenheit(hourly[0].temp);
+  float tempMin = kelvin_to_fahrenheit(hourly[startIndex].temp);
 #endif
   float tempMax = tempMin;
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
-  float precipMax = hourly[0].pop;
+  float precipMax = hourly[startIndex].pop;
 #else
-  float precipMax = hourly[0].rain_1h + hourly[0].snow_1h;
+  float precipMax = hourly[startIndex].rain_1h + hourly[startIndex].snow_1h;
 #endif
 #endif
   int yTempMajorTicks = 5;
   float newTemp = 0;
-  for (int i = 1; i < HOURLY_GRAPH_MAX; ++i)
+  for (int i = startIndex + 1; i < endIndex; ++i)
   {
 #ifdef UNITS_TEMP_KELVIN
     newTemp = hourly[i].temp;
@@ -1594,10 +1641,9 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     }
   }
 
-  int xMaxTicks = 8;
-  int hourInterval = static_cast<int>(ceil(HOURLY_GRAPH_MAX
-                                           / static_cast<float>(xMaxTicks)));
-  float xInterval = (xPos1 - xPos0 - 1) / static_cast<float>(HOURLY_GRAPH_MAX);
+  // int xMaxTicks = 12;  // Show 12 ticks (every 2 hours for 24h) - not used directly
+  int hourInterval = 2;  // Every 2 hours
+  float xInterval = (xPos1 - xPos0 - 1) / static_cast<float>(numHours);
   display.setFont(&FONT_8pt8b);
 
   // precalculate all x and y coordinates for temperature values
@@ -1605,11 +1651,12 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
                      / static_cast<float>(tempBoundMax - tempBoundMin);
   std::vector<int> x_t;
   std::vector<int> y_t;
-  x_t.reserve(HOURLY_GRAPH_MAX);
-  y_t.reserve(HOURLY_GRAPH_MAX);
-    for (int i = 0; i < HOURLY_GRAPH_MAX; ++i)
+  x_t.reserve(numHours);
+  y_t.reserve(numHours);
+  for (int i = 0; i < numHours; ++i)
   {
-    y_t[i] = kelvin_to_plot_y(hourly[i].temp, tempBoundMin, yPxPerUnit, yPos1);
+    int hourlyIdx = startIndex + i;
+    y_t[i] = kelvin_to_plot_y(hourly[hourlyIdx].temp, tempBoundMin, yPxPerUnit, yPos1);
     x_t[i] = static_cast<int>(std::round(xPos0 + (i * xInterval)
                                           + (0.5 * xInterval) ));
   }
@@ -1618,8 +1665,9 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   int day_idx = 0;
 #endif
   display.setFont(&FONT_8pt8b);
-  for (int i = 0; i < HOURLY_GRAPH_MAX; ++i)
+  for (int i = 0; i < numHours; ++i)
   {
+    int hourlyIdx = startIndex + i;
     int xTick = static_cast<int>(xPos0 + (i * xInterval));
     int x0_t, x1_t, y0_t, y1_t;
 
@@ -1637,7 +1685,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
       // draw hourly bitmap
 #if DISPLAY_HOURLY_ICONS
-      if (daily[day_idx].dt + 86400 <= hourly[i].dt) {
+      if (daily[day_idx].dt + 86400 <= hourly[hourlyIdx].dt) {
         ++day_idx;
       }
       if ((i % hourInterval) == 0) // skip first and last tick
@@ -1650,7 +1698,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
         // y = mx + b
         int span = static_cast<int>(std::round(16 / xInterval));
         int l_idx = std::max(i - 1 - span, 0);
-        int r_idx = std::min(i + span, HOURLY_GRAPH_MAX - 1);
+        int r_idx = std::min(i + span, numHours - 1);
         // left intersecting slope
         float m_l = (y_t[l_idx + 1] - y_t[l_idx]) / xInterval;
         int x_l = xTick - 16 - x_t[l_idx];
@@ -1666,7 +1714,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
         {
           y_b = std::min(y_t[idx], y_b);
         }
-        const uint8_t *bitmap = getHourlyForecastBitmap32(hourly[i],
+        const uint8_t *bitmap = getHourlyForecastBitmap32(hourly[hourlyIdx],
                                                           daily[day_idx]);
         display.drawInvertedBitmap(xTick - 16, y_b - 32,
                                    bitmap, 32, 32, GxEPD_BLACK);
@@ -1712,22 +1760,155 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     // Skip if no valid area
     if (draw_y0 >= draw_y1 || draw_x0 >= draw_x1) continue;
     
-    // Draw solid bar (safer than dotted pattern)
+    // Draw dotted pattern bar
+    // Option 1: Vertical lines every 3 pixels (tested, works but less aesthetic)
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     // if (x % 3 == 0) { // Draw a vertical line every 3 pixels
+    //     // if ((x + y) % 4 == 0) {
+    //     if (x % 2 == 0) {
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Option 2: 2x2 block checkerboard pattern (NOT WORKING - white screen)
+    // Creates larger checkerboard blocks but causes white screen
+    // Uncomment to test:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (((x / 2) + (y / 2)) % 2 == 0) {
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Option 3: Diagonal cross pattern (NOT WORKING - white screen)
+    // Creates diagonal lines but causes white screen
+    // Note: Any pattern using 'y' in the condition fails
+    // Uncomment to test:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if ((x + y) % 4 == 0 || (x - y) % 4 == 0) {
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Option 4: Staggered rows pattern (NOT WORKING - white screen)
+    // Alternating offset dots in even/odd rows - fails due to y dependency
+    // Uncomment to test:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (y % 2 == 0) {
+    //       if (x % 4 == 0) display.drawPixel(x, y, GxEPD_BLACK);
+    //     } else {
+    //       if ((x + 2) % 4 == 0) display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Option 5: Vertical stripe blocks (to test)
+    // 2 pixels ON, 2 pixels OFF - creates vertical stripes
+    // Uncomment to test:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 4 < 2) { // 2 pixels on, 2 pixels off
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Option 6: Two-pass checkerboard (to test)
+    // Draw even rows first, then odd rows offset
+    // This creates a checkerboard pattern in two separate passes
+    // Uncomment to test:
+    // // Etapa 1: Even rows (0, 2, 4...) with even columns
+    // for (int y = draw_y0; y < draw_y1; y += 2) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 2 == 0) display.drawPixel(x, y, GxEPD_BLACK);
+    //   }
+    // }
+    // // Etapa 2: Odd rows (1, 3, 5...) with odd columns
+    // for (int y = draw_y0 + 1; y < draw_y1; y += 2) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 2 != 0) display.drawPixel(x, y, GxEPD_BLACK);
+    //   }
+    // }
+    
+    // Option 7: Dotted vertical lines (WORKS!)
+    // Vertical lines with controlled gaps
+    // Uncomment to switch between variants:
+    
+    // Original - 70% fill, gap of 3 lines:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 3 == 0 && y % 10 < 7) { 
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Alternative C - 75% fill, denser vertical lines (x%2): BEST SO FAR
+    // Uncomment to use:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 2 == 0 && y % 4 < 3) { 
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Option 8: Diagonal dashed lines (BEST - aesthetic diagonal pattern)
+    // 5px vertical dashes with lateral offset based on x position
+    // Creates a nice diagonal/staggered pattern
     for (int y = draw_y0; y < draw_y1; y++) {
       for (int x = draw_x0; x < draw_x1; x++) {
-        display.drawPixel(x, y, GxEPD_BLACK);
+        if (x % 3 == 0) {
+          if ((y + (x * 2)) % 8 < 5) { // 5px dashes, staggered
+            display.drawPixel(x, y, GxEPD_BLACK);
+          }
+        }
       }
     }
+    
+    // Alternative A - 75% fill, gap of 1 line (denser):
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 3 == 0 && y % 4 < 3) { 
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Alternative B - 80% fill, gap of 1 line:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 3 == 0 && y % 5 < 4) { 
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
+    
+    // Alternative C - 75% fill with denser vertical lines:
+    // for (int y = draw_y0; y < draw_y1; y++) {
+    //   for (int x = draw_x0; x < draw_x1; x++) {
+    //     if (x % 2 == 0 && y % 4 < 3) { 
+    //       display.drawPixel(x, y, GxEPD_BLACK);
+    //     }
+    //   }
+    // }
 #endif
 
+    // Draw x tick and label every 2 hours
     if ((i % hourInterval) == 0)
     {
       // draw x tick marks
       display.drawLine(xTick    , yPos1 + 1, xTick    , yPos1 + 4, GxEPD_BLACK);
       display.drawLine(xTick + 1, yPos1 + 1, xTick + 1, yPos1 + 4, GxEPD_BLACK);
-      // draw x axis labels
-      char timeBuffer[12] = {}; // big enough to accommodate "hh:mm:ss am"
-      time_t ts = hourly[i].dt;
+      // draw x axis labels - use timestamp from hourly data
+      char timeBuffer[12] = {};
+      time_t ts = (time_t)hourly[hourlyIdx].dt;
       tm *timeInfo = localtime(&ts);
       _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
       drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
@@ -1735,17 +1916,17 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 
   }
 
-  // draw the last tick mark
-  if ((HOURLY_GRAPH_MAX % hourInterval) == 0)
+  // draw the last tick mark (end of graph)
+  if ((numHours % hourInterval) == 0)
   {
     int xTick = static_cast<int>(
-                std::round(xPos0 + (HOURLY_GRAPH_MAX * xInterval)));
+                std::round(xPos0 + (numHours * xInterval)));
     // draw x tick marks
     display.drawLine(xTick    , yPos1 + 1, xTick    , yPos1 + 4, GxEPD_BLACK);
     display.drawLine(xTick + 1, yPos1 + 1, xTick + 1, yPos1 + 4, GxEPD_BLACK);
-    // draw x axis labels
-    char timeBuffer[12] = {}; // big enough to accommodate "hh:mm:ss am"
-    time_t ts = hourly[HOURLY_GRAPH_MAX - 1].dt + 3600;
+    // draw x axis labels - last hour shown
+    char timeBuffer[12] = {};
+    time_t ts = (time_t)hourly[endIndex - 1].dt;
     tm *timeInfo = localtime(&ts);
     _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
     drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);

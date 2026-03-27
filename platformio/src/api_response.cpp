@@ -600,6 +600,36 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   Serial.println("[DEBUG] JSON length: " + String(jsonString.length()));
   Serial.println("[DEBUG] Free heap: " + String(ESP.getFreeHeap()));
   
+#if SAVE_API_RESPONSE_TO_HEADER
+  // Print the JSON in a format that can be copied to saved_api_response.h
+  Serial.println("\n\n========== BEGIN API RESPONSE - COPY TO saved_api_response.h ==========\n");
+  Serial.println("#ifndef SAVED_OPENMETEO_FORECAST_JSON");
+  Serial.println("#define SAVED_OPENMETEO_FORECAST_JSON \\");
+  
+  // Print JSON in chunks to avoid Serial buffer issues
+  const int CHUNK_SIZE = 100;
+  for (int i = 0; i < (int)jsonString.length(); i += CHUNK_SIZE) {
+    String chunk = jsonString.substring(i, min(i + CHUNK_SIZE, (int)jsonString.length()));
+    // Escape quotes and backslashes for C string
+    chunk.replace("\\", "\\\\");
+    chunk.replace("\"", "\\\"");
+    Serial.print("\"");
+    Serial.print(chunk);
+    if (i + CHUNK_SIZE >= (int)jsonString.length()) {
+      Serial.println("\"");
+    } else {
+      Serial.println("\\");
+    }
+  }
+  Serial.println("#endif");
+  Serial.println("\n========== END API RESPONSE ==========\n");
+  
+  // Delay to allow user to copy from serial monitor
+  Serial.println("[SAVED] API response printed above. Copy between markers to saved_api_response.h");
+  Serial.println("[SAVED] Waiting 30 seconds for you to copy...");
+  delay(30000);
+#endif
+  
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonString);
   
@@ -673,6 +703,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonArray hourly_gust = hourly["wind_gusts_10m"];
   JsonArray hourly_deg = hourly["wind_direction_10m"];
   JsonArray hourly_pop = hourly["precipitation_probability"];
+  JsonArray hourly_precip = hourly["precipitation"];
   JsonArray hourly_code = hourly["weather_code"];
   JsonArray hourly_is_day = hourly["is_day"];
   
@@ -697,6 +728,10 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     }
     r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
     
+    // Read actual precipitation (mm)
+    r.hourly[i].rain_1h = hourly_precip[i].as<float>();
+    r.hourly[i].snow_1h = 0.0f; // Open-Meteo doesn't separate snow in basic endpoint
+    
     bool hourIsDay = hourly_is_day[i].as<int>() == 1;
     wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
     
@@ -704,8 +739,6 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.hourly[i].dew_point = r.hourly[i].temp - 2.0f; // Estimate (already in Kelvin)
     r.hourly[i].uvi = 0.0f;
     r.hourly[i].visibility = 10000;
-    r.hourly[i].rain_1h = 0.0f;
-    r.hourly[i].snow_1h = 0.0f;
   }
   
   // Parse daily forecast
@@ -717,6 +750,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonArray daily_sunset = daily["sunset"];
   JsonArray daily_code = daily["weather_code"];
   JsonArray daily_pop = daily["precipitation_probability_max"];
+  JsonArray daily_precip = daily["precipitation_sum"];
   
   int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
   for (int i = 0; i < dailyCount; i++) {
@@ -727,6 +761,10 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.daily[i].sunrise = parseIso8601(daily_sunrise[i]);
     r.daily[i].sunset = parseIso8601(daily_sunset[i]);
     r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
+    
+    // Read daily precipitation (mm)
+    r.daily[i].rain = daily_precip[i].as<float>();
+    r.daily[i].snow = 0.0f;
     
     // Daily always uses day icons
     wmoToOwmWeather(daily_code[i].as<int>(), true, r.daily[i].weather);
@@ -752,8 +790,6 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.daily[i].wind_speed = 5.0f;
     r.daily[i].wind_gust = 10.0f;
     r.daily[i].wind_deg = 0;
-    r.daily[i].rain = 0.0f;
-    r.daily[i].snow = 0.0f;
   }
   
   // Clear alerts (not provided by Open-Meteo)
@@ -886,3 +922,253 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
   
   return error;
 } // end deserializeOpenMeteoAirQuality
+
+/*
+ * Load API response from saved header file (for offline testing)
+ */
+#if LOAD_API_FROM_HEADER
+  #include "saved_api_response.h"
+#endif
+
+/**
+ * Load Open-Meteo forecast from saved header file.
+ * Only available when LOAD_API_FROM_HEADER is enabled.
+ */
+DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
+{
+#if !LOAD_API_FROM_HEADER
+  return DeserializationError::EmptyInput;
+#else
+  Serial.println("[Header Loader] Loading forecast from saved_api_response.h");
+  
+  const char* jsonData = SAVED_OPENMETEO_FORECAST_JSON;
+  if (strlen(jsonData) == 0) {
+    Serial.println("[Header Loader] ERROR: SAVED_OPENMETEO_FORECAST_JSON is empty!");
+    Serial.println("[Header Loader] Please capture API response first with SAVE_API_RESPONSE_TO_HEADER");
+    return DeserializationError::EmptyInput;
+  }
+  
+  Serial.println("[Header Loader] JSON size: " + String(strlen(jsonData)) + " bytes");
+  
+  // Create a temporary stream from the string
+  String jsonString = String(jsonData);
+  
+  // Reuse the existing parsing logic by converting String to a "stream-like" approach
+  // We'll parse directly using the String
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonString);
+  
+  if (error) {
+    Serial.println("[Header Loader] JSON parse error: " + String(error.c_str()));
+    return error;
+  }
+  
+  // Now populate the response structure using same logic as deserializeOpenMeteo
+  // Location data
+  r.lat = doc["latitude"].as<float>();
+  r.lon = doc["longitude"].as<float>();
+  r.timezone = doc["timezone"].as<const char *>();
+  r.timezone_offset = doc["utc_offset_seconds"].as<int>();
+  
+  // Parse current weather
+  JsonObject current = doc["current"];
+  const char* timeStr = current["time"];
+  if (timeStr != nullptr) {
+    r.current.dt = parseIso8601(timeStr);
+  } else {
+    r.current.dt = 0;
+  }
+  
+  // Open-Meteo returns temperatures in Celsius, convert to Kelvin
+  r.current.temp = current["temperature_2m"].as<float>() + 273.15f;
+  r.current.feels_like = current["apparent_temperature"].as<float>() + 273.15f;
+  r.current.pressure = current["surface_pressure"].as<int>();
+  r.current.humidity = current["relative_humidity_2m"].as<int>();
+  r.current.dew_point = current["dew_point_2m"].as<float>() + 273.15f;
+  r.current.clouds = current["cloud_cover"].as<int>();
+  r.current.uvi = current["uv_index"].as<float>();
+  r.current.visibility = current["visibility"].as<int>();
+  r.current.wind_speed = current["wind_speed_10m"].as<float>();
+  r.current.wind_gust = current["wind_gusts_10m"].as<float>();
+  r.current.wind_deg = current["wind_direction_10m"].as<int>();
+  r.current.rain_1h = current["rain"].as<float>();
+  r.current.snow_1h = current["snowfall"].as<float>() * 10.0f;
+  
+  bool isDay = current["is_day"].as<int>() == 1;
+  int wmoCode = current["weather_code"].as<int>();
+  wmoToOwmWeather(wmoCode, isDay, r.current.weather);
+  
+  // Parse hourly forecast
+  JsonObject hourly = doc["hourly"];
+  JsonArray hourly_time = hourly["time"];
+  JsonArray hourly_temp = hourly["temperature_2m"];
+  JsonArray hourly_feels = hourly["apparent_temperature"];
+  JsonArray hourly_humidity = hourly["relative_humidity_2m"];
+  JsonArray hourly_pressure = hourly["surface_pressure"];
+  JsonArray hourly_clouds = hourly["cloud_cover"];
+  JsonArray hourly_wind = hourly["wind_speed_10m"];
+  JsonArray hourly_gust = hourly["wind_gusts_10m"];
+  JsonArray hourly_deg = hourly["wind_direction_10m"];
+  JsonArray hourly_pop = hourly["precipitation_probability"];
+  JsonArray hourly_precip = hourly["precipitation"];
+  JsonArray hourly_code = hourly["weather_code"];
+  JsonArray hourly_is_day = hourly["is_day"];
+  
+  int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
+  for (int i = 0; i < hourlyCount; i++) {
+    r.hourly[i].dt = parseIso8601(hourly_time[i]);
+    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
+    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
+    r.hourly[i].humidity = hourly_humidity[i].as<int>();
+    r.hourly[i].pressure = hourly_pressure[i].as<int>();
+    r.hourly[i].clouds = hourly_clouds[i].as<int>();
+    r.hourly[i].wind_speed = hourly_wind[i].as<float>();
+    r.hourly[i].wind_gust = hourly_gust[i].as<float>();
+    r.hourly[i].wind_deg = hourly_deg[i].as<int>();
+    
+    float pop_val = hourly_pop[i].as<float>();
+    r.hourly[i].pop = pop_val / 100.0f;
+    
+    // Read actual precipitation (mm)
+    r.hourly[i].rain_1h = hourly_precip[i].as<float>();
+    r.hourly[i].snow_1h = 0.0f;
+    
+    bool hourIsDay = hourly_is_day[i].as<int>() == 1;
+    wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
+    
+    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f;
+    r.hourly[i].uvi = 0.0f;
+    r.hourly[i].visibility = 10000;
+  }
+  
+  // Parse daily forecast
+  JsonObject daily = doc["daily"];
+  JsonArray daily_time = daily["time"];
+  JsonArray daily_max = daily["temperature_2m_max"];
+  JsonArray daily_min = daily["temperature_2m_min"];
+  JsonArray daily_sunrise = daily["sunrise"];
+  JsonArray daily_sunset = daily["sunset"];
+  JsonArray daily_code = daily["weather_code"];
+  JsonArray daily_pop = daily["precipitation_probability_max"];
+  JsonArray daily_precip = daily["precipitation_sum"];
+  
+  int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
+  for (int i = 0; i < dailyCount; i++) {
+    r.daily[i].dt = parseIso8601(daily_time[i]);
+    r.daily[i].temp.max = daily_max[i].as<float>() + 273.15f;
+    r.daily[i].temp.min = daily_min[i].as<float>() + 273.15f;
+    r.daily[i].sunrise = parseIso8601(daily_sunrise[i]);
+    r.daily[i].sunset = parseIso8601(daily_sunset[i]);
+    r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
+    
+    // Read daily precipitation (mm)
+    r.daily[i].rain = daily_precip[i].as<float>();
+    r.daily[i].snow = 0.0f; // Open-Meteo separates snowfall if needed
+    
+    wmoToOwmWeather(daily_code[i].as<int>(), true, r.daily[i].weather);
+    
+    r.daily[i].moonrise = 0;
+    r.daily[i].moonset = 0;
+    r.daily[i].moon_phase = 0.0f;
+    r.daily[i].temp.morn = r.daily[i].temp.min;
+    r.daily[i].temp.day = (r.daily[i].temp.min + r.daily[i].temp.max) / 2.0f;
+    r.daily[i].temp.eve = r.daily[i].temp.max;
+    r.daily[i].temp.night = r.daily[i].temp.min;
+    r.daily[i].feels_like.morn = r.daily[i].temp.morn;
+    r.daily[i].feels_like.day = r.daily[i].temp.day;
+    r.daily[i].feels_like.eve = r.daily[i].temp.eve;
+    r.daily[i].feels_like.night = r.daily[i].temp.night;
+    r.daily[i].pressure = 1013;
+    r.daily[i].humidity = 60;
+    r.daily[i].dew_point = r.daily[i].temp.min - 2.0f;
+    r.daily[i].clouds = 50;
+    r.daily[i].uvi = 0.0f;
+    r.daily[i].visibility = 10000;
+    r.daily[i].wind_speed = 5.0f;
+    r.daily[i].wind_gust = 10.0f;
+    r.daily[i].wind_deg = 0;
+  }
+  
+  r.alerts.clear();
+  
+  Serial.println("[Header Loader] Successfully loaded data from header");
+  Serial.println("[Header Loader] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
+  
+  return error;
+#endif // LOAD_API_FROM_HEADER
+}
+
+/**
+ * Load Open-Meteo air quality from saved header file.
+ * Only available when LOAD_API_FROM_HEADER is enabled.
+ */
+DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t &r)
+{
+#if !LOAD_API_FROM_HEADER
+  return DeserializationError::EmptyInput;
+#else
+  Serial.println("[Header Loader] Loading air quality from saved_api_response.h");
+  
+  const char* jsonData = SAVED_OPENMETEO_AIRQUALITY_JSON;
+  if (strlen(jsonData) == 0) {
+    Serial.println("[Header Loader] WARNING: SAVED_OPENMETEO_AIRQUALITY_JSON is empty, using defaults");
+    // Fill with default values
+    r.coord.lat = 0;
+    r.coord.lon = 0;
+    for (int i = 0; i < OWM_NUM_AIR_POLLUTION; i++) {
+      r.main_aqi[i] = 1;
+      r.components.pm2_5[i] = 10.0f;
+      r.components.pm10[i] = 20.0f;
+      r.components.o3[i] = 30.0f;
+      r.components.no2[i] = 15.0f;
+      r.components.so2[i] = 5.0f;
+      r.components.co[i] = 400.0f;
+      r.components.no[i] = 0.0f;
+      r.components.nh3[i] = 0.0f;
+      r.dt[i] = 0;
+    }
+    return DeserializationError::Ok;
+  }
+  
+  String jsonString = String(jsonData);
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonString);
+  
+  if (error) {
+    Serial.println("[Header Loader] JSON parse error: " + String(error.c_str()));
+    return error;
+  }
+  
+  // Location
+  r.coord.lat = doc["latitude"].as<float>();
+  r.coord.lon = doc["longitude"].as<float>();
+  
+  // Parse hourly air quality data
+  JsonObject hourly = doc["hourly"];
+  JsonArray hourly_time = hourly["time"];
+  JsonArray hourly_pm10 = hourly["pm10"];
+  JsonArray hourly_pm25 = hourly["pm2_5"];
+  JsonArray hourly_co = hourly["carbon_monoxide"];
+  JsonArray hourly_no2 = hourly["nitrogen_dioxide"];
+  JsonArray hourly_so2 = hourly["sulphur_dioxide"];
+  JsonArray hourly_o3 = hourly["ozone"];
+  JsonArray hourly_aqi = hourly["european_aqi"];
+  
+  int count = min((int)hourly_time.size(), OWM_NUM_AIR_POLLUTION);
+  for (int i = 0; i < count; i++) {
+    r.dt[i] = parseIso8601(hourly_time[i]);
+    r.main_aqi[i] = hourly_aqi[i].as<int>();
+    r.components.pm10[i] = hourly_pm10[i].as<float>();
+    r.components.pm2_5[i] = hourly_pm25[i].as<float>();
+    r.components.co[i] = hourly_co[i].as<float>();
+    r.components.no2[i] = hourly_no2[i].as<float>();
+    r.components.so2[i] = hourly_so2[i].as<float>();
+    r.components.o3[i] = hourly_o3[i].as<float>();
+    r.components.no[i] = 0.0f;
+    r.components.nh3[i] = 0.0f;
+  }
+  
+  Serial.println("[Header Loader] Successfully loaded air quality from header");
+  return error;
+#endif // LOAD_API_FROM_HEADER
+}

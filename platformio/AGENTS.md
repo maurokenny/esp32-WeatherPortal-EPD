@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is an ESP32-based weather station that displays weather information on an e-paper (e-ink) display. The device fetches weather data from the OpenWeatherMap API and displays current conditions, hourly outlook graphs, daily forecasts, air quality index, and indoor temperature/humidity readings.
+This is an ESP32-based weather station that displays weather information on an e-paper (e-ink) display. The device fetches weather data from the Open-Meteo API (free, no API key required) and displays current conditions, hourly outlook graphs, daily forecasts, air quality index, and indoor temperature/humidity readings.
 
 Key features:
 - E-paper display (7.5" 800x480px or 640x384px) with low power consumption
@@ -11,6 +11,7 @@ Key features:
 - Battery monitoring with multiple protection levels
 - Multiple locale and unit system support
 - HTTPS support with certificate verification
+- No API key required (uses Open-Meteo free weather API)
 
 ## Technology Stack
 
@@ -39,7 +40,7 @@ platformio/
 ├── src/                    # Source code
 │   ├── main.cpp           # Application entry point and main logic
 │   ├── config.cpp         # Runtime configuration constants
-│   ├── api_response.cpp   # OpenWeatherMap API response parsing
+│   ├── api_response.cpp   # API response parsing (Open-Meteo)
 │   ├── client_utils.cpp   # WiFi and HTTP client utilities
 │   ├── renderer.cpp       # Display rendering functions
 │   ├── display_utils.cpp  # Display helper functions
@@ -57,7 +58,8 @@ platformio/
 │   ├── conversions.h     # Unit conversion declarations
 │   ├── display_utils.h   # Display utility declarations
 │   ├── cert.h            # SSL certificates for HTTPS
-│   ├── wifi_credentials.h # WiFi credentials loader
+│   ├── wifi_credentials.h # WiFi credentials (auto-generated from .env)
+│   ├── saved_api_response.h # Saved API response for offline testing
 │   ├── test_gxepd2.h     # Display test declarations
 │   └── locales/          # Locale definition files (*.inc)
 │       ├── locale_de_DE.inc
@@ -74,6 +76,10 @@ platformio/
 │   └── esp32-weather-epd-assets/
 │       ├── fonts/        # Font files (multiple typefaces, multiple sizes)
 │       └── icons/        # Weather and UI icons (multiple resolutions)
+├── docs/                 # Documentation
+│   └── EPAPER_HORIZONTAL_LINES_BUG.md  # Known e-paper display issue
+├── .env                  # WiFi credentials (not versioned)
+├── load_env.py           # Script to generate wifi_credentials.h from .env
 └── .vscode/              # VS Code settings
 ```
 
@@ -89,7 +95,7 @@ platformio/
 2. **config.h / config.cpp**: Configuration management
    - Hardware pin definitions
    - Feature flags (display type, sensor type, units, etc.)
-   - API keys and credentials
+   - API endpoints and credentials
    - Battery voltage thresholds
    - Compile-time validation of configuration
 
@@ -100,14 +106,15 @@ platformio/
    - Layout management for different display sizes
 
 4. **api_response.cpp / api_response.h**: Data structures and parsing
-   - OpenWeatherMap OneCall API response structures
-   - Air Pollution API response structures
+   - Open-Meteo API response structures
+   - WMO weather code to OpenWeatherMap-compatible conversion
    - JSON deserialization using ArduinoJson
+   - Support for loading saved API responses from header file
 
 5. **client_utils.cpp / client_utils.h**: Network utilities
    - WiFi connection management
    - NTP time synchronization
-   - HTTP/HTTPS API requests
+   - HTTP/HTTPS API requests to Open-Meteo
 
 ### Display Types Supported
 
@@ -165,21 +172,22 @@ pio run --target clean
    - Units (temperature, wind speed, pressure, distance)
    - HTTP mode (HTTP, HTTPS no verify, HTTPS with cert verify)
    - Feature toggles (alerts, battery monitoring, etc.)
+   - Mockup data settings for testing
 
 2. **src/config.cpp**: Runtime configuration
    - Pin definitions (modify for your wiring)
-   - WiFi credentials
-   - OpenWeatherMap API key
    - Location coordinates (latitude/longitude)
+   - City name for display
    - Timezone string
    - Sleep duration and bedtime settings
    - Battery voltage thresholds
 
-3. **.env**: WiFi credentials (alternative to config.cpp)
+3. **.env**: WiFi credentials (alternative to hardcoding)
    ```
    WIFI_SSID=YourNetworkName
    WIFI_PASSWORD=YourPassword
    ```
+   This file is processed by `load_env.py` to generate `include/wifi_credentials.h`
 
 ### Configuration Validation
 
@@ -247,6 +255,22 @@ Set `USE_MOCKUP_DATA 1` in `config.h` to test without WiFi/API:
 - Uses synthetic weather data
 - Bypasses all network operations
 - Useful for testing display layout and rendering
+- Multiple weather scenarios available (sunny, rainy, snowy, cloudy, thunder)
+- Rain widget states for testing umbrella display
+
+### Loading Saved API Responses
+
+Set `LOAD_API_FROM_HEADER 1` in `config.h` (requires `USE_MOCKUP_DATA 1`):
+- Loads real captured API data from `include/saved_api_response.h`
+- Allows testing with actual weather data without API calls
+- Useful for offline development and debugging specific weather conditions
+
+### Saving API Responses
+
+Set `SAVE_API_RESPONSE_TO_HEADER 1` in `config.h`:
+- Prints API response to Serial in header file format
+- Copy output between markers to `include/saved_api_response.h`
+- Useful for capturing real weather data for later testing
 
 ### Debug Levels
 
@@ -265,8 +289,9 @@ pio device monitor --baud 115200
 ### Testing Display Without Weather API
 
 1. Enable `USE_MOCKUP_DATA 1` in `config.h`
-2. Build and upload
-3. The display will show synthetic weather data
+2. Select desired weather scenario with `MOCKUP_CURRENT_WEATHER`
+3. Build and upload
+4. The display will show synthetic weather data
 
 ## Security Considerations
 
@@ -277,13 +302,13 @@ The project supports three HTTP modes:
 2. `USE_HTTPS_NO_CERT_VERIF`: Encryption without authentication (vulnerable to MITM)
 3. `USE_HTTPS_WITH_CERT_VERIF`: Full encryption + authentication (recommended)
 
-**Important**: When using `USE_HTTPS_WITH_CERT_VERIF`, the SSL certificate is embedded in `include/cert.h`. Certificates expire and must be updated periodically. The current certificate for `api.openweathermap.org` expires on 2026-04-10.
+**Important**: When using `USE_HTTPS_WITH_CERT_VERIF`, the SSL certificate is embedded in `include/cert.h`. Certificates expire and must be updated periodically.
 
 ### Credential Storage
 
-- WiFi credentials are stored in `src/config.cpp` (in plaintext)
-- OpenWeatherMap API key is stored in `src/config.cpp` (in plaintext)
-- For version control, use `.env` file for credentials (already in `.gitignore`)
+- WiFi credentials are loaded from `.env` file by `load_env.py`
+- The generated `include/wifi_credentials.h` should NOT be committed to version control
+- Both `.env` and `wifi_credentials.h` are in `.gitignore`
 
 ### Battery Safety
 
@@ -317,16 +342,17 @@ The project supports three HTTP modes:
 
 ### Flashing Steps
 
-1. Configure `src/config.cpp` with your WiFi and API credentials
-2. Configure `include/config.h` for your hardware (display type, sensor)
-3. Build and upload: `pio run --target upload`
-4. Monitor serial output: `pio device monitor`
+1. Create `.env` file with your WiFi credentials
+2. Configure `src/config.cpp` with your location coordinates
+3. Configure `include/config.h` for your hardware (display type, sensor)
+4. Build and upload: `pio run --target upload`
+5. Monitor serial output: `pio device monitor`
 
 ### First Run
 
 1. The device will connect to WiFi
 2. Synchronize time via NTP
-3. Fetch weather data from OpenWeatherMap
+3. Fetch weather data from Open-Meteo
 4. Render display
 5. Enter deep sleep
 
@@ -335,6 +361,16 @@ The project supports three HTTP modes:
 - Set `USING_BATTERY 1` in `config.h` to enable low-voltage protection
 - Set `BATTERY_MONITORING 1` to enable voltage monitoring
 - Adjust voltage thresholds in `config.cpp` for your battery
+
+## Known Issues
+
+### E-Paper Horizontal Lines Bug
+
+See `docs/EPAPER_HORIZONTAL_LINES_BUG.md` for details.
+
+When drawing precipitation bars using a horizontal dotted pattern (`y += 2` row skipping), the e-paper display renders as a completely white screen. However, a vertical dotted pattern (`x += 2` column skipping) works correctly.
+
+**Workaround**: Use vertical dotted patterns or solid fills instead of horizontal row skipping.
 
 ## Common Issues
 
@@ -349,7 +385,7 @@ The project supports three HTTP modes:
 - Check BUSY pin connection
 
 ### WiFi Connection Fails
-- Verify credentials in `config.cpp` or `.env`
+- Verify credentials in `.env` file
 - Check WiFi signal strength
 - Verify `WIFI_TIMEOUT` is sufficient
 
@@ -361,7 +397,7 @@ The project supports three HTTP modes:
 ## Useful Resources
 
 - [PlatformIO Documentation](https://docs.platformio.org/)
-- [OpenWeatherMap OneCall API](https://openweathermap.org/api/one-call-api)
+- [Open-Meteo API](https://open-meteo.com/)
 - [ESP32 Deep Sleep](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/sleep_modes.html)
 - [GxEPD2 Library](https://github.com/ZinggJM/GxEPD2)
 - [POSIX Timezone Strings](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv)

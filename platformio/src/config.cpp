@@ -91,7 +91,7 @@ const String OWM_ONECALL_VERSION = "3.0";
 const String LAT = "50.6292";
 const String LON = "3.0573";
 // City name that will be shown in the top-right corner of the display.
-const String CITY_STRING = "Lille";
+const String CITY_STRING = "Lille - France";
 
 // TIME
 // For list of time zones see
