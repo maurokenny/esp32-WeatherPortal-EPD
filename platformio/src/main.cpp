@@ -61,13 +61,30 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   
   // Initialize only the fields we use to avoid stack overflow from String constructors
   // Don't use owm_onecall = {} as it calls 171+ String constructors!
-  memset(&owm_onecall.current, 0, sizeof(owm_current_t));
+  // Initialize primitive fields individually instead of memset
+  owm_onecall.current.dt = 0;
+  owm_onecall.current.sunrise = 0;
+  owm_onecall.current.sunset = 0;
+  owm_onecall.current.temp = 0;
+  owm_onecall.current.feels_like = 0;
+  owm_onecall.current.pressure = 0;
+  owm_onecall.current.humidity = 0;
+  owm_onecall.current.dew_point = 0;
+  owm_onecall.current.clouds = 0;
+  owm_onecall.current.uvi = 0;
+  owm_onecall.current.visibility = 0;
+  owm_onecall.current.wind_speed = 0;
+  owm_onecall.current.wind_gust = 0;
+  owm_onecall.current.wind_deg = 0;
+  owm_onecall.current.rain_1h = 0;
+  owm_onecall.current.snow_1h = 0;
+  owm_onecall.current.weather.id = 0;
   owm_onecall.current.weather.main = "";
   owm_onecall.current.weather.description = "";
   owm_onecall.current.weather.icon = "";
   
   // Set current time - initialize all fields to avoid undefined behavior
-  memset(&timeInfo, 0, sizeof(tm));
+  timeInfo = {};  // Value-initialization for tm struct
   timeInfo.tm_year = 2025 - 1900;  // Year since 1900
   timeInfo.tm_mon = 2;             // March (0-11)
   timeInfo.tm_mday = 25;           // Day of month
@@ -186,7 +203,23 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   // Configure rain data based on MOCKUP_RAIN_WIDGET_STATE
   for (int i = 0; i < 24; i++) {
     // Clear hourly entry first (avoid uninitialized values)
-    memset(&owm_onecall.hourly[i], 0, sizeof(owm_hourly_t));
+    // Initialize primitive fields individually instead of memset
+    owm_onecall.hourly[i].dt = 0;
+    owm_onecall.hourly[i].temp = 0;
+    owm_onecall.hourly[i].feels_like = 0;
+    owm_onecall.hourly[i].pressure = 0;
+    owm_onecall.hourly[i].humidity = 0;
+    owm_onecall.hourly[i].dew_point = 0;
+    owm_onecall.hourly[i].clouds = 0;
+    owm_onecall.hourly[i].uvi = 0;
+    owm_onecall.hourly[i].visibility = 0;
+    owm_onecall.hourly[i].wind_speed = 0;
+    owm_onecall.hourly[i].wind_gust = 0;
+    owm_onecall.hourly[i].wind_deg = 0;
+    owm_onecall.hourly[i].pop = 0;
+    owm_onecall.hourly[i].rain_1h = 0;
+    owm_onecall.hourly[i].snow_1h = 0;
+    owm_onecall.hourly[i].weather.id = 0;
     owm_onecall.hourly[i].weather.main = "";
     owm_onecall.hourly[i].weather.description = "";
     owm_onecall.hourly[i].weather.icon = "";
@@ -323,7 +356,36 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   // Daily forecast (5 days) - each day with different weather type
   for (int i = 0; i < 5; i++) {
     // Clear daily entry first
-    memset(&owm_onecall.daily[i], 0, sizeof(owm_daily_t));
+    // Initialize primitive fields individually instead of memset
+    owm_onecall.daily[i].dt = 0;
+    owm_onecall.daily[i].sunrise = 0;
+    owm_onecall.daily[i].sunset = 0;
+    owm_onecall.daily[i].moonrise = 0;
+    owm_onecall.daily[i].moonset = 0;
+    owm_onecall.daily[i].moon_phase = 0;
+    owm_onecall.daily[i].temp.morn = 0;
+    owm_onecall.daily[i].temp.day = 0;
+    owm_onecall.daily[i].temp.eve = 0;
+    owm_onecall.daily[i].temp.night = 0;
+    owm_onecall.daily[i].temp.min = 0;
+    owm_onecall.daily[i].temp.max = 0;
+    owm_onecall.daily[i].feels_like.morn = 0;
+    owm_onecall.daily[i].feels_like.day = 0;
+    owm_onecall.daily[i].feels_like.eve = 0;
+    owm_onecall.daily[i].feels_like.night = 0;
+    owm_onecall.daily[i].pressure = 0;
+    owm_onecall.daily[i].humidity = 0;
+    owm_onecall.daily[i].dew_point = 0;
+    owm_onecall.daily[i].clouds = 0;
+    owm_onecall.daily[i].uvi = 0;
+    owm_onecall.daily[i].visibility = 0;
+    owm_onecall.daily[i].wind_speed = 0;
+    owm_onecall.daily[i].wind_gust = 0;
+    owm_onecall.daily[i].wind_deg = 0;
+    owm_onecall.daily[i].pop = 0;
+    owm_onecall.daily[i].rain = 0;
+    owm_onecall.daily[i].snow = 0;
+    owm_onecall.daily[i].weather.id = 0;
     owm_onecall.daily[i].weather.main = "";
     owm_onecall.daily[i].weather.description = "";
     owm_onecall.daily[i].weather.icon = "";

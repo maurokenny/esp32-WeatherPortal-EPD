@@ -638,7 +638,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   if (error) {
     Serial.println("[DEBUG] JSON Error Code: " + String(static_cast<int>(error.code())));
     Serial.println("[DEBUG] JSON Error: " + String(error.c_str()));
-    Serial.println("[DEBUG] doc.containsKey('latitude'): " + String(doc.containsKey("latitude") ? "yes" : "no"));
+    Serial.println("[DEBUG] doc['latitude'] exists: " + String(doc["latitude"].is<float>() ? "yes" : "no"));
   }
   
   if (error && doc.size() == 0) {
