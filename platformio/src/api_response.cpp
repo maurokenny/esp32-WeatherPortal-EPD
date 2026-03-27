@@ -475,7 +475,6 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
 DeserializationError deserializeOpenMeteo(WiFiClient &json,
                                           owm_resp_onecall_t &r)
 {
-  Serial.println("[DEBUG] deserializeOpenMeteo started");
   
   // Read entire response into String first for debugging
   String jsonString = "";
@@ -495,9 +494,6 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     }
   }
   
-  Serial.println("[DEBUG] Received " + String(jsonString.length()) + " bytes");
-  Serial.println("[DEBUG] First 200 chars: " + jsonString.substring(0, min(200, (int)jsonString.length())));
-  Serial.println("[DEBUG] Last 100 chars: " + jsonString.substring(max(0, (int)jsonString.length() - 100)));
   
   // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
   // Chunked format: "<hex-size>\r\n<data>\r\n...0\r\n\r\n"
@@ -505,13 +501,11 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   int pos = 0;
   int chunksProcessed = 0;
   
-  Serial.println("[DEBUG] Starting de-chunking...");
   
   while (pos < (int)jsonString.length()) {
     // Find end of chunk size line (\r\n)
     int lineEnd = jsonString.indexOf("\r\n", pos);
     if (lineEnd < 0) {
-      Serial.println("[DEBUG] No more \\r\\n found at pos " + String(pos));
       break;
     }
     
@@ -520,7 +514,6 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     chunkSizeStr.trim();
     
     if (chunkSizeStr.length() == 0) {
-      Serial.println("[DEBUG] Empty chunk size at pos " + String(pos));
       break;
     }
     
@@ -535,16 +528,13 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     }
     
     if (!isHex) {
-      Serial.println("[DEBUG] Not a hex chunk size: '" + chunkSizeStr + "'");
       break;
     }
     
     // Convert hex to int
     int chunkSize = (int)strtol(chunkSizeStr.c_str(), NULL, 16);
-    Serial.println("[DEBUG] Chunk " + String(chunksProcessed) + ": size=0x" + chunkSizeStr + " (" + String(chunkSize) + " bytes)");
     
     if (chunkSize == 0) {
-      Serial.println("[DEBUG] Last chunk marker found");
       break; // Last chunk
     }
     
@@ -557,27 +547,22 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
       pos += chunkSize + 2; // Skip data + \r\n
       chunksProcessed++;
     } else {
-      Serial.println("[DEBUG] Chunk extends beyond data: pos=" + String(pos) + ", size=" + String(chunkSize) + ", len=" + String(jsonString.length()));
       break;
     }
   }
   
-  Serial.println("[DEBUG] Chunks processed: " + String(chunksProcessed));
   
   // If no chunked encoding detected, use original string
   if (cleanedJson.length() == 0) {
-    Serial.println("[DEBUG] No chunks found, using original");
     cleanedJson = jsonString;
   }
   
-  Serial.println("[DEBUG] After de-chunking: " + String(cleanedJson.length()) + " bytes");
   
   // Find where JSON actually starts
   int jsonStart = cleanedJson.indexOf('{');
   if (jsonStart >= 0) {
     cleanedJson = cleanedJson.substring(jsonStart);
   } else {
-    Serial.println("[DEBUG] ERROR - No '{' found!");
     return DeserializationError::InvalidInput;
   }
   
@@ -595,10 +580,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     if (jsonString[i] == '{') openBraces++;
     if (jsonString[i] == '}') closeBraces++;
   }
-  Serial.println("[DEBUG] Open braces: " + String(openBraces) + ", Close braces: " + String(closeBraces));
   
-  Serial.println("[DEBUG] JSON length: " + String(jsonString.length()));
-  Serial.println("[DEBUG] Free heap: " + String(ESP.getFreeHeap()));
   
 #if SAVE_API_RESPONSE_TO_HEADER
   // Print the JSON in a format that can be copied to saved_api_response.h
@@ -633,21 +615,15 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonString);
   
-  Serial.println("[DEBUG] doc.size(): " + String(doc.size()));
   
   if (error) {
-    Serial.println("[DEBUG] JSON Error Code: " + String(static_cast<int>(error.code())));
-    Serial.println("[DEBUG] JSON Error: " + String(error.c_str()));
-    Serial.println("[DEBUG] doc['latitude'] exists: " + String(doc["latitude"].is<float>() ? "yes" : "no"));
   }
   
   if (error && doc.size() == 0) {
-    Serial.println("[DEBUG] Critical error - no data");
     return error;
   }
   
   if (error) {
-    Serial.println("[DEBUG] Partial error - using available data");
   }
   
   // Location data
@@ -769,7 +745,6 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonArray hourly_is_day = hourly["is_day"];
   
   int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
-  Serial.println("[DEBUG] Hourly count: " + String(hourlyCount));
   for (int i = 0; i < hourlyCount; i++) {
     r.hourly[i].dt = parseIso8601(hourly_time[i]);
     // Convert Celsius to Kelvin
@@ -785,7 +760,6 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     // Handle precipitation_probability - check if null
     float pop_val = hourly_pop[i].as<float>();
     if (i < 3) {
-      Serial.println("[DEBUG] Hour " + String(i) + " POP raw: " + String(pop_val));
     }
     r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
     

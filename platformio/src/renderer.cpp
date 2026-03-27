@@ -956,17 +956,13 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   
   // Find starting index - skip hours that have already passed
   int startIndex = 0;
-  Serial.println("[DEBUG] current_dt: " + String(current_dt));
   for (int i = 0; i < analysisHours && i < HOURLY_GRAPH_MAX; i++) {
-    Serial.println("[DEBUG] hourly[" + String(i) + "].dt: " + String(hourly[i].dt) + " pop: " + String(hourly[i].pop));
     if (hourly[i].dt >= current_dt) {
       startIndex = i;
-      Serial.println("[DEBUG] Found startIndex: " + String(startIndex));
       break;
     }
   }
   if (startIndex == 0) {
-    Serial.println("[DEBUG] WARNING: startIndex is 0, all hours may have passed!");
   }
   
   for (int i = startIndex; i < analysisHours && i < HOURLY_GRAPH_MAX; i++) {
@@ -994,8 +990,6 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   int popPercent = static_cast<int>(std::round(maxPop * 100));
   int centerX = x + 64; // Center of 128px width
   
-  Serial.println("[DEBUG] maxPop: " + String(maxPop) + " popPercent: " + String(popPercent));
-  Serial.println("[DEBUG] firstRainIndex: " + String(firstRainIndex) + " minutesUntilRain: " + String(minutesUntilRain));
   
   // Helper to format rain time string - always show exact time (at HH:MM)
   String rainTimeStr;
@@ -1012,7 +1006,6 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   // Shows: Umbrella with X overlay + "No rain (X%)"
   // Note: POP < 20% is always "No rain", regardless of wind
   if (maxPop < 0.20f) {
-    Serial.println("[DEBUG] Drawing STATE 1: No rain");
     // Draw umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     // Draw thick X over icon (3 parallel lines for thickness)
@@ -1029,7 +1022,6 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   // State 3: Take umbrella (POP >= 70%)
   // Shows: Open umbrella icon + "Rain at..." 
   else if (maxPop >= 0.70f) {
-    Serial.println("[DEBUG] Drawing STATE 3: Take umbrella (high POP)");
     // Draw open umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
@@ -1043,7 +1035,6 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   // State 4: Take umbrella (POP 20-69% AND wind >= 18 km/h)
   // Shows: Open umbrella icon + "Rain at..." 
   else if (windKmh >= WIND_THRESHOLD_KMH) {
-    Serial.println("[DEBUG] Drawing STATE 4: Take umbrella (windy)");
     // Draw open umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
@@ -1057,7 +1048,6 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
   // State 2: Compact (POP 20-69% AND wind < 18 km/h)
   // Shows: Closed umbrella icon + "Rain at..."
   else {
-    Serial.println("[DEBUG] Drawing STATE 2: Compact");
     // Draw closed umbrella icon (U+1F302 🌂 style)
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_closed_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
@@ -1474,7 +1464,6 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
   tm *first_tm = localtime(&first_ts);
   _strftime(firstHourBuf, sizeof(firstHourBuf), "%H:%M", first_tm);
   
-  Serial.println("[DEBUG] Graph: current=" + String(curTimeBuf) + ", startIndex=" + String(startIndex) + ", firstHour=" + String(firstHourBuf) + ", numHours=" + String(numHours) + ", endIndex=" + String(endIndex));
 
   // calculate y max/min and intervals using only future hours
   int yMajorTicks = 5;
@@ -1491,10 +1480,8 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
 #ifdef UNITS_HOURLY_PRECIP_POP
   float precipMax = hourly[startIndex].pop;
-  Serial.println("[DEBUG] PoP Graph - startIndex: " + String(startIndex) + ", first PoP: " + String(hourly[startIndex].pop * 100, 1) + "%");
 #else
   float precipMax = hourly[startIndex].rain_1h + hourly[startIndex].snow_1h;
-  Serial.println("[DEBUG] Precip Graph - startIndex: " + String(startIndex) + ", first precip: " + String(precipMax, 1) + "mm");
 #endif
 #endif
   int yTempMajorTicks = 5;
@@ -1756,12 +1743,10 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #ifdef UNITS_HOURLY_PRECIP_POP
     float precipVal = hourly[hourlyIdx].pop * 100;
     if (i < 3) {
-      Serial.println("[DEBUG] Plotting hour " + String(i) + " (hourlyIdx=" + String(hourlyIdx) + "): PoP=" + String(precipVal, 0) + "%");
     }
 #else
     float precipVal = hourly[hourlyIdx].rain_1h + hourly[hourlyIdx].snow_1h;
     if (i < 3) {
-      Serial.println("[DEBUG] Plotting hour " + String(i) + " (hourlyIdx=" + String(hourlyIdx) + "): precip=" + String(precipVal, 1) + "mm");
     }
 #ifdef UNITS_HOURLY_PRECIP_CENTIMETERS
     precipVal = millimeters_to_centimeters(precipVal);
@@ -1948,7 +1933,6 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
       tm *timeInfo = localtime(&ts);
       _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
       drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
-      Serial.println("[DEBUG] XTick i=" + String(i) + ", hourlyIdx=" + String(hourlyIdx) + ", time=" + String(timeBuffer));
     }
 
   }
@@ -1967,7 +1951,6 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     tm *timeInfo = localtime(&ts);
     _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
     drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
-    Serial.println("[DEBUG] LastTick: endIndex=" + String(endIndex) + ", time=" + String(timeBuffer));
   }
 
   return;
