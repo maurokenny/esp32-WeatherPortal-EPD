@@ -1545,14 +1545,15 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #else
 #ifdef UNITS_HOURLY_PRECIP_MILLIMETERS
   xPos1 = DISP_WIDTH - 24;
-  float precipBoundMax = std::ceil(precipMax); // Round up to nearest mm
+  // Ensure minimum of 1mm to avoid division by zero when no precipitation
+  float precipBoundMax = std::max(1.0f, std::ceil(precipMax));
   int yPrecipMajorTickDecimals = (precipBoundMax < 10);
 #endif
 #ifdef UNITS_HOURLY_PRECIP_CENTIMETERS
   xPos1 = DISP_WIDTH - 25;
   precipMax = millimeters_to_centimeters(precipMax);
-  // Round up to nearest 0.1 cm
-  float precipBoundMax = std::ceil(precipMax * 10) / 10.0f;
+  // Round up to nearest 0.1 cm, with minimum of 0.1 to avoid division by zero
+  float precipBoundMax = std::max(0.1f, std::ceil(precipMax * 10) / 10.0f);
   int yPrecipMajorTickDecimals;
   if (precipBoundMax < 1)
   {
@@ -1574,8 +1575,8 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
 #ifdef UNITS_HOURLY_PRECIP_INCHES
   xPos1 = DISP_WIDTH - 25;
   precipMax = millimeters_to_inches(precipMax);
-  // Round up to nearest 0.1 inch
-  float precipBoundMax = std::ceil(precipMax * 10) / 10.0f;
+  // Round up to nearest 0.1 inch, with minimum of 0.1 to avoid division by zero
+  float precipBoundMax = std::max(0.1f, std::ceil(precipMax * 10) / 10.0f);
   int yPrecipMajorTickDecimals;
   if (precipBoundMax < 1)
   {

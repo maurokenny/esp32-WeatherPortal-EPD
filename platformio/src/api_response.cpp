@@ -739,8 +739,11 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonArray hourly_wind = hourly["wind_speed_10m"];
   JsonArray hourly_gust = hourly["wind_gusts_10m"];
   JsonArray hourly_deg = hourly["wind_direction_10m"];
+#ifdef UNITS_HOURLY_PRECIP_POP
   JsonArray hourly_pop = hourly["precipitation_probability"];
+#else
   JsonArray hourly_precip = hourly["precipitation"];
+#endif
   JsonArray hourly_code = hourly["weather_code"];
   JsonArray hourly_is_day = hourly["is_day"];
   
@@ -757,15 +760,18 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.hourly[i].wind_gust = hourly_gust[i].as<float>();
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
     
+#ifdef UNITS_HOURLY_PRECIP_POP
     // Handle precipitation_probability - check if null
     float pop_val = hourly_pop[i].as<float>();
-    if (i < 3) {
-    }
     r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
-    
+    r.hourly[i].rain_1h = 0.0f; // Not used in POP mode
+    r.hourly[i].snow_1h = 0.0f;
+#else
     // Read actual precipitation (mm)
+    r.hourly[i].pop = 0.0f; // Not used in volume mode
     r.hourly[i].rain_1h = hourly_precip[i].as<float>();
     r.hourly[i].snow_1h = 0.0f; // Open-Meteo doesn't separate snow in basic endpoint
+#endif
     
     bool hourIsDay = hourly_is_day[i].as<int>() == 1;
     wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
@@ -994,8 +1000,11 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   JsonArray hourly_wind = hourly["wind_speed_10m"];
   JsonArray hourly_gust = hourly["wind_gusts_10m"];
   JsonArray hourly_deg = hourly["wind_direction_10m"];
+#ifdef UNITS_HOURLY_PRECIP_POP
   JsonArray hourly_pop = hourly["precipitation_probability"];
+#else
   JsonArray hourly_precip = hourly["precipitation"];
+#endif
   JsonArray hourly_code = hourly["weather_code"];
   JsonArray hourly_is_day = hourly["is_day"];
   
@@ -1011,12 +1020,16 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
     r.hourly[i].wind_gust = hourly_gust[i].as<float>();
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
     
+#ifdef UNITS_HOURLY_PRECIP_POP
     float pop_val = hourly_pop[i].as<float>();
     r.hourly[i].pop = pop_val / 100.0f;
-    
-    // Read actual precipitation (mm)
+    r.hourly[i].rain_1h = 0.0f;
+    r.hourly[i].snow_1h = 0.0f;
+#else
+    r.hourly[i].pop = 0.0f;
     r.hourly[i].rain_1h = hourly_precip[i].as<float>();
     r.hourly[i].snow_1h = 0.0f;
+#endif
     
     bool hourIsDay = hourly_is_day[i].as<int>() == 1;
     wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
