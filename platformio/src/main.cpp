@@ -616,13 +616,16 @@ void setup()
   Serial.begin(115200);
   disableBuiltinLED();
 
-  // Load defaults into ram variables if not empty
-  if (WIFI_SSID != nullptr && strlen(WIFI_SSID) > 0) strncpy(ramSSID, WIFI_SSID, 63);
-  if (WIFI_PASSWORD != nullptr && strlen(WIFI_PASSWORD) > 0) strncpy(ramPassword, WIFI_PASSWORD, 63);
-  
-  if (CITY_STRING.length() > 0) strncpy(ramCity, CITY_STRING.c_str(), 63);
-  if (LAT.length() > 0) strncpy(ramLat, LAT.c_str(), 31);
-  if (LON.length() > 0) strncpy(ramLon, LON.c_str(), 31);
+  // Load defaults into RTC RAM variables only if not already initialized (e.g. cold boot)
+  if (!rtcInitialized) {
+    if (WIFI_SSID != nullptr && strlen(WIFI_SSID) > 0) strncpy(ramSSID, WIFI_SSID, 63);
+    if (WIFI_PASSWORD != nullptr && strlen(WIFI_PASSWORD) > 0) strncpy(ramPassword, WIFI_PASSWORD, 63);
+    
+    if (CITY_STRING.length() > 0) strncpy(ramCity, CITY_STRING.c_str(), 63);
+    if (LAT.length() > 0) strncpy(ramLat, LAT.c_str(), 31);
+    if (LON.length() > 0) strncpy(ramLon, LON.c_str(), 31);
+    rtcInitialized = true;
+  }
 
   wifiManagerSetup();
   

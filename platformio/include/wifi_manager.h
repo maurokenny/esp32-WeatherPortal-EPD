@@ -40,6 +40,7 @@ extern char ramCity[64];
 extern char ramLat[32];
 extern char ramLon[32];
 extern bool ramAutoGeo;
+extern bool rtcInitialized;
 
 // Functions
 void wifiManagerSetup();

@@ -21,11 +21,11 @@ wifi_password = "password"
 # Read from .env if it exists
 if os.path.exists(env_file):
     try:
-        with open(env_file, 'r') as f:
+        with open(env_file, "r") as f:
             for line in f:
                 line = line.strip()
-                if '=' in line and not line.startswith('#'):
-                    key, value = line.split('=', 1)
+                if "=" in line and not line.startswith("#"):
+                    key, value = line.split("=", 1)
                     if key == "WIFI_SSID":
                         wifi_ssid = value
                     elif key == "WIFI_PASSWORD":
@@ -36,16 +36,20 @@ if os.path.exists(env_file):
         print("Using fallback WiFi credentials")
 else:
     print(f"Warning: {env_file} not found. Using fallback WiFi credentials.")
-    print("Create a .env file with WIFI_SSID and WIFI_PASSWORD to set your credentials.")
+    print(
+        "Create a .env file with WIFI_SSID and WIFI_PASSWORD to set your credentials."
+    )
+
 
 # Escape special characters for C string literals
 def escape_c_string(s):
-    s = s.replace('\\', '\\\\')
+    s = s.replace("\\", "\\\\")
     s = s.replace('"', '\\"')
-    s = s.replace('\n', '\\n')
-    s = s.replace('\r', '\\r')
-    s = s.replace('\t', '\\t')
+    s = s.replace("\n", "\\n")
+    s = s.replace("\r", "\\r")
+    s = s.replace("\t", "\\t")
     return s
+
 
 ssid_escaped = escape_c_string(wifi_ssid)
 pass_escaped = escape_c_string(wifi_password)
@@ -65,7 +69,7 @@ header_content = f'''/* WiFi Credentials - AUTO-GENERATED FILE - DO NOT EDIT */
 '''
 
 try:
-    with open(header_file, 'w') as f:
+    with open(header_file, "w") as f:
         f.write(header_content)
     print(f"Generated {header_file}")
 except Exception as e:

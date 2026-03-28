@@ -92,12 +92,13 @@ const String OWM_ONECALL_VERSION = "";
 // LOCATION
 // Set your latitude and longitude.
 // (used to get weather data as part of API requests to Open-Meteo)
-// const String LAT = "40.7128";
-// const String LON = "-74.0060";
-const String LAT = "50.6292";
-const String LON = "3.0573";
+const String LAT = "40.7128";
+const String LON = "-74.0060";
+// const String LAT = "50.6292";
+// const String LON = "3.0573";
 // City name that will be shown in the top-right corner of the display.
-const String CITY_STRING = "Lille - France";
+// const String CITY_STRING = "Lille - France";
+const String CITY_STRING = "New York - USA";
 
 // TIME
 // For list of time zones see

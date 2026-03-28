@@ -4,31 +4,33 @@ import re
 
 Import("env")
 
+
 def get_config_value(file_path, key):
     if not os.path.exists(file_path):
         return ""
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
-        # Match const String KEY = "VALUE";
-        match = re.search(rf'const\s+String\s+{key}\s*=\s*"([^"]*)"', content)
+        # Match ACTIVE const String KEY = "VALUE"; (Ignores lines starting with //)
+        match = re.search(rf'^\s*const\s+String\s+{key}\s*=\s*"([^"]*)"', content, re.MULTILINE)
         if match:
             return match.group(1)
-        # Match #define KEY "VALUE"
-        match = re.search(rf'#define\s+{key}\s*"([^"]*)"', content)
+        # Match ACTIVE #define KEY "VALUE"
+        match = re.search(rf'^\s*#define\s+{key}\s*"([^"]*)"', content, re.MULTILINE)
         if match:
             return match.group(1)
-        # Match #define KEY_VALUE "VALUE" (for wifi_credentials)
-        match = re.search(rf'#define\s+{key}_VALUE\s*"([^"]*)"', content)
+        # Match ACTIVE #define KEY_VALUE "VALUE" (for wifi_credentials)
+        match = re.search(rf'^\s*#define\s+{key}_VALUE\s*"([^"]*)"', content, re.MULTILINE)
         if match:
             return match.group(1)
     return ""
+
 
 def build_web_ui(source, target, env):
     data_dir = os.path.join(env.get("PROJECT_DIR"), "data")
     template_path = os.path.join(data_dir, "setup.html")
     include_dir = os.path.join(env.get("PROJECT_DIR"), "include")
     output_path = os.path.join(include_dir, "web_ui_data.h")
-    
+
     config_cpp = os.path.join(env.get("PROJECT_DIR"), "src", "config.cpp")
     wifi_h = os.path.join(env.get("PROJECT_DIR"), "include", "wifi_credentials.h")
 
@@ -44,7 +46,7 @@ def build_web_ui(source, target, env):
 
     print(f"Baking settings into UI: SSID='{ssid}', City='{city}', {lat}/{lon}")
 
-    with open(template_path, 'r', encoding='utf-8') as f:
+    with open(template_path, "r", encoding="utf-8") as f:
         html = f.read()
 
     # Replace placeholders
@@ -54,10 +56,10 @@ def build_web_ui(source, target, env):
     html = html.replace("{{LON}}", lon)
 
     # GZIP compress
-    compressed = gzip.compress(html.encode('utf-8'))
+    compressed = gzip.compress(html.encode("utf-8"))
 
     # Generate header file
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("#ifndef WEB_UI_DATA_H\n#define WEB_UI_DATA_H\n\n")
         f.write("#include <Arduino.h>\n\n")
         f.write("// Auto-generated from data/setup.html at build time\n")
@@ -74,6 +76,7 @@ def build_web_ui(source, target, env):
 
     print(f"Successfully generated {output_path}")
 
+
 # Add the build step
 env.AddPreAction("buildprog", build_web_ui)
-env.AddPreAction("checkprog", build_web_ui) # For IDE checks
+env.AddPreAction("checkprog", build_web_ui)  # For IDE checks

@@ -24,13 +24,14 @@ RuntimeState runtime = {
     .portalStartTime = 0
 };
 
-// RAM Variables for connection and location
-char ramSSID[64] = "";
-char ramPassword[64] = "";
-char ramCity[64] = "";
-char ramLat[32] = "";
-char ramLon[32] = "";
-bool ramAutoGeo = false;
+// RTC RAM Variables for connection and location (persist during deep sleep)
+RTC_DATA_ATTR char ramSSID[64] = "";
+RTC_DATA_ATTR char ramPassword[64] = "";
+RTC_DATA_ATTR char ramCity[64] = "";
+RTC_DATA_ATTR char ramLat[32] = "";
+RTC_DATA_ATTR char ramLon[32] = "";
+RTC_DATA_ATTR bool ramAutoGeo = false;
+RTC_DATA_ATTR bool rtcInitialized = false;
 
 AsyncWebServer server(80);
 DNSServer dnsServer;
