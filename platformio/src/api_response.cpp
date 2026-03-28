@@ -664,7 +664,9 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   wmoToOwmWeather(wmoCode, isDay, r.current.weather);
   
   // Debug: Show received values for location comparison
+#if DEBUG_LEVEL >= 2
   Serial.println("[Open-Meteo] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
+#endif
   Serial.println("[Open-Meteo] Current temp: " + String(r.current.temp - 273.15f, 1) + "C, Weather: " + String(wmoCode) + ", Day: " + String(isDay));
   
   // Parse daily forecast first (needed for sunrise/sunset which are not in current)

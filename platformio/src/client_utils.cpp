@@ -58,7 +58,9 @@
 wl_status_t startWiFi(int &wifiRSSI)
 {
   WiFi.mode(WIFI_STA);
+#if DEBUG_LEVEL >= 2
   Serial.printf("[WiFi] Connecting to ESSID: '%s'\n", WIFI_SSID);
+#endif
   Serial.printf("%s '%s'", TXT_CONNECTING_TO, WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -197,7 +199,9 @@ bool waitForSNTPSync(tm *timeInfo)
          "&forecast_days=8";
 
   String fullUri = "https://" + OPENMETEO_ENDPOINT + uri;
+#if DEBUG_LEVEL >= 2
   Serial.println("[Open-Meteo API] Request: " + fullUri);
+#endif
   Serial.flush();
   
   int httpResponse = 0;
@@ -281,7 +285,9 @@ bool waitForSNTPSync(tm *timeInfo)
                "&timezone=auto";
 
   String fullUri = "https://" + OPENMETEO_AIRQUALITY_ENDPOINT + uri;
+#if DEBUG_LEVEL >= 2
   Serial.println("[Open-Meteo Air Quality API] Request: " + fullUri);
+#endif
   Serial.flush();
   
   int httpResponse = 0;

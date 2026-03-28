@@ -125,8 +125,8 @@
 // This can either be Probability of Precipitation (PoP) or hourly volume.
 //   Metric   : Millimeters
 //   Imperial : Inches
-// #define UNITS_HOURLY_PRECIP_POP
-#define UNITS_HOURLY_PRECIP_MILLIMETERS
+#define UNITS_HOURLY_PRECIP_POP
+// #define UNITS_HOURLY_PRECIP_MILLIMETERS
 // #define UNITS_HOURLY_PRECIP_CENTIMETERS
 // #define UNITS_HOURLY_PRECIP_INCHES
 
