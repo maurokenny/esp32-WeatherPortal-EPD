@@ -407,6 +407,7 @@ extern const String OPENMETEO_AIRQUALITY_ENDPOINT;
 extern const String LAT;
 extern const String LON;
 extern const String CITY_STRING;
+extern const String GEOLOCATION_ENDPOINT;
 extern const char *TIMEZONE;
 extern const char *TIME_FORMAT;
 extern const char *HOUR_FORMAT;

@@ -39,6 +39,7 @@
 #include "config.h"
 #include "display_utils.h"
 #include "renderer.h"
+#include "wifi_manager.h"
 #ifndef USE_HTTP
   #include <WiFiClientSecure.h>
 #endif
@@ -160,8 +161,8 @@ bool waitForSNTPSync(tm *timeInfo)
   
   // Open-Meteo API endpoint
   String uri = "/v1/forecast"
-               "?latitude=" + LAT + 
-               "&longitude=" + LON +
+               "?latitude=" + String(ramLat) + 
+               "&longitude=" + String(ramLon) +
                "&current=temperature_2m,apparent_temperature,is_day,weather_code,"
                "precipitation,rain,showers,snowfall";
 
@@ -278,8 +279,8 @@ bool waitForSNTPSync(tm *timeInfo)
 
   // Open-Meteo Air Quality API endpoint
   String uri = "/v1/air-quality"
-               "?latitude=" + LAT + 
-               "&longitude=" + LON +
+               "?latitude=" + String(ramLat) + 
+               "&longitude=" + String(ramLon) +
                "&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
                "sulphur_dioxide,ozone"
                "&timezone=auto";

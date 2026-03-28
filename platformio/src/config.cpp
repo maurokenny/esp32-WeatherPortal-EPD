@@ -172,6 +172,7 @@ const uint32_t MIN_BATTERY_VOLTAGE = 3000; // (millivolts)
 
 // OPEN-METEO AIR QUALITY API
 const String OPENMETEO_AIRQUALITY_ENDPOINT = "air-quality-api.open-meteo.com";
+const String GEOLOCATION_ENDPOINT = "http://ip-api.com/json/";
 
 // See config.h for the below options
 // E-PAPER PANEL

@@ -28,6 +28,8 @@
 #include "api_response.h"
 #include "config.h"
 #include "display_utils.h"
+#include "renderer.h"
+#include <qrcode.h>
 
 // icon header files
 #include "icons/icons.h"
@@ -1667,3 +1669,79 @@ const uint8_t *getMoonPhaseBitmap48(const owm_daily_t &daily)
   default:  return "";
   }
 } // end getMoonPhaseStr
+
+void updateEinkStatus(const char* msg)
+{
+  initDisplay();
+  display.setFullWindow();
+  display.firstPage();
+  do
+  {
+    display.fillScreen(GxEPD_WHITE);
+    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2, msg, CENTER);
+  } while (display.nextPage());
+  powerOffDisplay();
+}
+
+void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
+{
+  initDisplay();
+  display.setFullWindow();
+  display.firstPage();
+
+  // Create QR Code
+  QRCode qrcode;
+  uint8_t qrcodeData[qrcode_getBufferSize(3)];
+  char qrPayload[128];
+  snprintf(qrPayload, sizeof(qrPayload), "WIFI:S:%s;T:nopass;;", ssid);
+  qrcode_initText(&qrcode, qrcodeData, 3, 0, qrPayload);
+
+  do
+  {
+    display.fillScreen(GxEPD_WHITE);
+
+    // Draw QR Code
+    int scale = 6;
+    int qrSize = qrcode.size * scale;
+    int xOffset = (DISP_WIDTH - qrSize) / 2;
+    int yOffset = 40;
+    
+    display.fillRect(xOffset - 10, yOffset - 10, qrSize + 20, qrSize + 20, GxEPD_WHITE); // Quiet zone
+
+    for (uint8_t y = 0; y < qrcode.size; y++)
+    {
+      for (uint8_t x = 0; x < qrcode.size; x++)
+      {
+        if (qrcode_getModule(&qrcode, x, y))
+        {
+          display.fillRect(xOffset + x * scale, yOffset + y * scale, scale, scale, GxEPD_BLACK);
+        }
+      }
+    }
+
+    drawString(DISP_WIDTH / 2, yOffset + qrSize + 40, "Connect to Wi-Fi: " + String(ssid), CENTER);
+    drawString(DISP_WIDTH / 2, yOffset + qrSize + 80, "Visit: weather.local or 192.168.4.1", CENTER);
+
+    char timeoutMsg[64];
+    snprintf(timeoutMsg, sizeof(timeoutMsg), "Setup portal will close in %u minutes", timeoutMinutes);
+    drawString(DISP_WIDTH / 2, yOffset + qrSize + 120, timeoutMsg, CENTER);
+
+  } while (display.nextPage());
+  powerOffDisplay();
+}
+
+void drawTimeoutScreen()
+{
+  initDisplay();
+  display.setFullWindow();
+  display.firstPage();
+  do
+  {
+    display.fillScreen(GxEPD_WHITE);
+    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 - 40, "Setup Timed Out", CENTER);
+    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 + 10, "The portal has closed.", CENTER);
+    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 + 50, "Device is entering deep sleep.", CENTER);
+    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 + 90, "Restart manually to try again.", CENTER);
+  } while (display.nextPage());
+  powerOffDisplay();
+}
