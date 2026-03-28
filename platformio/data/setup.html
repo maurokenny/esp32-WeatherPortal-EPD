@@ -1,27 +1,129 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>ESP32 Weather Configuration</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-        .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h1 { font-size: 24px; margin-bottom: 24px; text-align: center; color: #1877f2; }
-        .field { margin-bottom: 20px; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 12px; border: 1px solid #dddfe2; border-radius: 6px; box-sizing: border-box; font-size: 16px; transition: border-color 0.2s; }
-        input:focus { outline: none; border-color: #1877f2; }
-        input:disabled { background: #f5f6f7; color: #8d949e; cursor: not-allowed; }
-        .row { display: flex; gap: 12px; }
-        .row .field { flex: 1; }
-        .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding: 12px; background: #f7f8fa; border-radius: 8px; cursor: pointer; }
-        .checkbox-group input { width: 20px; height: 20px; cursor: pointer; }
-        .checkbox-label { font-size: 14px; color: #4b4f56; }
-        button { width: 100%; padding: 14px; background: #1877f2; border: none; border-radius: 6px; color: white; font-weight: 700; font-size: 16px; cursor: pointer; transition: background 0.2s; }
-        button:hover { background: #166fe5; }
-        .footer { text-align: center; margin-top: 16px; font-size: 12px; color: #90949c; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f0f2f5;
+            color: #1c1e21;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .card {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 24px;
+            text-align: center;
+            color: #1877f2;
+        }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #1877f2;
+        }
+
+        input:disabled {
+            background: #f5f6f7;
+            color: #8d949e;
+            cursor: not-allowed;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .row .field {
+            flex: 1;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 12px;
+            background: #f7f8fa;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-group input {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-label {
+            font-size: 14px;
+            color: #4b4f56;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #1877f2;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #166fe5;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 12px;
+            color: #90949c;
+        }
     </style>
 </head>
+
 <body>
     <div class="card">
         <h1>Device Setup</h1>
@@ -32,13 +134,13 @@
             </div>
             <div class="field">
                 <label>Wi-Fi Password</label>
-                <input type="password" name="password" placeholder="Leave empty to keep current">
+                <input type="password" name="password" placeholder="Enter Wi-Fi password">
             </div>
-            
+
             <hr style="border: 0; border-top: 1px solid #eee; margin: 24px 0;">
 
             <div class="checkbox-group" onclick="toggleAuto(event)">
-                <input type="checkbox" id="auto_geo" name="auto_geo" onchange="handleAutoChange(this)">
+                <input type="checkbox" id="auto_geo" name="auto_geo" onchange="handleAutoChange(this)" checked>
                 <span class="checkbox-label">Detect location automatically (IP)</span>
             </div>
 
@@ -81,6 +183,12 @@
                 if (cb.checked) el.required = false;
             });
         }
+
+        // Initialize state on load
+        window.onload = function() {
+            handleAutoChange(document.getElementById('auto_geo'));
+        };
     </script>
 </body>
+
 </html>
