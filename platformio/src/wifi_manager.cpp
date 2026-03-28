@@ -9,6 +9,7 @@
 #include "web_ui_data.h"
 #include "display_utils.h"
 #include "config.h"
+#include "icons/icons_196x196.h"
 
 // Global instances
 FirmwareState currentState = STATE_BOOT;
@@ -133,7 +134,7 @@ void wifiManagerLoop() {
                 WiFi.begin(ramSSID, ramPassword);
                 runtime.wifiStartTime = millis();
                 setFirmwareState(STATE_WIFI_CONNECTING);
-                updateEinkStatus("Connecting to Wi-Fi...");
+                drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ramSSID);
             } else {
                 startAP();
             }
@@ -199,7 +200,6 @@ bool performHardwareGeolocation() {
     if (WiFi.status() != WL_CONNECTED) return false;
     
     Serial.println("Performing automatic IP geolocation...");
-    updateEinkStatus("Detecting location via IP...");
     
     HTTPClient http;
     http.begin(GEOLOCATION_ENDPOINT);

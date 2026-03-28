@@ -84,6 +84,7 @@ const uint8_t *getMoonPhaseBitmap48(const owm_daily_t &daily);
 const char *getMoonPhaseStr(const owm_daily_t &daily);
 
 void updateEinkStatus(const char* msg);
+void drawLoading(const uint8_t *bitmap_196x196, const char *msg, const char *submsg = nullptr);
 void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes);
 void drawTimeoutScreen();
 

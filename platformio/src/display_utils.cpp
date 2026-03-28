@@ -33,6 +33,7 @@
 
 // icon header files
 #include "icons/icons.h"
+#include "fonts/Ubuntu_R.h"
 
 /* Returns battery voltage in millivolts (mv).
  */
@@ -1672,13 +1673,41 @@ const uint8_t *getMoonPhaseBitmap48(const owm_daily_t &daily)
 
 void updateEinkStatus(const char* msg)
 {
+  drawLoading(wi_cloud_refresh_196x196, msg);
+}
+
+void drawLoading(const uint8_t *bitmap_196x196, const char *msg, const char *submsg)
+{
   initDisplay();
   display.setFullWindow();
   display.firstPage();
+
   do
   {
     display.fillScreen(GxEPD_WHITE);
-    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2, msg, CENTER);
+
+    display.setFont(&FONT_26pt8b);
+    if (submsg && strlen(submsg) > 0)
+    {
+      drawString(DISP_WIDTH / 2,
+                 DISP_HEIGHT / 2 + 196 / 2 + 21,
+                 msg, CENTER);
+      drawString(DISP_WIDTH / 2,
+                 DISP_HEIGHT / 2 + 196 / 2 + 21 + 55,
+                 submsg, CENTER);
+    }
+    else
+    {
+      drawMultiLnString(DISP_WIDTH / 2,
+                        DISP_HEIGHT / 2 + 196 / 2 + 21,
+                        msg, CENTER, DISP_WIDTH - 40, 2, 55);
+    }
+    
+    if (bitmap_196x196) {
+      display.drawInvertedBitmap(DISP_WIDTH / 2 - 196 / 2,
+                                 DISP_HEIGHT / 2 - 196 / 2 - 21,
+                                 bitmap_196x196, 196, 196, GxEPD_BLACK);
+    }
   } while (display.nextPage());
   powerOffDisplay();
 }
@@ -1732,16 +1761,5 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 
 void drawTimeoutScreen()
 {
-  initDisplay();
-  display.setFullWindow();
-  display.firstPage();
-  do
-  {
-    display.fillScreen(GxEPD_WHITE);
-    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 - 40, "Setup Timed Out", CENTER);
-    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 + 10, "The portal has closed.", CENTER);
-    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 + 50, "Device is entering deep sleep.", CENTER);
-    drawString(DISP_WIDTH / 2, DISP_HEIGHT / 2 + 90, "Restart manually to try again.", CENTER);
-  } while (display.nextPage());
-  powerOffDisplay();
+  drawLoading(warning_icon_196x196, "Setup Timed Out", "Device is entering deep sleep");
 }

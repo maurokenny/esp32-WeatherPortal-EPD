@@ -549,7 +549,7 @@ void updateWeather()
     }
   }
   
-  updateEinkStatus("Fetching weather...");
+  drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", ramCity);
   
 #ifdef USE_HTTP
   WiFiClient client;
