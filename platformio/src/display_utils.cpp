@@ -1729,13 +1729,19 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
   {
     display.fillScreen(GxEPD_WHITE);
 
-    // Draw QR Code
-    int scale = 6;
+    // --- Header ---
+    display.setFont(&FONT_26pt8b);
+    drawString(DISP_WIDTH / 2, 55, "Device Setup Mode", CENTER);
+    display.drawFastHLine(40, 75, DISP_WIDTH - 80, GxEPD_BLACK);
+
+    // --- Left side: larger QR (Version 3 * scale 8 = 232px) ---
+    int scale = 8;
     int qrSize = qrcode.size * scale;
-    int xOffset = (DISP_WIDTH - qrSize) / 2;
-    int yOffset = 40;
+    int qrX = 80; // Left margin
+    int qrY = (DISP_HEIGHT - qrSize) / 2 + 30; // Centered vertically with header offset
     
-    display.fillRect(xOffset - 10, yOffset - 10, qrSize + 20, qrSize + 20, GxEPD_WHITE); // Quiet zone
+    // Quiet zone
+    display.fillRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, GxEPD_WHITE);
 
     for (uint8_t y = 0; y < qrcode.size; y++)
     {
@@ -1743,17 +1749,41 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
       {
         if (qrcode_getModule(&qrcode, x, y))
         {
-          display.fillRect(xOffset + x * scale, yOffset + y * scale, scale, scale, GxEPD_BLACK);
+          display.fillRect(qrX + x * scale, qrY + y * scale, scale, scale, GxEPD_BLACK);
         }
       }
     }
 
-    drawString(DISP_WIDTH / 2, yOffset + qrSize + 40, "Connect to Wi-Fi: " + String(ssid), CENTER);
-    drawString(DISP_WIDTH / 2, yOffset + qrSize + 80, "Visit: weather.local or 192.168.4.1", CENTER);
+    // --- Right side: Detailed instructions ---
+    int txtX = 380;
+    int stepY = 135;
+    int lineSpace = 45;
 
+    // Step 1: Wi-Fi
+    display.setFont(&FONT_18pt8b);
+    drawString(txtX, stepY, "1. Scan to Join Wi-Fi", LEFT);
+    
+    stepY += lineSpace;
+    display.setFont(&FONT_16pt8b);
+    // Use multi-line for SSID in case it is very long
+    drawMultiLnString(txtX + 25, stepY, "Network: " + String(ssid), LEFT, DISP_WIDTH - txtX - 45, 2, 35);
+
+    // Step 2: Portal
+    stepY += lineSpace * 1.8;
+    display.setFont(&FONT_18pt8b);
+    drawString(txtX, stepY, "2. Open Device Portal", LEFT);
+    
+    stepY += lineSpace;
+    display.setFont(&FONT_16pt8b);
+    drawString(txtX + 25, stepY, "http://weather.local", LEFT);
+    stepY += 35;
+    drawString(txtX + 25, stepY, "or 192.168.4.1", LEFT);
+
+    // Footer: Timeout countdown
     char timeoutMsg[64];
-    snprintf(timeoutMsg, sizeof(timeoutMsg), "Setup portal will close in %u minutes", timeoutMinutes);
-    drawString(DISP_WIDTH / 2, yOffset + qrSize + 120, timeoutMsg, CENTER);
+    snprintf(timeoutMsg, sizeof(timeoutMsg), "Portal closes in %u minutes", timeoutMinutes);
+    display.setFont(&FONT_12pt8b);
+    drawString(DISP_WIDTH - 40, DISP_HEIGHT - 30, timeoutMsg, RIGHT);
 
   } while (display.nextPage());
   powerOffDisplay();
