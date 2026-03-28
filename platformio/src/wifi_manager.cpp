@@ -218,11 +218,6 @@ bool performHardwareGeolocation() {
             
             Serial.printf("Successfully geolocated to: %s (%s, %s)\n", ramCity, ramLat, ramLon);
             
-            // Show confirmation on E-Ink
-            char msg[160];
-            snprintf(msg, sizeof(msg), "Location Detected:\n%s\n%s, %s", ramCity, ramLat, ramLon);
-            updateEinkStatus(msg);
-            
             success = true;
         } else {
             Serial.println("Geolocation API returned error status.");
