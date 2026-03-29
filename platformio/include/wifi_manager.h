@@ -48,6 +48,6 @@ void wifiManagerLoop();
 
 // Helper to transition state cleanly
 void setFirmwareState(FirmwareState newState);
-bool performHardwareGeolocation();
+bool locateByIpAddress();
 
 #endif

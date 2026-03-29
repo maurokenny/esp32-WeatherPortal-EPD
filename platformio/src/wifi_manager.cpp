@@ -196,7 +196,7 @@ void setFirmwareState(FirmwareState newState) {
     }
 }
 
-bool performHardwareGeolocation() {
+bool locateByIpAddress() {
     if (WiFi.status() != WL_CONNECTED) return false;
     
     Serial.println("Performing automatic IP geolocation...");

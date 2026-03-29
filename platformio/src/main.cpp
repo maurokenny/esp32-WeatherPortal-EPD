@@ -544,7 +544,7 @@ void updateWeather()
 
   // MAKE API REQUESTS
   if (ramAutoGeo) {
-    if (performHardwareGeolocation()) {
+    if (locateByIpAddress()) {
       ramAutoGeo = false; // Only do it once after setting it
     }
   }
