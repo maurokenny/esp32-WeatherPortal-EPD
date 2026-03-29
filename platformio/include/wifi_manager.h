@@ -37,10 +37,12 @@ extern RuntimeState runtime;
 extern char ramSSID[64];
 extern char ramPassword[64];
 extern char ramCity[64];
+extern char ramCountry[64];
 extern char ramLat[32];
 extern char ramLon[32];
 extern bool ramAutoGeo;
 extern bool rtcInitialized;
+extern bool isFirstBoot;
 
 // Functions
 void wifiManagerSetup();

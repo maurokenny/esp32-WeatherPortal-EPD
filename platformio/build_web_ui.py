@@ -38,17 +38,20 @@ def build_web_ui(source, target, env):
         return
 
     # Extract current values
+
     city = get_config_value(config_cpp, "CITY_STRING")
+    country = get_config_value(config_cpp, "COUNTRY_STRING")
     lat = get_config_value(config_cpp, "LAT")
     lon = get_config_value(config_cpp, "LON")
 
-    print(f"Baking settings into UI: City='{city}', {lat}/{lon}")
+    print(f"Baking settings into UI: City='{city}', Country='{country}', {lat}/{lon}")
 
     with open(template_path, "r", encoding="utf-8") as f:
         html = f.read()
 
     # Replace placeholders
     html = html.replace("{{CITY_STRING}}", city)
+    html = html.replace("{{COUNTRY_STRING}}", country)
     html = html.replace("{{LAT}}", lat)
     html = html.replace("{{LON}}", lon)
 

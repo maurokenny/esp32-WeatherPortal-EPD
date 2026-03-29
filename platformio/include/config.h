@@ -380,7 +380,9 @@ typedef enum {
 //   level 0: basic status information, assists troubleshooting (default)
 //   level 1: increased verbosity for debugging
 //   level 2: print api responses to serial monitor
+
 #define DEBUG_LEVEL 2
+#define SILENT_STATUS true
 
 // Set the below constants in "config.cpp"
 extern const uint8_t PIN_BAT_ADC;
@@ -407,6 +409,7 @@ extern const String OPENMETEO_AIRQUALITY_ENDPOINT;
 extern const String LAT;
 extern const String LON;
 extern const String CITY_STRING;
+extern const String COUNTRY_STRING;
 extern const String GEOLOCATION_ENDPOINT;
 extern const char *TIMEZONE;
 extern const char *TIME_FORMAT;

@@ -549,7 +549,9 @@ void updateWeather()
     }
   }
   
-  drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", ramCity);
+  if (isFirstBoot || !SILENT_STATUS) {
+    drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", ramCity);
+  }
   
 #ifdef USE_HTTP
   WiFiClient client;
@@ -599,14 +601,16 @@ void updateWeather()
                           owm_air_pollution, inTemp, inHumidity, owm_onecall.hourly);
     drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, currentTimInfo, owm_onecall.current.dt);
     drawForecast(owm_onecall.daily, currentTimInfo);
-    drawLocationDate(strlen(ramCity) > 0 ? ramCity : CITY_STRING, dateStr);
-#if DISPLAY_ALERTS
-    drawAlerts(owm_onecall.alerts, strlen(ramCity) > 0 ? ramCity : CITY_STRING, dateStr);
-#endif
+    String locationStr = String(strlen(ramCity) > 0 ? ramCity : CITY_STRING) + " - " + String(strlen(ramCountry) > 0 ? ramCountry : COUNTRY_STRING);
+    drawLocationDate(locationStr, dateStr);
+  #if DISPLAY_ALERTS
+  drawAlerts(owm_onecall.alerts, locationStr, dateStr);
+  #endif
     drawStatusBar(globalStatus, refreshTimeStr, wifiRSSI, readBatteryVoltage());
   } while (display.nextPage());
   powerOffDisplay();
 
+  isFirstBoot = false;
   setFirmwareState(STATE_SLEEP_PENDING);
 }
 
@@ -622,10 +626,15 @@ void setup()
     if (WIFI_PASSWORD != nullptr && strlen(WIFI_PASSWORD) > 0) strncpy(ramPassword, WIFI_PASSWORD, 63);
     
     if (CITY_STRING.length() > 0) strncpy(ramCity, CITY_STRING.c_str(), 63);
-    if (LAT.length() > 0) strncpy(ramLat, LAT.c_str(), 31);
-    if (LON.length() > 0) strncpy(ramLon, LON.c_str(), 31);
+      if (LAT.length() > 0) strncpy(ramLat, LAT.c_str(), 31);
+      if (LON.length() > 0) strncpy(ramLon, LON.c_str(), 31);
+      if (COUNTRY_STRING.length() > 0) strncpy(ramCountry, COUNTRY_STRING.c_str(), 63);
     rtcInitialized = true;
   }
+    // Ensure ramCountry is set if empty (fallback)
+    if (strlen(ramCountry) == 0 && COUNTRY_STRING.length() > 0) {
+      strncpy(ramCountry, COUNTRY_STRING.c_str(), 63);
+    }
 
   wifiManagerSetup();
   

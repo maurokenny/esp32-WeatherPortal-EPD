@@ -147,7 +147,11 @@
             <div id="manual_fields">
                 <div class="field">
                     <label>City Name</label>
-                    <input type="text" id="city" name="city" value="{{CITY_STRING}}" placeholder="e.g. London - UK">
+                    <input type="text" id="city" name="city" value="{{CITY_STRING}}" placeholder="e.g. London">
+                </div>
+                <div class="field">
+                    <label>Country</label>
+                    <input type="text" id="country" name="country" value="{{COUNTRY_STRING}}" placeholder="e.g. United Kingdom">
                 </div>
                 <div class="row">
                     <div class="field">
@@ -176,7 +180,7 @@
         }
 
         function handleAutoChange(cb) {
-            const fields = ['city', 'lat', 'lon'];
+            const fields = ['city', 'country', 'lat', 'lon'];
             fields.forEach(id => {
                 const el = document.getElementById(id);
                 el.disabled = cb.checked;

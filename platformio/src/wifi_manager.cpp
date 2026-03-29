@@ -29,10 +29,12 @@ RuntimeState runtime = {
 RTC_DATA_ATTR char ramSSID[64] = "";
 RTC_DATA_ATTR char ramPassword[64] = "";
 RTC_DATA_ATTR char ramCity[64] = "";
+RTC_DATA_ATTR char ramCountry[64] = "";
 RTC_DATA_ATTR char ramLat[32] = "";
 RTC_DATA_ATTR char ramLon[32] = "";
 RTC_DATA_ATTR bool ramAutoGeo = false;
 RTC_DATA_ATTR bool rtcInitialized = false;
+RTC_DATA_ATTR bool isFirstBoot = true;
 
 AsyncWebServer server(80);
 DNSServer dnsServer;
@@ -85,6 +87,7 @@ void startAP() {
         if (request->hasParam("ssid", true)) strncpy(ramSSID, request->getParam("ssid", true)->value().c_str(), 63);
         if (request->hasParam("password", true)) strncpy(ramPassword, request->getParam("password", true)->value().c_str(), 63);
         if (request->hasParam("city", true)) strncpy(ramCity, request->getParam("city", true)->value().c_str(), 63);
+        if (request->hasParam("country", true)) strncpy(ramCountry, request->getParam("country", true)->value().c_str(), 63);
         if (request->hasParam("lat", true)) strncpy(ramLat, request->getParam("lat", true)->value().c_str(), 31);
         if (request->hasParam("lon", true)) strncpy(ramLon, request->getParam("lon", true)->value().c_str(), 31);
         
@@ -134,7 +137,9 @@ void wifiManagerLoop() {
                 WiFi.begin(ramSSID, ramPassword);
                 runtime.wifiStartTime = millis();
                 setFirmwareState(STATE_WIFI_CONNECTING);
-                drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ramSSID);
+                if (isFirstBoot || !SILENT_STATUS) {
+                    drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ramSSID);
+                }
             } else {
                 startAP();
             }
@@ -144,7 +149,9 @@ void wifiManagerLoop() {
             if (WiFi.status() == WL_CONNECTED) {
                 runtime.wifiConnected = true;
                 setFirmwareState(STATE_NORMAL_MODE);
-                updateEinkStatus("Wi-Fi Connected!");
+                if (isFirstBoot || !SILENT_STATUS) {
+                    updateEinkStatus("Wi-Fi Connected!");
+                }
             } else if (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000) {
                 Serial.println("Wi-Fi connection timed out. Falling back to AP Mode.");
                 WiFi.disconnect();
@@ -215,9 +222,8 @@ bool locateByIpAddress() {
             strncpy(ramCity, doc["city"] | "", 63);
             strncpy(ramLat, doc["lat"].as<String>().c_str(), 31);
             strncpy(ramLon, doc["lon"].as<String>().c_str(), 31);
-            
-            Serial.printf("Successfully geolocated to: %s (%s, %s)\n", ramCity, ramLat, ramLon);
-            
+            strncpy(ramCountry, doc["country"] | "", 63);
+            Serial.printf("Successfully geolocated to: %s, %s (%s, %s)\n", ramCity, ramCountry, ramLat, ramLon);
             success = true;
         } else {
             Serial.println("Geolocation API returned error status.");
