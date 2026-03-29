@@ -18,6 +18,7 @@
 #include <vector>
 #include <ArduinoJson.h>
 #include "api_response.h"
+#include "conversions.h"
 #include "config.h"
 
 DeserializationError deserializeOneCall(WiFiClient &json,
@@ -642,19 +643,19 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   }
   
   // Open-Meteo returns temperatures in Celsius, convert to Kelvin
-  r.current.temp = current["temperature_2m"].as<float>() + 273.15f;
-  r.current.feels_like = current["apparent_temperature"].as<float>() + 273.15f;
+  r.current.temp = celsius_to_kelvin(current["temperature_2m"].as<float>());
+  r.current.feels_like = celsius_to_kelvin(current["apparent_temperature"].as<float>());
   r.current.pressure = current["surface_pressure"].as<int>();
   r.current.humidity = current["relative_humidity_2m"].as<int>();
-  r.current.dew_point = current["dew_point_2m"].as<float>() + 273.15f;
+  r.current.dew_point = celsius_to_kelvin(current["dew_point_2m"].as<float>());
   r.current.clouds = current["cloud_cover"].as<int>();
   r.current.uvi = current["uv_index"].as<float>();
   r.current.visibility = current["visibility"].as<int>();
-  r.current.wind_speed = current["wind_speed_10m"].as<float>() / 3.6f;
-  r.current.wind_gust = current["wind_gusts_10m"].as<float>() / 3.6f;
+  r.current.wind_speed = kilometersperhour_to_meterspersecond(current["wind_speed_10m"].as<float>());
+  r.current.wind_gust = kilometersperhour_to_meterspersecond(current["wind_gusts_10m"].as<float>());
   r.current.wind_deg = current["wind_direction_10m"].as<int>();
   r.current.rain_1h = current["rain"].as<float>();
-  r.current.snow_1h = current["snowfall"].as<float>() * 10.0f; // cm to mm
+  r.current.snow_1h = centimeters_to_millimeters(current["snowfall"].as<float>()); // cm to mm
   
   // Determine if day or night
   bool isDay = current["is_day"].as<int>() == 1;
@@ -667,7 +668,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
 #if DEBUG_LEVEL >= 2
   Serial.println("[Open-Meteo] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
 #endif
-  Serial.println("[Open-Meteo] Current temp: " + String(r.current.temp - 273.15f, 1) + "C, Weather: " + String(wmoCode) + ", Day: " + String(isDay));
+  Serial.println("[Open-Meteo] Current temp: " + String(kelvin_to_celsius(r.current.temp), 1) + "C, Weather: " + String(wmoCode) + ", Day: " + String(isDay));
   
   // Parse daily forecast first (needed for sunrise/sunset which are not in current)
   JsonObject daily = doc["daily"];
@@ -684,8 +685,8 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   for (int i = 0; i < dailyCount; i++) {
     r.daily[i].dt = parseIso8601(daily_time[i]);
     // Convert Celsius to Kelvin
-    r.daily[i].temp.max = daily_max[i].as<float>() + 273.15f;
-    r.daily[i].temp.min = daily_min[i].as<float>() + 273.15f;
+    r.daily[i].temp.max = celsius_to_kelvin(daily_max[i].as<float>());
+    r.daily[i].temp.min = celsius_to_kelvin(daily_min[i].as<float>());
     r.daily[i].sunrise = parseIso8601(daily_sunrise[i]);
     r.daily[i].sunset = parseIso8601(daily_sunset[i]);
     r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
@@ -750,13 +751,13 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   for (int i = 0; i < hourlyCount; i++) {
     r.hourly[i].dt = parseIso8601(hourly_time[i]);
     // Convert Celsius to Kelvin
-    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
-    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
+    r.hourly[i].temp = celsius_to_kelvin(hourly_temp[i].as<float>());
+    r.hourly[i].feels_like = celsius_to_kelvin(hourly_feels[i].as<float>());
     r.hourly[i].humidity = hourly_humidity[i].as<int>();
     r.hourly[i].pressure = hourly_pressure[i].as<int>();
     r.hourly[i].clouds = hourly_clouds[i].as<int>();
-    r.hourly[i].wind_speed = hourly_wind[i].as<float>() / 3.6f;
-    r.hourly[i].wind_gust = hourly_gust[i].as<float>() / 3.6f;
+    r.hourly[i].wind_speed = kilometersperhour_to_meterspersecond(hourly_wind[i].as<float>());
+    r.hourly[i].wind_gust = kilometersperhour_to_meterspersecond(hourly_gust[i].as<float>());
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
     
     float pop_val = hourly_pop[i].as<float>();
@@ -785,7 +786,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     popMin = min(popMin, r.hourly[i].pop);
     popMax = max(popMax, r.hourly[i].pop);
   }
-  Serial.println("[Open-Meteo] Summary: Temp range " + String(tempMin - 273.15f, 1) + "C to " + String(tempMax - 273.15f, 1) + "C");
+  Serial.println("[Open-Meteo] Summary: Temp range " + String(kelvin_to_celsius(tempMin), 1) + "C to " + String(kelvin_to_celsius(tempMax), 1) + "C");
   Serial.println("[Open-Meteo] Summary: POP range " + String(popMin * 100, 0) + "% to " + String(popMax * 100, 0) + "%");
   
   return error;
@@ -962,19 +963,19 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   }
   
   // Open-Meteo returns temperatures in Celsius, convert to Kelvin
-  r.current.temp = current["temperature_2m"].as<float>() + 273.15f;
-  r.current.feels_like = current["apparent_temperature"].as<float>() + 273.15f;
+  r.current.temp = celsius_to_kelvin(current["temperature_2m"].as<float>());
+  r.current.feels_like = celsius_to_kelvin(current["apparent_temperature"].as<float>());
   r.current.pressure = current["surface_pressure"].as<int>();
   r.current.humidity = current["relative_humidity_2m"].as<int>();
-  r.current.dew_point = current["dew_point_2m"].as<float>() + 273.15f;
+  r.current.dew_point = celsius_to_kelvin(current["dew_point_2m"].as<float>());
   r.current.clouds = current["cloud_cover"].as<int>();
   r.current.uvi = current["uv_index"].as<float>();
   r.current.visibility = current["visibility"].as<int>();
-  r.current.wind_speed = current["wind_speed_10m"].as<float>();
-  r.current.wind_gust = current["wind_gusts_10m"].as<float>();
+  r.current.wind_speed = kilometersperhour_to_meterspersecond(current["wind_speed_10m"].as<float>());
+  r.current.wind_gust = kilometersperhour_to_meterspersecond(current["wind_gusts_10m"].as<float>());
   r.current.wind_deg = current["wind_direction_10m"].as<int>();
   r.current.rain_1h = current["rain"].as<float>();
-  r.current.snow_1h = current["snowfall"].as<float>() * 10.0f;
+  r.current.snow_1h = centimeters_to_millimeters(current["snowfall"].as<float>());
   
   bool isDay = current["is_day"].as<int>() == 1;
   int wmoCode = current["weather_code"].as<int>();
@@ -1002,13 +1003,13 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
   for (int i = 0; i < hourlyCount; i++) {
     r.hourly[i].dt = parseIso8601(hourly_time[i]);
-    r.hourly[i].temp = hourly_temp[i].as<float>() + 273.15f;
-    r.hourly[i].feels_like = hourly_feels[i].as<float>() + 273.15f;
+    r.hourly[i].temp = celsius_to_kelvin(hourly_temp[i].as<float>());
+    r.hourly[i].feels_like = celsius_to_kelvin(hourly_feels[i].as<float>());
     r.hourly[i].humidity = hourly_humidity[i].as<int>();
     r.hourly[i].pressure = hourly_pressure[i].as<int>();
     r.hourly[i].clouds = hourly_clouds[i].as<int>();
-    r.hourly[i].wind_speed = hourly_wind[i].as<float>();
-    r.hourly[i].wind_gust = hourly_gust[i].as<float>();
+    r.hourly[i].wind_speed = kilometersperhour_to_meterspersecond(hourly_wind[i].as<float>());
+    r.hourly[i].wind_gust = kilometersperhour_to_meterspersecond(hourly_gust[i].as<float>());
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
     
 #ifdef UNITS_HOURLY_PRECIP_POP
@@ -1044,8 +1045,8 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
   for (int i = 0; i < dailyCount; i++) {
     r.daily[i].dt = parseIso8601(daily_time[i]);
-    r.daily[i].temp.max = daily_max[i].as<float>() + 273.15f;
-    r.daily[i].temp.min = daily_min[i].as<float>() + 273.15f;
+    r.daily[i].temp.max = celsius_to_kelvin(daily_max[i].as<float>());
+    r.daily[i].temp.min = celsius_to_kelvin(daily_min[i].as<float>());
     r.daily[i].sunrise = parseIso8601(daily_sunrise[i]);
     r.daily[i].sunset = parseIso8601(daily_sunset[i]);
     r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;

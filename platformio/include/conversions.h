@@ -25,6 +25,7 @@ float celsius_to_fahrenheit(float celsius);
 
 float meterspersecond_to_feetpersecond(float meterspersecond);
 float meterspersecond_to_kilometersperhour(float meterspersecond);
+float kilometersperhour_to_meterspersecond(float kilometersperhour);
 float meterspersecond_to_milesperhour(float meterspersecond);
 float meterspersecond_to_knots(float meterspersecond);
 int meterspersecond_to_beaufort(float meterspersecond);
@@ -43,6 +44,7 @@ float meters_to_feet(float meters);
 
 float millimeters_to_inches(float meters);
 float millimeters_to_centimeters(float meters);
+float centimeters_to_millimeters(float centimeters);
 
 #endif
 

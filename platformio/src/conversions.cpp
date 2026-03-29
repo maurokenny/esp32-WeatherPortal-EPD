@@ -49,6 +49,11 @@ float meterspersecond_to_kilometersperhour(float meterspersecond)
   return meterspersecond * 3.6f;
 } // end meterspersecond_to_kilometersperhour
 
+float kilometersperhour_to_meterspersecond(float kilometersperhour)
+{
+  return kilometersperhour / 3.6f;
+} // end kilometersperhour_to_meterspersecond
+
 float meterspersecond_to_milesperhour(float meterspersecond)
 {
   return meterspersecond * 2.237f;
@@ -126,4 +131,9 @@ float millimeters_to_centimeters(float millimeter)
 {
   return millimeter / 10.0f;
 } // end milimeters_to_centimeter
+
+float centimeters_to_millimeters(float centimeters)
+{
+  return centimeters * 10.0f;
+} // end centimeters_to_millimeters
 
