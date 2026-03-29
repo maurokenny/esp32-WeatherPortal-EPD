@@ -978,15 +978,42 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     }
   }
   
-  // Convert wind speed to km/h for decision
-  float windKmh = maxWindSpeed * 3.6f;
-  
+  String windStr, windUnit;
+#ifdef UNITS_SPEED_METERSPERSECOND
+  windStr = String(static_cast<int>(std::round(maxWindSpeed)));
+  windUnit = TXT_UNITS_SPEED_METERSPERSECOND;
+#endif
+#ifdef UNITS_SPEED_FEETPERSECOND
+  windStr = String(static_cast<int>(std::round(
+                   meterspersecond_to_feetpersecond(maxWindSpeed) )));
+  windUnit = TXT_UNITS_SPEED_FEETPERSECOND;
+#endif
+#ifdef UNITS_SPEED_KILOMETERSPERHOUR
+  windStr = String(static_cast<int>(std::round(
+                   meterspersecond_to_kilometersperhour(maxWindSpeed) )));
+  windUnit = TXT_UNITS_SPEED_KILOMETERSPERHOUR;
+#endif
+#ifdef UNITS_SPEED_MILESPERHOUR
+  windStr = String(static_cast<int>(std::round(
+                   meterspersecond_to_milesperhour(maxWindSpeed) )));
+  windUnit = TXT_UNITS_SPEED_MILESPERHOUR;
+#endif
+#ifdef UNITS_SPEED_KNOTS
+  windStr = String(static_cast<int>(std::round(
+                   meterspersecond_to_knots(maxWindSpeed) )));
+  windUnit = TXT_UNITS_SPEED_KNOTS;
+#endif
+#ifdef UNITS_SPEED_BEAUFORT
+  windStr = String(meterspersecond_to_beaufort(maxWindSpeed));
+  windUnit = TXT_UNITS_SPEED_BEAUFORT;
+#endif
+
   // Calculate time until rain (in minutes)
   int minutesUntilRain = -1;
   if (firstRainIndex >= 0 && rainTimestamp > current_dt) {
     minutesUntilRain = static_cast<int>((rainTimestamp - current_dt) / 60);
   }
-  
+
   int popPercent = static_cast<int>(std::round(maxPop * 100));
   int centerX = x + 64; // Center of 128px width
   
@@ -1032,18 +1059,12 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
       drawString(centerX, y + TEXT_OFFSET_Y, "Rain now (" + String(popPercent) + "%)", CENTER);
     }
   }
-  // State 4: Take umbrella (POP 20-69% AND wind >= 18 km/h)
-  // Shows: Open umbrella icon + "Rain at..." 
-  else if (windKmh >= WIND_THRESHOLD_KMH) {
+  else if (meterspersecond_to_kilometersperhour(maxWindSpeed) >= WIND_THRESHOLD_KMH) {
     // Draw open umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
     display.setFont(&FONT_8pt8b);
-    if (minutesUntilRain > 0) {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + rainTimeStr + " (" + String(popPercent) + "%)", CENTER);
-    } else {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain now (" + String(popPercent) + "%)", CENTER);
-    }
+    drawString(centerX, y + TEXT_OFFSET_Y, "Too windy (" + windStr + windUnit + ")", CENTER);
   }
   // State 2: Compact (POP 20-69% AND wind < 18 km/h)
   // Shows: Closed umbrella icon + "Rain at..."

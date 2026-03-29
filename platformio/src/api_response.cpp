@@ -650,8 +650,8 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   r.current.clouds = current["cloud_cover"].as<int>();
   r.current.uvi = current["uv_index"].as<float>();
   r.current.visibility = current["visibility"].as<int>();
-  r.current.wind_speed = current["wind_speed_10m"].as<float>();
-  r.current.wind_gust = current["wind_gusts_10m"].as<float>();
+  r.current.wind_speed = current["wind_speed_10m"].as<float>() / 3.6f;
+  r.current.wind_gust = current["wind_gusts_10m"].as<float>() / 3.6f;
   r.current.wind_deg = current["wind_direction_10m"].as<int>();
   r.current.rain_1h = current["rain"].as<float>();
   r.current.snow_1h = current["snowfall"].as<float>() * 10.0f; // cm to mm
@@ -755,8 +755,8 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.hourly[i].humidity = hourly_humidity[i].as<int>();
     r.hourly[i].pressure = hourly_pressure[i].as<int>();
     r.hourly[i].clouds = hourly_clouds[i].as<int>();
-    r.hourly[i].wind_speed = hourly_wind[i].as<float>();
-    r.hourly[i].wind_gust = hourly_gust[i].as<float>();
+    r.hourly[i].wind_speed = hourly_wind[i].as<float>() / 3.6f;
+    r.hourly[i].wind_gust = hourly_gust[i].as<float>() / 3.6f;
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
     
     float pop_val = hourly_pop[i].as<float>();
