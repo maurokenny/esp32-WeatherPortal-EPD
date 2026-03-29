@@ -1,0 +1,3 @@
+# Local environment and credentials — do NOT commit
+platformio/.env
+platformio/include/wifi_credentials.h
