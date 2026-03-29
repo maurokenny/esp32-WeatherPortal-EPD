@@ -32,25 +32,22 @@ def build_web_ui(source, target, env):
     output_path = os.path.join(include_dir, "web_ui_data.h")
 
     config_cpp = os.path.join(env.get("PROJECT_DIR"), "src", "config.cpp")
-    wifi_h = os.path.join(env.get("PROJECT_DIR"), "include", "wifi_credentials.h")
 
     if not os.path.exists(template_path):
         print(f"Warning: template {template_path} not found!")
         return
 
     # Extract current values
-    ssid = get_config_value(wifi_h, "WIFI_SSID")
     city = get_config_value(config_cpp, "CITY_STRING")
     lat = get_config_value(config_cpp, "LAT")
     lon = get_config_value(config_cpp, "LON")
 
-    print(f"Baking settings into UI: SSID='{ssid}', City='{city}', {lat}/{lon}")
+    print(f"Baking settings into UI: City='{city}', {lat}/{lon}")
 
     with open(template_path, "r", encoding="utf-8") as f:
         html = f.read()
 
     # Replace placeholders
-    html = html.replace("{{WIFI_SSID}}", ssid)
     html = html.replace("{{CITY_STRING}}", city)
     html = html.replace("{{LAT}}", lat)
     html = html.replace("{{LON}}", lon)

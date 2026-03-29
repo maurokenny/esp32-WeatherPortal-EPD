@@ -15,7 +15,7 @@ env_file = join(project_dir, ".env")
 header_file = join(project_dir, "include", "wifi_credentials.h")
 
 # Default fallback values
-wifi_ssid = "ssid"
+wifi_ssid = "Default ssid"
 wifi_password = "password"
 
 # Read from .env if it exists
