@@ -104,9 +104,7 @@ const String COUNTRY_STRING = "France";
 // TIME
 // For list of time zones see
 // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
-// const char *TIMEZONE = "CET-1CEST,M3.5.0,M10.5.0/3";
-// const char *TIMEZONE = "WET0WEST,M3.5.0/1,M10.5.0/2";
-const char *TIMEZONE = "UTC0";
+const char *TIMEZONE = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 // Time format used when displaying sunrise/set times. (Max 11 characters)
 // For more information about formatting see

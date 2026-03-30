@@ -196,7 +196,7 @@ bool waitForSNTPSync(tm *timeInfo)
   uri += ",precipitation_probability_max,precipitation_sum";
 #endif
 
-  uri += "&timezone=auto"
+  uri += "&timezone=GMT"
          "&forecast_days=8";
 
   String fullUri = "https://" + OPENMETEO_ENDPOINT + uri;
@@ -283,7 +283,7 @@ bool waitForSNTPSync(tm *timeInfo)
                "&longitude=" + String(ramLon) +
                "&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
                "sulphur_dioxide,ozone"
-               "&timezone=auto";
+               "&timezone=GMT";
 
   String fullUri = "https://" + OPENMETEO_AIRQUALITY_ENDPOINT + uri;
 #if DEBUG_LEVEL >= 2
