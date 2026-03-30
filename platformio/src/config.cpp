@@ -92,10 +92,15 @@ const String OWM_ONECALL_VERSION = "";
 // LOCATION
 // Set your latitude and longitude.
 // (used to get weather data as part of API requests to Open-Meteo)
+// New York City, USA: 40.7128° N, 74.0060° W
 // const String LAT = "40.7128";
 // const String LON = "-74.0060";
+// Lille, France: 50.6292° N, 3.0573° E
 const String LAT = "50.6292";
 const String LON = "3.0573";
+// Manaus, Brazil: 3.1190° S, 60.0217° W
+// const String LAT = "-3.1190";
+// const String LON = "-60.0217";
 // City name that will be shown in the top-right corner of the display.
 const String CITY_STRING = "Lille";
 const String COUNTRY_STRING = "France";
@@ -143,7 +148,7 @@ const int SLEEP_DURATION = 30; // minutes
 // If BED_TIME == WAKE_TIME, then this battery saving feature will be disabled.
 // (range: [0-23])
 const int BED_TIME  = 00; // Last update at 00:00 (midnight) until WAKE_TIME.
-const int WAKE_TIME = 06; // Hour of first update after BED_TIME, 06:00.
+const int WAKE_TIME = 01; // Hour of first update after BED_TIME, 06:00.
 // Note that the minute alignment of SLEEP_DURATION begins at WAKE_TIME even if
 // Bed Time Power Savings is disabled.
 // For example, if WAKE_TIME = 00 (midnight) and SLEEP_DURATION = 120, then the

@@ -233,9 +233,10 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather);
  * Parse ISO 8601 datetime string to Unix timestamp.
  * Format: "2026-03-24T18:15"
  * @param iso8601 ISO 8601 datetime string
+ * @param inputIsUtc true when the input string is UTC (timezone=GMT), false when the input string is local time (timezone=auto)
  * @return Unix timestamp (seconds since epoch)
  */
-int64_t parseIso8601(const char* iso8601);
+int64_t parseIso8601(const char* iso8601, bool inputIsUtc = true);
 
 /**
  * Deserialize Open-Meteo API response.

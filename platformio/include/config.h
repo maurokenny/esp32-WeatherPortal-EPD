@@ -82,6 +82,18 @@
 //   Spanish (Spain)                 es_ES
 #define LOCALE en_US
 
+// Open-Meteo timezone handling mode.
+// If AUTO, requests use timezone=auto and returned timestamps are local time
+// with DST already applied.
+// If MANUAL, requests use timezone=GMT and the ESP32 converts UTC timestamps
+// to local time using TIMEZONE.
+// #define OPENMETEO_TIMEZONE_MODE_AUTO
+#define OPENMETEO_TIMEZONE_MODE_MANUAL
+
+#if defined(OPENMETEO_TIMEZONE_MODE_AUTO) && defined(OPENMETEO_TIMEZONE_MODE_MANUAL)
+  #error "Only one Open-Meteo timezone mode may be enabled"
+#endif
+
 // UNITS
 // Define exactly one macro for each measurement type below.
 

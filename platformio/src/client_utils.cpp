@@ -196,8 +196,14 @@ bool waitForSNTPSync(tm *timeInfo)
   uri += ",precipitation_probability_max,precipitation_sum";
 #endif
 
-  uri += "&timezone=GMT"
-         "&forecast_days=8";
+#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
+  const char *openMeteoTimezoneQuery = "GMT";
+#else
+  const char *openMeteoTimezoneQuery = "auto";
+#endif
+
+  uri += String("&timezone=") + String(openMeteoTimezoneQuery)
+         + String("&forecast_days=8");
 
   String fullUri = "https://" + OPENMETEO_ENDPOINT + uri;
 #if DEBUG_LEVEL >= 2
@@ -278,12 +284,18 @@ bool waitForSNTPSync(tm *timeInfo)
   DeserializationError jsonErr = {};
 
   // Open-Meteo Air Quality API endpoint
+#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
+  const char *openMeteoTimezoneQuery = "GMT";
+#else
+  const char *openMeteoTimezoneQuery = "auto";
+#endif
+
   String uri = "/v1/air-quality"
                "?latitude=" + String(ramLat) + 
                "&longitude=" + String(ramLon) +
                "&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
                "sulphur_dioxide,ozone"
-               "&timezone=GMT";
+               + String("&timezone=") + String(openMeteoTimezoneQuery);
 
   String fullUri = "https://" + OPENMETEO_AIRQUALITY_ENDPOINT + uri;
 #if DEBUG_LEVEL >= 2
