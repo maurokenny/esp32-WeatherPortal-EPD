@@ -153,8 +153,10 @@ void getDateStr(String &s, tm *timeInfo)
 } // end getDateStr
 
 /* Gets string with the current date and time of the current refresh attempt.
+ * tzOffsetSeconds: timezone offset from UTC (e.g., 7200 for GMT+2, -18000 for GMT-5)
+ *                  Used in AUTO mode to convert UTC to local time for display.
  */
-void getRefreshTimeStr(String &s, bool timeSuccess, tm *timeInfo)
+void getRefreshTimeStr(String &s, bool timeSuccess, tm *timeInfo, int tzOffsetSeconds)
 {
   if (timeSuccess == false)
   {
@@ -163,7 +165,17 @@ void getRefreshTimeStr(String &s, bool timeSuccess, tm *timeInfo)
   }
 
   char buf[48] = {};
-  _strftime(buf, sizeof(buf), REFRESH_TIME_FORMAT, timeInfo);
+  
+  // If timezone offset provided, adjust the time before formatting
+  if (tzOffsetSeconds != 0) {
+    time_t adjustedTime = mktime(timeInfo) + tzOffsetSeconds;
+    tm adjustedTm = {};
+    gmtime_r(&adjustedTime, &adjustedTm);
+    _strftime(buf, sizeof(buf), REFRESH_TIME_FORMAT, &adjustedTm);
+  } else {
+    _strftime(buf, sizeof(buf), REFRESH_TIME_FORMAT, timeInfo);
+  }
+  
   s = buf;
 
   // remove double spaces.
