@@ -1,76 +1,44 @@
-# load_env.py - Generate wifi_credentials.h from .env file
-# This script reads credentials from a local .env file (not versioned)
-# and generates a C header file with the credentials.
-#
-# IMPORTANT: The .env file and generated wifi_credentials.h should NEVER be committed to git.
-# Both are already added to .gitignore.
-
 import os
 from os.path import join
 
+# Access the PlatformIO build environment
 Import("env")
 
+# Define paths for the environment configuration
 project_dir = env["PROJECT_DIR"]
 env_file = join(project_dir, ".env")
-header_file = join(project_dir, "include", "wifi_credentials.h")
 
-# Default fallback values
-wifi_ssid = "Default ssid"
-wifi_password = "password"
+# Fallback values used if the .env file is missing or keys are not found
+wifi_ssid = "Default SSID"
+wifi_password = "Default Password"
 
-# Read from .env if it exists
+# Parse the .env file if it exists in the project root
 if os.path.exists(env_file):
     try:
         with open(env_file, "r") as f:
             for line in f:
                 line = line.strip()
+                # Process lines containing '=' and ignore comments starting with '#'
                 if "=" in line and not line.startswith("#"):
                     key, value = line.split("=", 1)
+
+                    # Clean the value by removing potential surrounding quotes or whitespace
+                    value = value.strip().strip('"').strip("'")
+
                     if key == "WIFI_SSID":
                         wifi_ssid = value
                     elif key == "WIFI_PASSWORD":
                         wifi_password = value
-        print(f"Loaded WiFi credentials from {env_file}")
+
+        print(f"Build System: Loaded WiFi credentials from {env_file}")
     except Exception as e:
-        print(f"Warning: Could not read {env_file}: {e}")
-        print("Using fallback WiFi credentials")
+        print(f"Build System: Error reading {env_file}: {e}")
 else:
-    print(f"Warning: {env_file} not found. Using fallback WiFi credentials.")
-    print(
-        "Create a .env file with WIFI_SSID and WIFI_PASSWORD to set your credentials."
-    )
+    print(f"Build System: {env_file} not found. Proceeding with fallback values.")
 
-
-# Escape special characters for C string literals
-def escape_c_string(s):
-    s = s.replace("\\", "\\\\")
-    s = s.replace('"', '\\"')
-    s = s.replace("\n", "\\n")
-    s = s.replace("\r", "\\r")
-    s = s.replace("\t", "\\t")
-    return s
-
-
-ssid_escaped = escape_c_string(wifi_ssid)
-pass_escaped = escape_c_string(wifi_password)
-
-# Generate the header file
-header_content = f'''/* WiFi Credentials - AUTO-GENERATED FILE - DO NOT EDIT */
-/* Generated from .env file by load_env.py */
-/* This file should NOT be committed to version control */
-
-#ifndef __WIFI_CREDENTIALS_H__
-#define __WIFI_CREDENTIALS_H__
-
-#define WIFI_SSID_VALUE "{ssid_escaped}"
-#define WIFI_PASSWORD_VALUE "{pass_escaped}"
-
-#endif /* __WIFI_CREDENTIALS_H__ */
-'''
-
-try:
-    with open(header_file, "w") as f:
-        f.write(header_content)
-    print(f"Generated {header_file}")
-except Exception as e:
-    print(f"Error writing {header_file}: {e}")
+# Inject the credentials as global C++ macros (-D)
+# env.StringifyMacro is used to ensure the values are wrapped in escaped quotes.
+env.Append(CPPDEFINES=[
+    ("WIFI_SSID_VALUE", env.StringifyMacro(wifi_ssid)),
+    ("WIFI_PASSWORD_VALUE", env.StringifyMacro(wifi_password))
+])

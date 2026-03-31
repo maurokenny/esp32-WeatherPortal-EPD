@@ -18,10 +18,6 @@
 #include <Arduino.h>
 #include "config.h"
 
-// WiFi credentials are auto-generated from .env file by load_env.py
-// This file should NOT be committed to version control
-#include "wifi_credentials.h"
-
 // PINS
 // The configuration below is intended for use with the project's official 
 // wiring diagrams using the FireBeetle 2 ESP32-E microcontroller board.
@@ -105,7 +101,8 @@ const String LON = "3.0573";
 const String CITY_STRING = "Lille";
 const String COUNTRY_STRING = "France";
 // const String CITY_STRING = "New York - USA";
-
+// const String CITY_STRING = "Manaus";
+// const String COUNTRY_STRING = "Brasil";
 // TIME
 // For list of time zones see
 // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv

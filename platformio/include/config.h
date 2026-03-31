@@ -87,8 +87,8 @@
 // with DST already applied.
 // If MANUAL, requests use timezone=GMT and the ESP32 converts UTC timestamps
 // to local time using TIMEZONE.
-// #define OPENMETEO_TIMEZONE_MODE_AUTO
-#define OPENMETEO_TIMEZONE_MODE_MANUAL
+#define OPENMETEO_TIMEZONE_MODE_AUTO
+// #define OPENMETEO_TIMEZONE_MODE_MANUAL
 
 #if defined(OPENMETEO_TIMEZONE_MODE_AUTO) && defined(OPENMETEO_TIMEZONE_MODE_MANUAL)
   #error "Only one Open-Meteo timezone mode may be enabled"
@@ -395,6 +395,19 @@ typedef enum {
 
 #define DEBUG_LEVEL 2
 #define SILENT_STATUS true
+
+/** * Build System Macros
+ * These values MUST be injected by the PlatformIO python script.
+ * The script reads from .env or uses its own internal constants.
+ * If these are missing, the build will fail to prevent inconsistent configurations.
+ */
+#ifndef WIFI_SSID_VALUE
+  #error "WIFI_SSID_VALUE is missing! Ensure your .env file exists or the python script is active in platformio.ini."
+#endif
+
+#ifndef WIFI_PASSWORD_VALUE
+  #error "WIFI_PASSWORD_VALUE is missing! Check your build system configuration."
+#endif
 
 // Set the below constants in "config.cpp"
 extern const uint8_t PIN_BAT_ADC;
