@@ -436,13 +436,19 @@ void handleConfigSave(AsyncWebServerRequest* request) {
         return;
     }
 
-    // --- Apply Timezone and Verify ---
-    bool tzApplied = applyTimezone(tempTimezone);
-    if (!tzApplied) {
-        // Timezone was invalid at runtime - use UTC fallback
+    // --- Apply Timezone and Verify (only for manual mode) ---
+    bool tzApplied = true;
+    if (!tempAutoGeo) {
+        // In manual mode, validate the user-selected timezone
+        tzApplied = applyTimezone(tempTimezone);
+        if (!tzApplied) {
+            // Timezone was invalid at runtime - use UTC fallback
+            safeCopy("UTC0", tempTimezone, sizeof(tempTimezone));
+        }
+    } else {
+        // In auto mode, timezone will be determined by API
+        // Use UTC as placeholder until first API call
         safeCopy("UTC0", tempTimezone, sizeof(tempTimezone));
-        // Continue with save but notify user
-        // Note: We still save the config but with UTC timezone
     }
 
     // --- All validations passed - copy to RTC RAM ---
@@ -469,8 +475,10 @@ void handleConfigSave(AsyncWebServerRequest* request) {
     Serial.printf("  TimezoneMode: %s\n", (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? "AUTO" : "MANUAL");
 
     // Send success response
-    if (!tzApplied) {
-        // Special case: saved but timezone was invalid
+    // Only show error if timezone failed in MANUAL mode
+    // In AUTO mode, timezone will be determined by API, so always show success
+    if (!tzApplied && !tempAutoGeo) {
+        // Special case: saved but timezone was invalid in manual mode
         sendErrorResponse(request, "Settings saved but timezone was invalid. Using UTC fallback.");
         // Still trigger restart after a delay
         runtime.portalActive = false;
