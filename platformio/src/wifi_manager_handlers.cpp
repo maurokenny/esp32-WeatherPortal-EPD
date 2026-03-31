@@ -280,13 +280,12 @@ bool applyTimezone(const char* tzStr) {
 // Helper to send error response and prevent restart
 void sendErrorResponse(AsyncWebServerRequest* request, const char* message) {
     const char* htmlTemplate =
-        "<!DOCTYPE html>"
-        "<html>"
-        "<head><title>Error</title></head>"
-        "<body>"
+        "<!DOCTYPE html><html><head><title>Error</title></head><body>"
         "<h2>Configuration Error</h2>"
         "<p>%s</p>"
-        "<a href=\"/\">Go back</a>"
+        "<p><small>Note: When 'Detect location automatically' is off, "
+        "City, Country, Latitude, Longitude and Timezone are required.</small></p>"
+        "<p><a href='/'>Go back</a></p>"
         "</body></html>";
 
     char response[512];

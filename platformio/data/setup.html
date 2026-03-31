@@ -155,7 +155,7 @@
                 </div>
                 <div class="field">
                     <label>Country</label>
-                    <input type="text" id="country" name="country" value="{{COUNTRY_STRING}}" placeholder="e.g. United Kingdom">
+                    <input type="text" id="country" name="country" value="{{COUNTRY_STRING}}" placeholder="e.g. United Kingdom" required>
                 </div>
                 <div class="row">
                     <div class="field">
@@ -192,7 +192,7 @@
 
         function handleAutoChange(cb) {
             // Fields that are required when using manual location
-            const requiredFields = ['city', 'lat', 'lon', 'timezone'];
+            const requiredFields = ['city', 'country', 'lat', 'lon', 'timezone'];
             // All fields to disable/enable
             const allFields = ['city', 'country', 'lat', 'lon', 'timezone'];
             
