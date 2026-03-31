@@ -151,7 +151,7 @@
             <div id="manual_fields">
                 <div class="field">
                     <label>City Name</label>
-                    <input type="text" id="city" name="city" value="{{CITY_STRING}}" placeholder="e.g. London">
+                    <input type="text" id="city" name="city" value="{{CITY_STRING}}" placeholder="e.g. London" required>
                 </div>
                 <div class="field">
                     <label>Country</label>
@@ -160,16 +160,16 @@
                 <div class="row">
                     <div class="field">
                         <label>Latitude</label>
-                        <input type="text" id="lat" name="lat" value="{{LAT}}" placeholder="0.0000">
+                        <input type="text" id="lat" name="lat" value="{{LAT}}" placeholder="0.0000" required>
                     </div>
                     <div class="field">
                         <label>Longitude</label>
-                        <input type="text" id="lon" name="lon" value="{{LON}}" placeholder="0.0000">
+                        <input type="text" id="lon" name="lon" value="{{LON}}" placeholder="0.0000" required>
                     </div>
                 </div>
                 <div class="field">
                     <label>Timezone</label>
-                    <select id="timezone" name="timezone">
+                    <select id="timezone" name="timezone" required>
                         <option value="" disabled {{TIMEZONE_SELECTED_EMPTY}}>Select timezone...</option>
                         {{TIMEZONE_OPTIONS}}
                     </select>
@@ -191,12 +191,23 @@
         }
 
         function handleAutoChange(cb) {
-            const fields = ['city', 'country', 'lat', 'lon', 'timezone'];
-            fields.forEach(id => {
+            // Fields that are required when using manual location
+            const requiredFields = ['city', 'lat', 'lon', 'timezone'];
+            // All fields to disable/enable
+            const allFields = ['city', 'country', 'lat', 'lon', 'timezone'];
+            
+            allFields.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
                     el.disabled = cb.checked;
-                    if (cb.checked) el.required = false;
+                }
+            });
+            
+            // Toggle required attribute based on auto_geo state
+            requiredFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.required = !cb.checked;
                 }
             });
         }
