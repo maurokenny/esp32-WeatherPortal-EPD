@@ -139,12 +139,35 @@ const uint8_t *getBatBitmap24(uint32_t batPercent)
   }
 } // end getBatBitmap24
 
-/* Gets string with the current date.
+/* Helper: apply timezone offset to a tm struct and normalize fields.
+ * This avoids dependency on the ESP32's configured timezone.
  */
-void getDateStr(String &s, tm *timeInfo)
+static void applyTzOffsetToTm(tm *timeInfo, int tzOffsetSeconds)
+{
+  if (tzOffsetSeconds == 0) {
+    return;
+  }
+  int offsetHours = tzOffsetSeconds / 3600;
+  int offsetMins  = (tzOffsetSeconds % 3600) / 60;
+  timeInfo->tm_min += offsetMins;
+  timeInfo->tm_hour += offsetHours;
+  mktime(timeInfo); // normalize day/month/year/wday
+  return;
+} // end applyTzOffsetToTm
+
+/* Gets string with the current date.
+ * tzOffsetSeconds: timezone offset from UTC used in AUTO mode.
+ */
+void getDateStr(String &s, tm *timeInfo, int tzOffsetSeconds)
 {
   char buf[48] = {};
-  _strftime(buf, sizeof(buf), DATE_FORMAT, timeInfo);
+  if (tzOffsetSeconds != 0) {
+    tm adjustedTm = *timeInfo;
+    applyTzOffsetToTm(&adjustedTm, tzOffsetSeconds);
+    _strftime(buf, sizeof(buf), DATE_FORMAT, &adjustedTm);
+  } else {
+    _strftime(buf, sizeof(buf), DATE_FORMAT, timeInfo);
+  }
   s = buf;
 
   // remove double spaces. %e will add an extra space, ie. " 1" instead of "1"
@@ -165,17 +188,13 @@ void getRefreshTimeStr(String &s, bool timeSuccess, tm *timeInfo, int tzOffsetSe
   }
 
   char buf[48] = {};
-  
-  // If timezone offset provided, adjust the time before formatting
   if (tzOffsetSeconds != 0) {
-    time_t adjustedTime = mktime(timeInfo) + tzOffsetSeconds;
-    tm adjustedTm = {};
-    gmtime_r(&adjustedTime, &adjustedTm);
+    tm adjustedTm = *timeInfo;
+    applyTzOffsetToTm(&adjustedTm, tzOffsetSeconds);
     _strftime(buf, sizeof(buf), REFRESH_TIME_FORMAT, &adjustedTm);
   } else {
     _strftime(buf, sizeof(buf), REFRESH_TIME_FORMAT, timeInfo);
   }
-  
   s = buf;
 
   // remove double spaces.

@@ -10,16 +10,18 @@ Key features:
 - Indoor environment sensing (BME280 or BME680)
 - Battery monitoring with multiple protection levels
 - Multiple locale and unit system support
+- WiFi Configuration Portal with captive portal detection
+- Automatic IP-based geolocation
 - HTTPS support with certificate verification
 - No API key required (uses Open-Meteo free weather API)
 
 ## Technology Stack
 
-- **Platform**: ESP32 (Expressif32 platform v6.12.0)
+- **Platform**: ESP32 (Expressif32 platform)
 - **Framework**: Arduino Framework
 - **Build System**: PlatformIO
 - **Language**: C++17 (GNU++17)
-- **Target Board**: DFRobot FireBeetle 2 ESP32-E (default), also supports FireBeetle ESP32
+- **Target Board**: ESP32 Dev Module (default), also supports FireBeetle ESP32
 
 ### External Libraries
 
@@ -31,6 +33,10 @@ Key features:
 | Adafruit BusIO | 1.17.4 | I2C/SPI bus communication |
 | Adafruit Unified Sensor | 1.1.15 | Sensor abstraction layer |
 | ArduinoJson | 7.4.2 | JSON parsing for API responses |
+| Adafruit GFX Library | 1.11.9 | Graphics primitives |
+| AsyncTCP | 3.2.4 | Async TCP library for web server |
+| ESPAsyncWebServer | 3.3.17 | Async web server for configuration portal |
+| QRCode | 0.0.1 | QR code generation for WiFi setup |
 
 ## Project Structure
 
@@ -46,6 +52,7 @@ platformio/
 │   ├── display_utils.cpp  # Display helper functions
 │   ├── conversions.cpp    # Unit conversion utilities
 │   ├── locale.cpp         # Locale-specific formatting
+│   ├── wifi_manager.cpp   # WiFi connection and AP mode management
 │   ├── _strftime.cpp      # Custom strftime implementation
 │   └── test_gxepd2.cpp    # Display test utilities
 ├── include/               # Header files
@@ -53,12 +60,13 @@ platformio/
 │   ├── api_response.h    # API response data structures
 │   ├── renderer.h        # Display rendering declarations
 │   ├── client_utils.h    # WiFi/HTTP utility declarations
+│   ├── wifi_manager.h    # WiFi manager state machine declarations
+│   ├── web_ui_data.h     # Auto-generated compressed web UI data
 │   ├── _locale.h         # Localization strings and AQI scales
 │   ├── _strftime.h       # Time formatting declarations
 │   ├── conversions.h     # Unit conversion declarations
 │   ├── display_utils.h   # Display utility declarations
 │   ├── cert.h            # SSL certificates for HTTPS
-│   ├── wifi_credentials.h # WiFi credentials (auto-generated from .env)
 │   ├── saved_api_response.h # Saved API response for offline testing
 │   ├── test_gxepd2.h     # Display test declarations
 │   └── locales/          # Locale definition files (*.inc)
@@ -76,91 +84,120 @@ platformio/
 │   └── esp32-weather-epd-assets/
 │       ├── fonts/        # Font files (multiple typefaces, multiple sizes)
 │       └── icons/        # Weather and UI icons (multiple resolutions)
+├── data/                 # Web UI template files
+│   ├── setup.html        # Configuration portal HTML template
+│   └── saved_api_response.h # Saved API response data
 ├── docs/                 # Documentation
 │   └── EPAPER_HORIZONTAL_LINES_BUG.md  # Known e-paper display issue
 ├── .env                  # WiFi credentials (not versioned)
-├── load_env.py           # Script to generate wifi_credentials.h from .env
+├── load_env.py           # Script to inject WiFi credentials from .env
+├── build_web_ui.py       # Script to compress and embed web UI
 └── .vscode/              # VS Code settings
 ```
 
-## Code Organization
+## Core Modules
 
-### Core Modules
+### main.cpp
+Application entry point and main loop. Contains:
+- `setup()`: Initializes WiFi manager, loads RTC RAM variables
+- `loop()`: State machine for WiFi connection, weather updates, and deep sleep
+- `updateWeather()`: Fetches weather data, reads sensors, renders display
+- `beginDeepSleep()`: Power management and sleep scheduling
+- `fillMockupData()`: Test data for development without WiFi
 
-1. **main.cpp**: Application entry point. Contains:
-   - `setup()`: WiFi connection, time sync, API requests, sensor reading, rendering
-   - `beginDeepSleep()`: Power management and sleep scheduling
-   - `fillMockupData()`: Test data for development without WiFi
+### config.h / config.cpp
+Configuration management split across two files:
+- **config.h**: Compile-time configuration using preprocessor macros
+  - Hardware pin definitions
+  - Feature flags (display type, sensor type, units, etc.)
+  - API endpoints and credentials
+  - Battery voltage thresholds
+  - Compile-time validation of configuration
+- **config.cpp**: Runtime configuration constants
+  - Pin assignments for specific hardware wiring
+  - Location coordinates (latitude/longitude)
+  - City name for display
+  - Timezone string
+  - Sleep duration and bedtime settings
+  - Battery voltage thresholds
 
-2. **config.h / config.cpp**: Configuration management
-   - Hardware pin definitions
-   - Feature flags (display type, sensor type, units, etc.)
-   - API endpoints and credentials
-   - Battery voltage thresholds
-   - Compile-time validation of configuration
+### renderer.cpp / renderer.h
+Display rendering module:
+- E-paper display initialization and control via GxEPD2
+- Drawing functions for weather widgets (current conditions, forecasts, graphs)
+- Font and icon rendering
+- Layout management for different display sizes
+- Umbrella widget for rain probability
 
-3. **renderer.cpp / renderer.h**: Display rendering
-   - E-paper display initialization and control
-   - Drawing functions for weather widgets
-   - Font and icon rendering
-   - Layout management for different display sizes
+### api_response.cpp / api_response.h
+Data structures and parsing:
+- Open-Meteo API response structures (converted to OWM-compatible format)
+- WMO weather code to OpenWeatherMap-compatible conversion
+- JSON deserialization using ArduinoJson
+- Support for loading saved API responses from header file
 
-4. **api_response.cpp / api_response.h**: Data structures and parsing
-   - Open-Meteo API response structures
-   - WMO weather code to OpenWeatherMap-compatible conversion
-   - JSON deserialization using ArduinoJson
-   - Support for loading saved API responses from header file
+### wifi_manager.cpp / wifi_manager.h
+WiFi connection and configuration portal:
+- State machine: BOOT → WIFI_CONNECTING → AP_CONFIG_MODE → NORMAL_MODE → SLEEP_PENDING
+- Captive portal with automatic device detection
+- RTC RAM variables for persisting config across deep sleep
+- IP-based geolocation for automatic location detection
+- Web server for configuration interface
 
-5. **client_utils.cpp / client_utils.h**: Network utilities
-   - WiFi connection management
-   - NTP time synchronization
-   - HTTP/HTTPS API requests to Open-Meteo
+### client_utils.cpp / client_utils.h
+Network utilities:
+- WiFi connection management
+- NTP time synchronization
+- HTTP/HTTPS API requests to Open-Meteo
 
-### Display Types Supported
+## Build System
 
-- `DISP_BW_V2`: 7.5" Black/White 800x480px (default)
-- `DISP_BW_V2_ALT`: 7.5" Black/White 800x480px (alternative driver for FPC-C001 panels)
-- `DISP_3C_B`: 7.5" Red/Black/White 800x480px
-- `DISP_7C_F`: 7.3" 7-Color 800x480px
-- `DISP_BW_V1`: 7.5" Black/White 640x384px (legacy)
+### PlatformIO Configuration (platformio.ini)
 
-### Driver Boards Supported
+```ini
+[platformio]
+default_envs = esp32dev
 
-- `DRIVER_DESPI_C02`: Officially supported
-- `DRIVER_WAVESHARE`: Supported with potential contrast issues
+[env]
+platform = espressif32
+framework = arduino
+build_unflags = '-std=gnu++11'
+build_flags = '-Wall' '-std=gnu++17'
 
-## Build Commands
+[env:esp32dev]
+board = esp32dev
+monitor_speed = 115200
+board_build.partitions = huge_app.csv
+board_build.f_cpu = 80000000L
+extra_scripts = pre:load_env.py, pre:build_web_ui.py
+```
 
-### Build the Project
+### Build Scripts
+
+1. **load_env.py**: Pre-build script that reads `.env` file and injects WiFi credentials as C++ macros
+2. **build_web_ui.py**: Pre-build script that compresses `data/setup.html` and embeds it as a C array in `include/web_ui_data.h`
+
+### Build Commands
+
 ```bash
+# Build the project
 pio run
-```
 
-### Upload to Device
-```bash
+# Upload to device
 pio run --target upload
-```
 
-### Monitor Serial Output
-```bash
+# Monitor Serial Output
 pio device monitor --baud 115200
-```
 
-### Build for Specific Environment
-```bash
-# Default environment (dfrobot_firebeetle2_esp32e)
-pio run -e dfrobot_firebeetle2_esp32e
-
-# Legacy FireBeetle ESP32
+# Build for Specific Environment
+pio run -e esp32dev
 pio run -e firebeetle32
-```
 
-### Clean Build
-```bash
+# Clean Build
 pio run --target clean
 ```
 
-## Configuration Guide
+## Configuration System
 
 ### Essential Configuration Files
 
@@ -187,11 +224,51 @@ pio run --target clean
    WIFI_SSID=YourNetworkName
    WIFI_PASSWORD=YourPassword
    ```
-   This file is processed by `load_env.py` to generate `include/wifi_credentials.h`
 
 ### Configuration Validation
 
-The `config.h` file includes compile-time validation. If you select invalid combinations (e.g., multiple display types), the build will fail with a descriptive error message.
+The `config.h` file includes compile-time validation using `#error` directives. If you select invalid combinations (e.g., multiple display types), the build will fail with a descriptive error message.
+
+## WiFi Manager and Configuration Portal
+
+### Connection Flow
+
+1. **Cold Boot**: Device attempts to connect using saved credentials from RTC RAM
+2. **WiFi Connecting**: Shows loading screen while connecting
+3. **Success**: Proceeds to normal weather update mode
+4. **Timeout**: Falls back to AP Configuration Mode
+
+### AP Configuration Mode
+
+When WiFi connection fails or on first boot:
+- Creates access point "weather_eink-AP"
+- Serves configuration page at `192.168.4.1` or `weather.local`
+- Captive portal detection for automatic redirect on mobile devices
+- Allows setting:
+  - WiFi SSID and password
+  - City name and country
+  - Latitude and longitude (manual or auto-detect)
+- Auto-geolocation via ip-api.com when "Detect automatically" is checked
+- Security timeout: AP mode exits after 5 minutes and enters deep sleep
+
+### RTC RAM Persistence
+
+Configuration is stored in RTC RAM (survives deep sleep but not power loss):
+- `ramSSID[64]`, `ramPassword[64]`: WiFi credentials
+- `ramCity[64]`, `ramCountry[64]`: Location names
+- `ramLat[32]`, `ramLon[32]`: Coordinates
+- `ramAutoGeo`: Flag for automatic geolocation
+- `isFirstBoot`: First boot indicator for silent mode
+
+## Display Types Supported
+
+| Macro | Display | Resolution | Colors |
+|-------|---------|------------|--------|
+| `DISP_BW_V2` | 7.5" e-Paper (v2) | 800x480px | Black/White |
+| `DISP_BW_V2_ALT` | 7.5" e-Paper (v2) | 800x480px | Black/White (Alternative driver for FPC-C001 panels) |
+| `DISP_3C_B` | 7.5" e-Paper (B) | 800x480px | Red/Black/White |
+| `DISP_7C_F` | 7.3" ACeP e-Paper (F) | 800x480px | 7-Color |
+| `DISP_BW_V1` | 7.5" e-Paper (v1) | 640x384px | Black/White (legacy) |
 
 ## Code Style Guidelines
 
@@ -226,6 +303,7 @@ All files include GPL v3 license headers:
 - **Functions**: `camelCase` (e.g., `beginDeepSleep`, `drawString`)
 - **Variables**: `camelCase` (e.g., `batteryVoltage`, `timeInfo`)
 - **Macros**: `UPPER_CASE` with underscores
+- **Enum Values**: `UPPER_CASE` (e.g., `STATE_BOOT`, `MOCKUP_WEATHER_SUNNY`)
 
 ### File Organization
 - Headers in `include/`, implementations in `src/`
@@ -255,8 +333,17 @@ Set `USE_MOCKUP_DATA 1` in `config.h` to test without WiFi/API:
 - Uses synthetic weather data
 - Bypasses all network operations
 - Useful for testing display layout and rendering
-- Multiple weather scenarios available (sunny, rainy, snowy, cloudy, thunder)
-- Rain widget states for testing umbrella display
+- Multiple weather scenarios available:
+  - `MOCKUP_WEATHER_SUNNY`: Clear sky, warm (25°C)
+  - `MOCKUP_WEATHER_RAINY`: Moderate rain (15°C), 85% humidity
+  - `MOCKUP_WEATHER_SNOWY`: Light snow (0°C)
+  - `MOCKUP_WEATHER_CLOUDY`: Overcast clouds, mild (18°C)
+  - `MOCKUP_WEATHER_THUNDER`: Thunderstorm, warm (20°C)
+- Rain widget states for testing umbrella display:
+  - `MOCKUP_RAIN_NO_RAIN`: POP < 30%, shows X over icon
+  - `MOCKUP_RAIN_COMPACT`: POP 30-70%
+  - `MOCKUP_RAIN_TAKE`: POP >= 70%
+  - `MOCKUP_RAIN_GRAPH_TEST`: Varied POP for graph testing
 
 ### Loading Saved API Responses
 
@@ -307,8 +394,9 @@ The project supports three HTTP modes:
 ### Credential Storage
 
 - WiFi credentials are loaded from `.env` file by `load_env.py`
-- The generated `include/wifi_credentials.h` should NOT be committed to version control
-- Both `.env` and `wifi_credentials.h` are in `.gitignore`
+- Credentials are injected as build macros, not stored in source code
+- RTC RAM storage for runtime usage (cleared on power loss)
+- Both `.env` and generated headers are in `.gitignore`
 
 ### Battery Safety
 
@@ -316,11 +404,19 @@ The project supports three HTTP modes:
 - Multiple voltage thresholds trigger progressively longer sleep intervals
 - Critical low voltage triggers indefinite hibernation (requires manual reset)
 
+## Known Issues and Workarounds
+
+### E-Paper Horizontal Lines Bug
+
+When drawing precipitation bars using a horizontal dotted pattern (`y += 2` row skipping), the e-paper display renders as a completely white screen. However, a vertical dotted pattern (`x += 2` column skipping) works correctly.
+
+**Workaround**: Use vertical dotted patterns or solid fills instead of horizontal row skipping. See `docs/EPAPER_HORIZONTAL_LINES_BUG.md` for details.
+
 ## Deployment Process
 
 ### Hardware Requirements
 
-1. **Microcontroller**: FireBeetle 2 ESP32-E (recommended) or FireBeetle ESP32
+1. **Microcontroller**: ESP32 Dev Module or FireBeetle ESP32
 2. **Display**: 7.5" e-paper panel with compatible driver board
 3. **Sensor**: BME280 or BME680 (I2C)
 4. **Power**: 3.7V LiPo battery or USB power
@@ -330,15 +426,18 @@ The project supports three HTTP modes:
 
 | Function | Pin |
 |----------|-----|
-| Battery ADC | A2 |
+| Battery ADC | 36 (ADC1_CH0) |
 | EPD Busy | 25 |
 | EPD CS | 15 |
 | EPD RST | 26 |
 | EPD DC | 27 |
 | EPD SCK | 13 |
+| EPD MISO | 19 (Not used) |
 | EPD MOSI | 14 |
+| EPD PWR | 0 (Not used) |
 | BME SDA | 21 |
 | BME SCL | 22 |
+| BME PWR | 0 (Not used) |
 
 ### Flashing Steps
 
@@ -350,27 +449,18 @@ The project supports three HTTP modes:
 
 ### First Run
 
-1. The device will connect to WiFi
-2. Synchronize time via NTP
-3. Fetch weather data from Open-Meteo
-4. Render display
-5. Enter deep sleep
+1. If no WiFi credentials are saved, device starts in AP mode
+2. Connect to "weather_eink-AP" WiFi network
+3. Navigate to `192.168.4.1` or `weather.local`
+4. Enter WiFi credentials and location (or use auto-detect)
+5. Device will restart and connect to WiFi
+6. First weather fetch and display update
 
 ### Battery Operation
 
 - Set `USING_BATTERY 1` in `config.h` to enable low-voltage protection
 - Set `BATTERY_MONITORING 1` to enable voltage monitoring
 - Adjust voltage thresholds in `config.cpp` for your battery
-
-## Known Issues
-
-### E-Paper Horizontal Lines Bug
-
-See `docs/EPAPER_HORIZONTAL_LINES_BUG.md` for details.
-
-When drawing precipitation bars using a horizontal dotted pattern (`y += 2` row skipping), the e-paper display renders as a completely white screen. However, a vertical dotted pattern (`x += 2` column skipping) works correctly.
-
-**Workaround**: Use vertical dotted patterns or solid fills instead of horizontal row skipping.
 
 ## Common Issues
 
@@ -388,6 +478,7 @@ When drawing precipitation bars using a horizontal dotted pattern (`y += 2` row 
 - Verify credentials in `.env` file
 - Check WiFi signal strength
 - Verify `WIFI_TIMEOUT` is sufficient
+- Use serial monitor to check for error messages
 
 ### Time Sync Fails
 - Verify `TIMEZONE` string is correct

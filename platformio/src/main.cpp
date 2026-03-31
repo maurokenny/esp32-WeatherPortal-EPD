@@ -57,6 +57,7 @@ tm currentTimInfo = {};
 bool isTimeConfigured = false;
 String globalStatus = {};
 String globalTmpStr = {};
+int apiTimezoneOffset = 0;  // Stores API timezone offset for AUTO mode (seconds from UTC)
 
 void updateWeather();
 
@@ -452,11 +453,33 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
 /* Put esp32 into ultra low-power deep sleep (<11μA).
  * Aligns wake time to the minute. Sleep times defined in config.cpp.
  */
-void beginDeepSleep(unsigned long startTime, tm *timeInfo)
+void beginDeepSleep(unsigned long startTime, tm *timeInfo, int tzOffsetSeconds = 0)
 {
   if (!getLocalTime(timeInfo))
   {
     Serial.println(TXT_REFERENCING_OLDER_TIME_NOTICE);
+  }
+
+  // Apply timezone offset to get correct local hour/min/sec for BED_TIME/WAKE_TIME calculations
+  // This is needed in AUTO mode where ESP32 timezone may differ from actual location
+  int localHour = timeInfo->tm_hour;
+  int localMin  = timeInfo->tm_min;
+  int localSec  = timeInfo->tm_sec;
+  if (tzOffsetSeconds != 0) {
+    int offsetHours = tzOffsetSeconds / 3600;
+    int offsetMins  = (tzOffsetSeconds % 3600) / 60;
+    localMin += offsetMins;
+    localHour += offsetHours;
+    // Handle minute rollover
+    if (localMin >= 60) {
+      localMin -= 60;
+      localHour++;
+    } else if (localMin < 0) {
+      localMin += 60;
+      localHour--;
+    }
+    // Handle hour rollover
+    localHour = (localHour + 24) % 24;
   }
 
   // To simplify sleep time calculations, the current time stored by timeInfo
@@ -471,12 +494,12 @@ void beginDeepSleep(unsigned long startTime, tm *timeInfo)
     bedtimeHour = (BED_TIME - WAKE_TIME + 24) % 24;
   }
 
-  // time is relative to wake time
-  int curHour = (timeInfo->tm_hour - WAKE_TIME + 24) % 24;
-  const int curMinute = curHour * 60 + timeInfo->tm_min;
+  // time is relative to wake time (use localHour/localMin/localSec for timezone-adjusted calculations)
+  int curHour = (localHour - WAKE_TIME + 24) % 24;
+  const int curMinute = curHour * 60 + localMin;
   const int curSecond = curHour * 3600
-                      + timeInfo->tm_min * 60
-                      + timeInfo->tm_sec;
+                      + localMin * 60
+                      + localSec;
   const int desiredSleepSeconds = SLEEP_DURATION * 60;
   const int offsetMinutes = curMinute % SLEEP_DURATION;
   const int offsetSeconds = curSecond % desiredSleepSeconds;
@@ -497,13 +520,13 @@ void beginDeepSleep(unsigned long startTime, tm *timeInfo)
   uint64_t sleepDuration;
   if (predictedWakeHour < bedtimeHour)
   {
-    sleepDuration = sleepMinutes * 60 - timeInfo->tm_sec;
+    sleepDuration = sleepMinutes * 60 - localSec;
   }
   else
   {
     const int hoursUntilWake = 24 - curHour;
     sleepDuration = hoursUntilWake * 3600ULL
-                    - (timeInfo->tm_min * 60ULL + timeInfo->tm_sec);
+                    - (localMin * 60ULL + localSec);
   }
 
   // add extra delay to compensate for esp32's with fast RTCs.
@@ -575,6 +598,14 @@ void updateWeather()
     setFirmwareState(STATE_SLEEP_PENDING);
     return;
   }
+  
+  // Store API timezone offset for AUTO mode (used by beginDeepSleep)
+  if (ramTimezoneMode == TIMEZONE_MODE_AUTO) {
+    apiTimezoneOffset = owm_onecall.timezone_offset;
+  } else {
+    apiTimezoneOffset = 0;  // MANUAL mode uses ESP32's configured timezone
+  }
+  
 #ifdef POS_AIR_QULITY
   rxStatus = getOpenMeteoAirQuality(client, owm_air_pollution);
 #endif
@@ -602,7 +633,17 @@ void updateWeather()
   int tzOffset = (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? owm_onecall.timezone_offset : 0;
   getRefreshTimeStr(refreshTimeStr, isTimeConfigured, &currentTimInfo, tzOffset);
   String dateStr;
-  getDateStr(dateStr, &currentTimInfo);
+  getDateStr(dateStr, &currentTimInfo, tzOffset);
+
+  // Adjust timeInfo for forecast day-of-week labels in AUTO mode
+  tm forecastTimeInfo = currentTimInfo;
+  if (tzOffset != 0) {
+    int offsetHours = tzOffset / 3600;
+    int offsetMins  = (tzOffset % 3600) / 60;
+    forecastTimeInfo.tm_min += offsetMins;
+    forecastTimeInfo.tm_hour += offsetHours;
+    mktime(&forecastTimeInfo); // normalize wday, mday, mon, year
+  }
 
   // RENDER FULL REFRESH
   initDisplay();
@@ -611,7 +652,7 @@ void updateWeather()
     drawCurrentConditions(owm_onecall.current, owm_onecall.daily[0],
                           owm_air_pollution, inTemp, inHumidity, owm_onecall.hourly);
     drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, currentTimInfo, owm_onecall.current.dt);
-    drawForecast(owm_onecall.daily, currentTimInfo);
+    drawForecast(owm_onecall.daily, forecastTimeInfo);
     String locationStr = String(strlen(ramCity) > 0 ? ramCity : CITY_STRING) + " - " + String(strlen(ramCountry) > 0 ? ramCountry : COUNTRY_STRING);
     drawLocationDate(locationStr, dateStr);
   #if DISPLAY_ALERTS
@@ -663,7 +704,7 @@ void loop()
   if (currentState == STATE_NORMAL_MODE) {
       updateWeather();
   } else if (currentState == STATE_SLEEP_PENDING) {
-      beginDeepSleep(startTick, &currentTimInfo);
+      beginDeepSleep(startTick, &currentTimInfo, apiTimezoneOffset);
   }
 }
 
