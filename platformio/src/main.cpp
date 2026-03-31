@@ -575,6 +575,27 @@ void updateWeather()
     setFirmwareState(STATE_SLEEP_PENDING);
     return;
   }
+
+  // Apply timezone offset from API response when in AUTO mode
+  // utc_offset_seconds: 7200 = GMT+2, -18000 = GMT-5
+  if (ramTimezoneMode == TIMEZONE_MODE_AUTO && owm_onecall.timezone_offset != 0) {
+    int offsetSec = owm_onecall.timezone_offset;
+    int offsetHours = abs(offsetSec) / 3600;
+    int offsetMins = (abs(offsetSec) % 3600) / 60;
+    char tzStr[16];
+    // POSIX sign is opposite of GMT offset direction
+    if (offsetMins == 0) {
+      snprintf(tzStr, sizeof(tzStr), "UTC%+d", -(offsetSec / 3600));
+    } else {
+      snprintf(tzStr, sizeof(tzStr), "UTC%+d:%02d", 
+               offsetSec > 0 ? -offsetHours : offsetHours, offsetMins);
+    }
+    Serial.printf("[Timezone] API offset: %ds, applying: %s\n", offsetSec, tzStr);
+    setenv("TZ", tzStr, 1);
+    tzset();
+    getLocalTime(&currentTimInfo);  // Refresh with new timezone
+  }
+
 #ifdef POS_AIR_QULITY
   rxStatus = getOpenMeteoAirQuality(client, owm_air_pollution);
 #endif
