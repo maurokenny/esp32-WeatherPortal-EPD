@@ -3,6 +3,9 @@
 
 #include <Arduino.h>
 
+// Forward declaration for AsyncWebServerRequest to avoid including full header
+class AsyncWebServerRequest;
+
 // State Machine States
 enum FirmwareState {
     STATE_BOOT,
@@ -33,6 +36,10 @@ struct RuntimeState {
 
 extern RuntimeState runtime;
 
+// Timezone Mode Constants (Runtime values - correspond to config.h compile-time flags)
+#define TIMEZONE_MODE_AUTO   0   // Use Open-Meteo API timezone
+#define TIMEZONE_MODE_MANUAL 1   // Use user-selected timezone
+
 // RAM Variables for connection and location
 extern char ramSSID[64];
 extern char ramPassword[64];
@@ -40,7 +47,9 @@ extern char ramCity[64];
 extern char ramCountry[64];
 extern char ramLat[32];
 extern char ramLon[32];
+extern char ramTimezone[64];
 extern bool ramAutoGeo;
+extern uint8_t ramTimezoneMode;  // OPENMETEO_TIMEZONE_MODE_AUTO or OPENMETEO_TIMEZONE_MODE_MANUAL
 extern bool rtcInitialized;
 extern bool isFirstBoot;
 
@@ -51,5 +60,18 @@ void wifiManagerLoop();
 // Helper to transition state cleanly
 void setFirmwareState(FirmwareState newState);
 bool locateByIpAddress();
+
+// Configuration save handler with validation
+void handleConfigSave(AsyncWebServerRequest *request);
+
+// Validation helper functions
+bool validateLatitude(const char* latStr);
+bool validateLongitude(const char* lonStr);
+bool validateTimezone(const char* tzStr);
+void sanitizeString(const char* input, char* output, size_t outLen, bool allowSpace);
+void sanitizeSSID(const char* input, char* output, size_t outLen);
+void sanitizeCityCountry(const char* input, char* output, size_t outLen);
+void safeCopy(const char* src, char* dest, size_t destLen);
+bool applyTimezone(const char* tzStr);
 
 #endif

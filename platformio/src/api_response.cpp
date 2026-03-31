@@ -21,6 +21,7 @@
 #include "api_response.h"
 #include "conversions.h"
 #include "config.h"
+#include "wifi_manager.h"
 
 DeserializationError deserializeOneCall(WiFiClient &json,
                                         owm_resp_onecall_t &r)
@@ -669,11 +670,9 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   r.lon = doc["longitude"].as<float>();
   r.timezone = doc["timezone"].as<const char *>();
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
-#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
-  const bool openMeteoTimeStringsAreUtc = true;
-#else
-  const bool openMeteoTimeStringsAreUtc = false;
-#endif
+// When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
+  // When AUTO, API returns times in local timezone
+  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
 
   
   // Parse current weather
@@ -917,11 +916,9 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
   // Location
   r.coord.lat = doc["latitude"].as<float>();
   r.coord.lon = doc["longitude"].as<float>();
-#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
-  const bool openMeteoTimeStringsAreUtc = true;
-#else
-  const bool openMeteoTimeStringsAreUtc = false;
-#endif
+// When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
+  // When AUTO, API returns times in local timezone
+  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
 
   
   // Parse hourly air quality data
@@ -1001,11 +998,9 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   r.lon = doc["longitude"].as<float>();
   r.timezone = doc["timezone"].as<const char *>();
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
-#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
-  const bool openMeteoTimeStringsAreUtc = true;
-#else
-  const bool openMeteoTimeStringsAreUtc = false;
-#endif
+// When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
+  // When AUTO, API returns times in local timezone
+  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
 
   
   // Parse current weather
@@ -1187,11 +1182,9 @@ DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t 
   // Location
   r.coord.lat = doc["latitude"].as<float>();
   r.coord.lon = doc["longitude"].as<float>();
-#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
-  const bool openMeteoTimeStringsAreUtc = true;
-#else
-  const bool openMeteoTimeStringsAreUtc = false;
-#endif
+// When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
+  // When AUTO, API returns times in local timezone
+  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
 
   
   // Parse hourly air quality data

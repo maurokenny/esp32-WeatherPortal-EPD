@@ -196,11 +196,10 @@ bool waitForSNTPSync(tm *timeInfo)
   uri += ",precipitation_probability_max,precipitation_sum";
 #endif
 
-#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
-  const char *openMeteoTimezoneQuery = "GMT";
-#else
-  const char *openMeteoTimezoneQuery = "auto";
-#endif
+  // Determine timezone parameter based on user configuration
+  // TIMEZONE_MODE_AUTO: API detects timezone from lat/lon
+  // TIMEZONE_MODE_MANUAL: API returns UTC (GMT), converted locally using ramTimezone
+  const char *openMeteoTimezoneQuery = (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? "auto" : "GMT";
 
   uri += String("&timezone=") + String(openMeteoTimezoneQuery)
          + String("&forecast_days=8");
@@ -284,11 +283,8 @@ bool waitForSNTPSync(tm *timeInfo)
   DeserializationError jsonErr = {};
 
   // Open-Meteo Air Quality API endpoint
-#ifdef OPENMETEO_TIMEZONE_MODE_MANUAL
-  const char *openMeteoTimezoneQuery = "GMT";
-#else
-  const char *openMeteoTimezoneQuery = "auto";
-#endif
+  // When timezone mode is MANUAL, request UTC times; otherwise use API auto-detection
+  const char *openMeteoTimezoneQuery = (ramTimezoneMode == TIMEZONE_MODE_MANUAL) ? "GMT" : "auto";
 
   String uri = "/v1/air-quality"
                "?latitude=" + String(ramLat) + 

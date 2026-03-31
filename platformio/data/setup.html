@@ -46,7 +46,8 @@
         }
 
         input[type="text"],
-        input[type="password"] {
+        input[type="password"],
+        select {
             width: 100%;
             padding: 12px;
             border: 1px solid #dddfe2;
@@ -54,14 +55,17 @@
             box-sizing: border-box;
             font-size: 16px;
             transition: border-color 0.2s;
+            background-color: white;
         }
 
-        input:focus {
+        input:focus,
+        select:focus {
             outline: none;
             border-color: #1877f2;
         }
 
-        input:disabled {
+        input:disabled,
+        select:disabled {
             background: #f5f6f7;
             color: #8d949e;
             cursor: not-allowed;
@@ -163,6 +167,13 @@
                         <input type="text" id="lon" name="lon" value="{{LON}}" placeholder="0.0000">
                     </div>
                 </div>
+                <div class="field">
+                    <label>Timezone</label>
+                    <select id="timezone" name="timezone">
+                        <option value="" disabled {{TIMEZONE_SELECTED_EMPTY}}>Select timezone...</option>
+                        {{TIMEZONE_OPTIONS}}
+                    </select>
+                </div>
             </div>
 
             <button type="submit">Save Configuration</button>
@@ -180,11 +191,13 @@
         }
 
         function handleAutoChange(cb) {
-            const fields = ['city', 'country', 'lat', 'lon'];
+            const fields = ['city', 'country', 'lat', 'lon', 'timezone'];
             fields.forEach(id => {
                 const el = document.getElementById(id);
-                el.disabled = cb.checked;
-                if (cb.checked) el.required = false;
+                if (el) {
+                    el.disabled = cb.checked;
+                    if (cb.checked) el.required = false;
+                }
             });
         }
 

@@ -106,7 +106,11 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   // Set ESP32 internal clock so getLocalTime() works
   struct timeval tv = { .tv_sec = now, .tv_usec = 0 };
   settimeofday(&tv, NULL);
-  setenv("TZ", TIMEZONE, 1);
+  // Use manual timezone from RTC RAM if configured, otherwise use compile-time default
+  const char* tzToUse = (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') 
+                          ? ramTimezone 
+                          : TIMEZONE;
+  setenv("TZ", tzToUse, 1);
   tzset();
   
   // Current weather based on MOCKUP_CURRENT_WEATHER setting
@@ -532,7 +536,11 @@ void updateWeather()
   }
 
   // TIME SYNCHRONIZATION
-  configTzTime(TIMEZONE, NTP_SERVER_1, NTP_SERVER_2);
+  // Use manual timezone from RTC RAM if configured, otherwise use compile-time default
+  const char* tzToUse = (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') 
+                          ? ramTimezone 
+                          : TIMEZONE;
+  configTzTime(tzToUse, NTP_SERVER_1, NTP_SERVER_2);
   isTimeConfigured = waitForSNTPSync(&currentTimInfo);
   if (!isTimeConfigured)
   {

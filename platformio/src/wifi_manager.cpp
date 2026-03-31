@@ -32,7 +32,9 @@ RTC_DATA_ATTR char ramCity[64] = "";
 RTC_DATA_ATTR char ramCountry[64] = "";
 RTC_DATA_ATTR char ramLat[32] = "";
 RTC_DATA_ATTR char ramLon[32] = "";
+RTC_DATA_ATTR char ramTimezone[64] = "UTC0";
 RTC_DATA_ATTR bool ramAutoGeo = false;
+RTC_DATA_ATTR uint8_t ramTimezoneMode = TIMEZONE_MODE_AUTO;  // Default: use API timezone
 RTC_DATA_ATTR bool rtcInitialized = false;
 RTC_DATA_ATTR bool isFirstBoot = true;
 
@@ -82,32 +84,8 @@ void startAP() {
     server.on("/fwlink", HTTP_GET, captiveHandler);
     server.on("/check_network_status.txt", HTTP_GET, captiveHandler);
 
-    // Save configuration
-    server.on("/save", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("ssid", true)) strncpy(ramSSID, request->getParam("ssid", true)->value().c_str(), 63);
-        if (request->hasParam("password", true)) strncpy(ramPassword, request->getParam("password", true)->value().c_str(), 63);
-        if (request->hasParam("city", true)) strncpy(ramCity, request->getParam("city", true)->value().c_str(), 63);
-        if (request->hasParam("country", true)) strncpy(ramCountry, request->getParam("country", true)->value().c_str(), 63);
-        if (request->hasParam("lat", true)) strncpy(ramLat, request->getParam("lat", true)->value().c_str(), 31);
-        if (request->hasParam("lon", true)) strncpy(ramLon, request->getParam("lon", true)->value().c_str(), 31);
-        
-        // Auto-detect flag (from checkbox)
-        ramAutoGeo = request->hasParam("auto_geo", true);
-
-        Serial.println("Received configuration:");
-        Serial.printf("SSID: %s\n", ramSSID);
-        Serial.printf("Password: %s\n", ramPassword);
-        Serial.printf("City: %s\n", ramCity);
-        Serial.printf("Lat: %s\n", ramLat);
-        Serial.printf("Lon: %s\n", ramLon);
-
-        request->send(200, "text/plain", "Settings received! The device will reboot shortly.");
-        
-        // Wait 3 seconds then restart as requested
-        // Using a global flag to trigger restart in loop to avoid blocking async handler
-        runtime.portalActive = false; // Mark as done
-        // Restart is handled in wifiManagerLoop via runtime.portalActive flag
-    });
+    // Save configuration with full validation
+    server.on("/save", HTTP_POST, handleConfigSave);
 
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (!handleCaptivePortal(request)) {
@@ -235,3 +213,4 @@ bool locateByIpAddress() {
     http.end();
     return success;
 }
+
