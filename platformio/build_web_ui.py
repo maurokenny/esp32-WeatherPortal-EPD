@@ -12,11 +12,15 @@ def get_config_value(file_path, key):
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
         # Match ACTIVE const String KEY = "VALUE"; (Ignores lines starting with //)
-        match = re.search(rf'^\s*const\s+String\s+{key}\s*=\s*"([^"]*)"', content, re.MULTILINE)
+        match = re.search(
+            rf'^\s*const\s+String\s+{key}\s*=\s*"([^"]*)"', content, re.MULTILINE
+        )
         if match:
             return match.group(1)
         # Match ACTIVE const char \*KEY = "VALUE";
-        match = re.search(rf'^\s*const\s+char\s+\*{key}\s*=\s*"([^"]*)"', content, re.MULTILINE)
+        match = re.search(
+            rf'^\s*const\s+char\s+\*{key}\s*=\s*"([^"]*)"', content, re.MULTILINE
+        )
         if match:
             return match.group(1)
         # Match ACTIVE #define KEY "VALUE"
@@ -24,7 +28,9 @@ def get_config_value(file_path, key):
         if match:
             return match.group(1)
         # Match ACTIVE #define KEY_VALUE "VALUE" (for wifi_credentials)
-        match = re.search(rf'^\s*#define\s+{key}_VALUE\s*"([^"]*)"', content, re.MULTILINE)
+        match = re.search(
+            rf'^\s*#define\s+{key}_VALUE\s*"([^"]*)"', content, re.MULTILINE
+        )
         if match:
             return match.group(1)
     return ""
@@ -32,14 +38,14 @@ def get_config_value(file_path, key):
 
 def load_timezones(zones_file):
     """Load timezone entries from zones.csv file.
-    
+
     Returns a list of tuples (timezone_name, posix_string).
     """
     timezones = []
     if not os.path.exists(zones_file):
         print(f"Warning: zones.csv not found at {zones_file}")
         return timezones
-    
+
     try:
         with open(zones_file, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
@@ -52,34 +58,38 @@ def load_timezones(zones_file):
                         timezones.append((tz_name, tz_posix))
     except Exception as e:
         print(f"Error loading zones.csv: {e}")
-    
+
     return timezones
 
 
 def generate_timezone_options(timezones, selected_tz):
     """Generate HTML select options from timezone list.
-    
+
     Format: <option value="POSIX_STRING" selected>Timezone Name</option>
     Shows the timezone name to user, sends POSIX string as value.
     """
     options = []
     for tz_name, tz_posix in timezones:
         # Escape HTML special characters
-        escaped_name = (tz_name
-                       .replace('&', '&amp;')
-                       .replace('"', '&quot;')
-                       .replace('<', '&lt;')
-                       .replace('>', '&gt;'))
-        escaped_posix = (tz_posix
-                        .replace('&', '&amp;')
-                        .replace('"', '&quot;')
-                        .replace('<', '&lt;')
-                        .replace('>', '&gt;'))
-        
+        escaped_name = (
+            tz_name.replace("&", "&amp;")
+            .replace('"', "&quot;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+        escaped_posix = (
+            tz_posix.replace("&", "&amp;")
+            .replace('"', "&quot;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+
         # Mark as selected if matches current timezone
-        selected_attr = ' selected' if tz_posix == selected_tz else ''
-        options.append(f'<option value="{escaped_posix}"{selected_attr}>{escaped_name}</option>')
-    
+        selected_attr = " selected" if tz_posix == selected_tz else ""
+        options.append(
+            f'<option value="{escaped_posix}"{selected_attr}>{escaped_name}</option>'
+        )
+
     return "\n                        ".join(options)
 
 
@@ -108,7 +118,9 @@ def build_web_ui(source, target, env):
     timezones = load_timezones(zones_file)
     timezone_options = generate_timezone_options(timezones, timezone)
 
-    print(f"Baking settings into UI: City='{city}', Country='{country}', {lat}/{lon}, Timezone='{timezone}'")
+    print(
+        f"Baking settings into UI: City='{city}', Country='{country}', {lat}/{lon}, Timezone='{timezone}'"
+    )
     print(f"Loaded {len(timezones)} timezones from zones.csv")
 
     with open(template_path, "r", encoding="utf-8") as f:
@@ -119,13 +131,13 @@ def build_web_ui(source, target, env):
     html = html.replace("{{COUNTRY_STRING}}", country)
     html = html.replace("{{LAT}}", lat)
     html = html.replace("{{LON}}", lon)
-    
+
     # Timezone: if empty, show placeholder as selected
     if timezone:
         html = html.replace("{{TIMEZONE_SELECTED_EMPTY}}", "")
     else:
         html = html.replace("{{TIMEZONE_SELECTED_EMPTY}}", "selected")
-    
+
     html = html.replace("{{TIMEZONE_OPTIONS}}", timezone_options)
 
     # GZIP compress
