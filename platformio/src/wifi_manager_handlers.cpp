@@ -347,79 +347,83 @@ void handleConfigSave(AsyncWebServerRequest* request) {
     // --- Extract Password ---
     if (!hasError && request->hasParam("password", true)) {
         const char* rawPass = request->getParam("password", true)->value().c_str();
-        // Password: safe copy only, no sanitization (preserve special chars)
         safeCopy(rawPass, tempPassword, sizeof(tempPassword));
     }
-    // Note: Empty password is allowed for open networks
 
-    // --- Extract City ---
-    if (!hasError && request->hasParam("city", true)) {
-        const char* rawCity = request->getParam("city", true)->value().c_str();
-        sanitizeCityCountry(rawCity, tempCity, sizeof(tempCity));
-        if (tempCity[0] == '\0') {
-            hasError = true;
-            errorMessage = "City name cannot be empty or contain only invalid characters.";
-        }
-    } else if (!hasError) {
-        hasError = true;
-        errorMessage = "City parameter is missing.";
-    }
-
-    // --- Extract Country ---
-    if (!hasError && request->hasParam("country", true)) {
-        const char* rawCountry = request->getParam("country", true)->value().c_str();
-        sanitizeCityCountry(rawCountry, tempCountry, sizeof(tempCountry));
-    }
-    // Country is optional, can be empty
-
-    // --- Extract Latitude ---
-    if (!hasError && request->hasParam("lat", true)) {
-        const char* rawLat = request->getParam("lat", true)->value().c_str();
-        if (validateLatitude(rawLat)) {
-            safeCopy(rawLat, tempLat, sizeof(tempLat));
-        } else {
-            hasError = true;
-            errorMessage = "Invalid latitude value. Must be between -90 and 90.";
-        }
-    } else if (!hasError) {
-        hasError = true;
-        errorMessage = "Latitude parameter is missing.";
-    }
-
-    // --- Extract Longitude ---
-    if (!hasError && request->hasParam("lon", true)) {
-        const char* rawLon = request->getParam("lon", true)->value().c_str();
-        if (validateLongitude(rawLon)) {
-            safeCopy(rawLon, tempLon, sizeof(tempLon));
-        } else {
-            hasError = true;
-            errorMessage = "Invalid longitude value. Must be between -180 and 180.";
-        }
-    } else if (!hasError) {
-        hasError = true;
-        errorMessage = "Longitude parameter is missing.";
-    }
-
-    // --- Extract Timezone (new feature) ---
-    if (!hasError && request->hasParam("timezone", true)) {
-        const char* rawTz = request->getParam("timezone", true)->value().c_str();
-        if (validateTimezone(rawTz)) {
-            safeCopy(rawTz, tempTimezone, sizeof(tempTimezone));
-        } else {
-            hasError = true;
-            errorMessage = "Invalid timezone format.";
-        }
-    } else if (!hasError) {
-        // Timezone is optional - use existing or default
-        if (ramTimezone[0] == '\0') {
-            safeCopy("UTC0", tempTimezone, sizeof(tempTimezone));
-        } else {
-            safeCopy(ramTimezone, tempTimezone, sizeof(tempTimezone));
-        }
-    }
-
-    // --- Extract Auto-Geolocation Flag ---
+    // --- Extract Auto-Geolocation Flag FIRST (determines which fields are required) ---
     tempAutoGeo = request->hasParam("auto_geo", true);
+
+    // --- Extract Location Fields (only required when auto_geo is OFF) ---
+    if (!tempAutoGeo) {
+        // City is required in manual mode
+        if (!hasError && request->hasParam("city", true)) {
+            const char* rawCity = request->getParam("city", true)->value().c_str();
+            sanitizeCityCountry(rawCity, tempCity, sizeof(tempCity));
+            if (tempCity[0] == '\0') {
+                hasError = true;
+                errorMessage = "City is required when not using auto-detection.";
+            }
+        } else if (!hasError) {
+            hasError = true;
+            errorMessage = "City is required when not using auto-detection.";
+        }
+
+        // Country is required in manual mode
+        if (!hasError && request->hasParam("country", true)) {
+            const char* rawCountry = request->getParam("country", true)->value().c_str();
+            sanitizeCityCountry(rawCountry, tempCountry, sizeof(tempCountry));
+            if (tempCountry[0] == '\0') {
+                hasError = true;
+                errorMessage = "Country is required when not using auto-detection.";
+            }
+        } else if (!hasError) {
+            hasError = true;
+            errorMessage = "Country is required when not using auto-detection.";
+        }
+
+        // Latitude is required in manual mode
+        if (!hasError && request->hasParam("lat", true)) {
+            const char* rawLat = request->getParam("lat", true)->value().c_str();
+            if (validateLatitude(rawLat)) {
+                safeCopy(rawLat, tempLat, sizeof(tempLat));
+            } else {
+                hasError = true;
+                errorMessage = "Invalid latitude. Must be between -90 and 90.";
+            }
+        } else if (!hasError) {
+            hasError = true;
+            errorMessage = "Latitude is required when not using auto-detection.";
+        }
+
+        // Longitude is required in manual mode
+        if (!hasError && request->hasParam("lon", true)) {
+            const char* rawLon = request->getParam("lon", true)->value().c_str();
+            if (validateLongitude(rawLon)) {
+                safeCopy(rawLon, tempLon, sizeof(tempLon));
+            } else {
+                hasError = true;
+                errorMessage = "Invalid longitude. Must be between -180 and 180.";
+            }
+        } else if (!hasError) {
+            hasError = true;
+            errorMessage = "Longitude is required when not using auto-detection.";
+        }
+
+        // Timezone is required in manual mode
+        if (!hasError && request->hasParam("timezone", true)) {
+            const char* rawTz = request->getParam("timezone", true)->value().c_str();
+            if (validateTimezone(rawTz) && strlen(rawTz) > 0) {
+                safeCopy(rawTz, tempTimezone, sizeof(tempTimezone));
+            } else {
+                hasError = true;
+                errorMessage = "Timezone is required when not using auto-detection.";
+            }
+        } else if (!hasError) {
+            hasError = true;
+            errorMessage = "Timezone is required when not using auto-detection.";
+        }
+    }
+    // Note: When auto_geo is ON, location fields are optional (will be detected via IP)
 
     // --- Determine Timezone Mode ---
     // If auto_geo is checked: use API timezone (AUTO)
