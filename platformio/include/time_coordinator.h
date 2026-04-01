@@ -4,10 +4,10 @@
  * No other module should interpret timezones or apply offsets.
  * 
  * Architecture:
- *   API Response → Parser → TimeCoordinator → UI / PowerManager
+ *   API Response -> Parser -> TimeCoordinator -> UI / PowerManager
  * 
  * Modes:
- *   - MANUAL: API returns UTC, system uses TIMEZONE from config.h
+ *   - MANUAL: API returns UTC, system uses TIMEZONE from config.h via setenv/tzset
  *   - AUTO: API returns local times, RTC syncs with utc_offset_seconds
  */
 
@@ -49,9 +49,9 @@ struct NormalizedWeather {
 // Display-ready data (all strings pre-formatted)
 struct TimeDisplayData {
     char updateTime[6];                    // "HH:MM\0"
-    char displayDate[32];                  // "Dia, DD Mmm AAAA\0"
+    char displayDate[32];                  // "Day, DD Mon YYYY\0"
     char hourlyLabels[OWM_NUM_HOURLY][6];  // "14h\0", "15h\0"...
-    int forecastDayOfWeek[OWM_NUM_DAILY];  // 0=Dom, 1=Seg...
+    int forecastDayOfWeek[OWM_NUM_DAILY];  // 0=Sun, 1=Mon...
     uint64_t sleepDurationSeconds;         // Ready for esp_sleep_enable_timer_wakeup
 };
 
@@ -66,7 +66,7 @@ enum TimeMode {
 
 class TimeCoordinator {
 public:
-    // Initialize - detects mode and prepares timezone offset
+    // Initialize - detects mode and configures timezone
     void begin();
     
     // Main entry point: processes API data and returns display-ready info
@@ -77,36 +77,24 @@ public:
     // Check current mode
     bool isAutoMode() const { return mode_ == TIME_MODE_AUTO; }
     
-    // Get offset used (for diagnostics)
-    int getOffsetSeconds() const { 
-        return (mode_ == TIME_MODE_AUTO) ? 0 : manualOffsetSeconds_; 
-    }
+    // Get API offset (for diagnostics)
+    int getApiOffsetSeconds() const { return apiOffsetSeconds_; }
     
 private:
     TimeMode mode_;
-    int manualOffsetSeconds_;  // Parsed from TIMEZONE string (MANUAL mode)
+    int apiOffsetSeconds_;
     
     // RTC-persistent flag: survives deep sleep but NOT power loss
     static RTC_DATA_ATTR bool rtcSynced_;
     
     // Helper methods
+    void configureTimezone_();  // Uses setenv/tzset for MANUAL mode
     void normalize_(const owm_resp_onecall_t& src, NormalizedWeather& dst);
     void formatDisplayData_(const NormalizedWeather& norm, 
                            TimeDisplayData& out,
-                           time_t nowLocal,
                            unsigned long startTimeMillis);
     void syncRtcIfNeeded_(int offsetSeconds);
-    
-    // Pure arithmetic UTC to local conversion (deterministic, no global TZ state)
-    time_t utcToLocal_(time_t utc) const {
-        return utc + manualOffsetSeconds_;
-    }
-    
-    // Parse TIMEZONE string from config.h (e.g., "CET-1CEST,M3.5.0,M10.5.0/3")
-    int parseTimezoneString_(const char* tzString);
-    
-    // Calculate sleep duration based on BED_TIME/WAKE_TIME
-    uint64_t calculateSleep_(time_t nowLocal);
+    uint64_t calculateSleep_(const tm* localTime);
 };
 
 #endif // TIME_COORDINATOR_H
