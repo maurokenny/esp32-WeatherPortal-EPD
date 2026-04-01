@@ -88,7 +88,8 @@ private:
     static RTC_DATA_ATTR bool rtcSynced_;
     
     // Helper methods
-    void configureTimezone_();  // Uses setenv/tzset for MANUAL mode
+    void configureTimezoneFromString_(const char* tzString);
+    void configureTimezoneFromOffset_(int offsetSeconds);
     void normalize_(const owm_resp_onecall_t& src, NormalizedWeather& dst);
     void formatDisplayData_(const NormalizedWeather& norm, 
                            TimeDisplayData& out,
