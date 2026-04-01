@@ -107,10 +107,14 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   // Set ESP32 internal clock so getLocalTime() works
   struct timeval tv = { .tv_sec = now, .tv_usec = 0 };
   settimeofday(&tv, NULL);
-  // Use manual timezone from RTC RAM if configured, otherwise use compile-time default
-  const char* tzToUse = (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') 
-                          ? ramTimezone 
-                          : TIMEZONE;
+  // In AUTO mode, force UTC as the base timezone because we apply the API offset manually.
+  // In MANUAL mode, use the user-selected timezone from RTC RAM or compile-time default.
+  const char* tzToUse;
+  if (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') {
+    tzToUse = ramTimezone;
+  } else {
+    tzToUse = "UTC0";
+  }
   setenv("TZ", tzToUse, 1);
   tzset();
   
@@ -559,10 +563,14 @@ void updateWeather()
   }
 
   // TIME SYNCHRONIZATION
-  // Use manual timezone from RTC RAM if configured, otherwise use compile-time default
-  const char* tzToUse = (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') 
-                          ? ramTimezone 
-                          : TIMEZONE;
+  // In AUTO mode, force UTC as the base timezone because we apply the API offset manually.
+  // In MANUAL mode, use the user-selected timezone from RTC RAM or compile-time default.
+  const char* tzToUse;
+  if (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') {
+    tzToUse = ramTimezone;
+  } else {
+    tzToUse = "UTC0";
+  }
   configTzTime(tzToUse, NTP_SERVER_1, NTP_SERVER_2);
   isTimeConfigured = waitForSNTPSync(&currentTimInfo);
   if (!isTimeConfigured)
