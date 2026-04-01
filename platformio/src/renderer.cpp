@@ -274,9 +274,8 @@ void powerOffDisplay()
 
 // drawCurrentSunrise
 #ifdef POS_SUNRISE
-void drawCurrentSunrise(const owm_current_t &current)
+void drawCurrentSunrise(const char* sunriseTimeStr)
 {
-  String dataStr, unitStr;
   int PosX = POS_SUNRISE % 2;
   int PosY = static_cast<int>(POS_SUNRISE / 2);
     // icons
@@ -287,13 +286,9 @@ void drawCurrentSunrise(const owm_current_t &current)
   display.setFont(&FONT_7pt8b);
   drawString(48 + (162 * PosX), 204 + 10 + (48 + 8) * PosY, TXT_SUNRISE, LEFT);
 
-  // sunrise
+  // sunrise - pre-formatted by TimeCoordinator
   display.setFont(&FONT_12pt8b);
-  char timeBuffer[12] = {}; // big enough to accommodate "hh:mm:ss am"
-  time_t ts = current.sunrise;
-  tm *timeInfo = localtime(&ts);
-  _strftime(timeBuffer, sizeof(timeBuffer), TIME_FORMAT, timeInfo);
-  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, timeBuffer, LEFT);
+  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, sunriseTimeStr, LEFT);
 
   return;
 }
@@ -557,9 +552,8 @@ void drawCurrentInTemp(float inTemp)
 
 // drawCurrentSunset
 #ifdef POS_SUNSET
-void drawCurrentSunset(const owm_current_t &current)
+void drawCurrentSunset(const char* sunsetTimeStr)
 {
-  String dataStr, unitStr;
   int PosX = (POS_SUNSET % 2);
   int PosY = static_cast<int>(POS_SUNSET / 2);
   // icons
@@ -570,13 +564,9 @@ void drawCurrentSunset(const owm_current_t &current)
   display.setFont(&FONT_7pt8b);
   drawString(48 + (162 * PosX), 204 + 10 + (48 + 8) * PosY, TXT_SUNSET, LEFT);
 
-  // sunset
+  // sunset - pre-formatted by TimeCoordinator
   display.setFont(&FONT_12pt8b);
-  char timeBuffer[12] = {}; // big enough to accommodate "hh:mm:ss am"
-  time_t ts = current.sunset;
-  tm *timeInfo = localtime(&ts);
-  _strftime(timeBuffer, sizeof(timeBuffer), TIME_FORMAT, timeInfo);
-  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, timeBuffer, LEFT);
+  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, sunsetTimeStr, LEFT);
 
   return;
 }
@@ -1089,7 +1079,9 @@ void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
                            float inTemp, float inHumidity,
-                           const owm_hourly_t *hourly)
+                           const owm_hourly_t *hourly,
+                           const char* sunriseTimeStr,
+                           const char* sunsetTimeStr)
 {
     String dataStr, unitStr;
 
@@ -1149,10 +1141,10 @@ void drawCurrentConditions(const owm_current_t &current,
 
     // ==================== LEFT PANEL: All other current data (unchanged) ====================
 #ifdef POS_SUNRISE
-    drawCurrentSunrise(current);
+    drawCurrentSunrise(sunriseTimeStr);
 #endif
 #ifdef POS_SUNSET
-    drawCurrentSunset(current);
+    drawCurrentSunset(sunsetTimeStr);
 #endif
 #ifdef POS_WIND
     drawCurrentWind(current);

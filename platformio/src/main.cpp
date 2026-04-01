@@ -563,7 +563,8 @@ void updateWeather()
   do
   {
     drawCurrentConditions(owm_onecall.current, owm_onecall.daily[0],
-                          owm_air_pollution, inTemp, inHumidity, owm_onecall.hourly);
+                          owm_air_pollution, inTemp, inHumidity, owm_onecall.hourly,
+                          timeData.sunriseTime, timeData.sunsetTime);
     drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, 
                      timeData.hourlyLabels, owm_onecall.current.dt);
     drawForecast(owm_onecall.daily, timeData.forecastDayOfWeek);

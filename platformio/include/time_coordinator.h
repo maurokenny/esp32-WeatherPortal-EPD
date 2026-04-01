@@ -43,6 +43,8 @@ struct NormalizedWeather {
     DailyNorm daily[OWM_NUM_DAILY];
     time_t hourlyDt[OWM_NUM_HOURLY];
     time_t currentDt;
+    time_t currentSunrise;
+    time_t currentSunset;
     int apiOffsetSeconds;
 };
 
@@ -53,6 +55,9 @@ struct TimeDisplayData {
     char hourlyLabels[OWM_NUM_HOURLY][6];  // "14h\0", "15h\0"...
     int forecastDayOfWeek[OWM_NUM_DAILY];  // 0=Sun, 1=Mon...
     uint64_t sleepDurationSeconds;         // Ready for esp_sleep_enable_timer_wakeup
+    // Current conditions - pre-formatted times
+    char sunriseTime[12];                  // Sunrise time
+    char sunsetTime[12];                   // Sunset time
 };
 
 enum TimeMode {

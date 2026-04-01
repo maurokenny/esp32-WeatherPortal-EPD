@@ -74,6 +74,8 @@ void TimeCoordinator::normalize_(const owm_resp_onecall_t& src,
     
     // Current weather - store as-is, conversion done in format step
     dst.currentDt = src.current.dt;
+    dst.currentSunrise = src.current.sunrise;
+    dst.currentSunset = src.current.sunset;
     
     // Daily forecast
     for (int i = 0; i < OWM_NUM_DAILY; i++) {
@@ -146,6 +148,23 @@ void TimeCoordinator::formatDisplayData_(const NormalizedWeather& norm,
         snprintf(out.hourlyLabels[i], sizeof(out.hourlyLabels[0]), 
                  "%02dh", tmHour.tm_hour);
     }
+    
+    // Sunrise and sunset - use gmtime in AUTO (already local), localtime in MANUAL
+    tm tmSunrise = {};
+    if (mode_ == TIME_MODE_AUTO) {
+        gmtime_r(&norm.currentSunrise, &tmSunrise);
+    } else {
+        localtime_r(&norm.currentSunrise, &tmSunrise);
+    }
+    strftime(out.sunriseTime, sizeof(out.sunriseTime), TIME_FORMAT, &tmSunrise);
+    
+    tm tmSunset = {};
+    if (mode_ == TIME_MODE_AUTO) {
+        gmtime_r(&norm.currentSunset, &tmSunset);
+    } else {
+        localtime_r(&norm.currentSunset, &tmSunset);
+    }
+    strftime(out.sunsetTime, sizeof(out.sunsetTime), TIME_FORMAT, &tmSunset);
     
     // Sleep duration calculation uses system local time
     out.sleepDurationSeconds = calculateSleep_(&tmLocal);

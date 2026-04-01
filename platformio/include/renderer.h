@@ -82,7 +82,9 @@ void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
                            float inTemp, float inHumidity,
-                           const owm_hourly_t *hourly = nullptr);
+                           const owm_hourly_t *hourly,
+                           const char* sunriseTimeStr,
+                           const char* sunsetTimeStr);
 void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray);
 void drawAlerts(std::vector<owm_alerts_t> &alerts,
                 const String &city, const String &date);
@@ -95,8 +97,8 @@ void drawError(const uint8_t *bitmap_196x196,
                const String &errMsgLn1, const String &errMsgLn2="");
 void drawLoading(const uint8_t *bitmap_196x196,
                  const String &msgLn1, const String &msgLn2="");
-void drawCurrentSunrise(const owm_current_t &current);
-void drawCurrentSunset(const owm_current_t &current);
+void drawCurrentSunrise(const char* sunriseTimeStr);
+void drawCurrentSunset(const char* sunsetTimeStr);
 void drawCurrentInTemp(float inTemp);
 void drawCurrentInHumidity(float inHumidity);
 void drawCurrentMoonrise(const owm_daily_t &today);
