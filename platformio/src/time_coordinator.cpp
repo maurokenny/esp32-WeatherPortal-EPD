@@ -14,6 +14,7 @@
 #include "wifi_manager.h"
 
 RTC_DATA_ATTR bool TimeCoordinator::rtcSynced_ = false;
+static constexpr time_t MIN_VALID_EPOCH = 1609459200; // 2021-01-01 00:00:00 UTC
 
 void TimeCoordinator::begin() {
     mode_ = (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? 
@@ -38,10 +39,11 @@ TimeDisplayData TimeCoordinator::process(const owm_resp_onecall_t& apiData,
         configureTimezoneFromOffset_(norm.apiOffsetSeconds);
         syncRtcIfNeeded_(norm.apiOffsetSeconds);
     } else {
-        configureTimezoneFromString_(TIMEZONE);
+        const char *tzString = (ramTimezone[0] != '\0') ? ramTimezone : TIMEZONE;
+        configureTimezoneFromString_(tzString);
     }
     
-    formatDisplayData_(norm, out, startTimeMillis);
+    formatDisplayData_(apiData, norm, out, startTimeMillis);
     
     return out;
 }
@@ -72,7 +74,7 @@ void TimeCoordinator::normalize_(const owm_resp_onecall_t& src,
                                  NormalizedWeather& dst) {
     dst.apiOffsetSeconds = src.timezone_offset;
     
-    // Current weather - store as-is, conversion done in format step
+    // Current weather - store as raw UTC epoch values from parser
     dst.currentDt = src.current.dt;
     dst.currentSunrise = src.current.sunrise;
     dst.currentSunset = src.current.sunset;
@@ -82,6 +84,8 @@ void TimeCoordinator::normalize_(const owm_resp_onecall_t& src,
         dst.daily[i].dt = src.daily[i].dt;
         dst.daily[i].sunrise = src.daily[i].sunrise;
         dst.daily[i].sunset = src.daily[i].sunset;
+        dst.daily[i].moonrise = src.daily[i].moonrise;
+        dst.daily[i].moonset = src.daily[i].moonset;
     }
     
     // Hourly forecast
@@ -107,7 +111,8 @@ void TimeCoordinator::syncRtcIfNeeded_(int offsetSeconds) {
     }
 }
 
-void TimeCoordinator::formatDisplayData_(const NormalizedWeather& norm,
+void TimeCoordinator::formatDisplayData_(const owm_resp_onecall_t& apiData,
+                                        const NormalizedWeather& norm,
                                         TimeDisplayData& out,
                                         unsigned long startTimeMillis) {
     // Get current system time - always UTC from time(nullptr)
@@ -119,66 +124,77 @@ void TimeCoordinator::formatDisplayData_(const NormalizedWeather& norm,
     // Update time for footer
     snprintf(out.updateTime, sizeof(out.updateTime), 
              "%02d:%02d", tmLocal.tm_hour, tmLocal.tm_min);
+    out.rainTime[0] = '\0';
+    
+    // Find next rain event and pre-format the time string
+    for (int i = 0; i < OWM_NUM_HOURLY; i++) {
+        if (apiData.hourly[i].dt >= now && apiData.hourly[i].pop >= 0.20f) {
+            tm tmRain = {};
+            time_t rainTimestamp = static_cast<time_t>(apiData.hourly[i].dt);
+            localtime_r(&rainTimestamp, &tmRain);
+            strftime(out.rainTime, sizeof(out.rainTime), TIME_FORMAT, &tmRain);
+            break;
+        }
+    }
     
     // Date for header
     strftime(out.displayDate, sizeof(out.displayDate), 
              "%a, %d %b %Y", &tmLocal);
     
     // Forecast - day of week
-    // CRITICAL: In AUTO mode, API timestamps are already in LOCAL time
-    // We must NOT apply any timezone conversion to them
     for (int i = 0; i < OWM_NUM_DAILY; i++) {
         tm tmDaily = {};
-        if (mode_ == TIME_MODE_AUTO) {
-            breakDownLocalTime_(norm.daily[i].dt, &tmDaily);  // No TZ conversion
-        } else {
-            localtime_r(&norm.daily[i].dt, &tmDaily);  // Convert UTC to local
-        }
+        localtime_r(&norm.daily[i].dt, &tmDaily);
         out.forecastDayOfWeek[i] = tmDaily.tm_wday;
     }
     
     // Hourly labels
     for (int i = 0; i < OWM_NUM_HOURLY; i++) {
         tm tmHour = {};
-        if (mode_ == TIME_MODE_AUTO) {
-            breakDownLocalTime_(norm.hourlyDt[i], &tmHour);  // No TZ conversion
-        } else {
-            localtime_r(&norm.hourlyDt[i], &tmHour);  // Convert UTC to local
-        }
+        localtime_r(&norm.hourlyDt[i], &tmHour);
         snprintf(out.hourlyLabels[i], sizeof(out.hourlyLabels[0]), 
                  "%02dh", tmHour.tm_hour);
     }
     
-    // Sunrise and sunset - API returns these in local time when in AUTO mode
+    // Sunrise and sunset
     tm tmSunrise = {};
-    if (mode_ == TIME_MODE_AUTO) {
-        breakDownLocalTime_(norm.currentSunrise, &tmSunrise);  // No TZ conversion
-    } else {
-        localtime_r(&norm.currentSunrise, &tmSunrise);  // Convert UTC to local
-    }
+    localtime_r(&norm.currentSunrise, &tmSunrise);
     strftime(out.sunriseTime, sizeof(out.sunriseTime), TIME_FORMAT, &tmSunrise);
     
     tm tmSunset = {};
-    if (mode_ == TIME_MODE_AUTO) {
-        breakDownLocalTime_(norm.currentSunset, &tmSunset);  // No TZ conversion
-    } else {
-        localtime_r(&norm.currentSunset, &tmSunset);  // Convert UTC to local
-    }
+    localtime_r(&norm.currentSunset, &tmSunset);
     strftime(out.sunsetTime, sizeof(out.sunsetTime), TIME_FORMAT, &tmSunset);
-    
+
+    if (norm.daily[0].moonrise != 0) {
+        tm tmMoonrise = {};
+        localtime_r(&norm.daily[0].moonrise, &tmMoonrise);
+        strftime(out.moonriseTime, sizeof(out.moonriseTime), TIME_FORMAT, &tmMoonrise);
+    } else {
+        out.moonriseTime[0] = '\0';
+    }
+    if (norm.daily[0].moonset != 0) {
+        tm tmMoonset = {};
+        localtime_r(&norm.daily[0].moonset, &tmMoonset);
+        strftime(out.moonsetTime, sizeof(out.moonsetTime), TIME_FORMAT, &tmMoonset);
+    } else {
+        out.moonsetTime[0] = '\0';
+    }
+
+    // Hourly start index for graphs and related UI
+    out.hourlyStartIndex = 0;
+    for (int i = 0; i < OWM_NUM_HOURLY; i++) {
+        if (norm.hourlyDt[i] >= now) {
+            out.hourlyStartIndex = i;
+            break;
+        }
+    }
+
     // Sleep duration calculation uses system local time
     out.sleepDurationSeconds = calculateSleep_(&tmLocal);
 }
 
 // Break down a timestamp that is already in local time
 // This does NOT apply any timezone conversion - just extracts year/month/day/hour/etc
-void TimeCoordinator::breakDownLocalTime_(time_t timestamp, tm* result) {
-    // Use gmtime_r which treats the timestamp as UTC (no offset applied)
-    // Since the API timestamp is already "local" (not UTC), this gives us
-    // the correct breakdown without any timezone conversion
-    gmtime_r(&timestamp, result);
-}
-
 uint64_t TimeCoordinator::calculateSleep_(const tm* localTime) {
     int curHour = localTime->tm_hour;
     int curMin = localTime->tm_min;

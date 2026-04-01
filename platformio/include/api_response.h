@@ -234,9 +234,10 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather);
  * Format: "2026-03-24T18:15"
  * @param iso8601 ISO 8601 datetime string
  * @param inputIsUtc true when the input string is UTC (timezone=GMT), false when the input string is local time (timezone=auto)
+ * @param tzOffsetSeconds local timezone offset in seconds when inputIsUtc is false
  * @return Unix timestamp (seconds since epoch)
  */
-int64_t parseIso8601(const char* iso8601, bool inputIsUtc = true);
+int64_t parseIso8601(const char* iso8601, bool inputIsUtc = true, int tzOffsetSeconds = 0);
 
 /**
  * Deserialize Open-Meteo API response.

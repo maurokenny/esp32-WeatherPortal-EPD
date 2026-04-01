@@ -36,6 +36,8 @@ struct DailyNorm {
     time_t dt;
     time_t sunrise;
     time_t sunset;
+    time_t moonrise;
+    time_t moonset;
 };
 
 // Normalized weather data (timestamps in local time)
@@ -58,6 +60,10 @@ struct TimeDisplayData {
     // Current conditions - pre-formatted times
     char sunriseTime[12];                  // Sunrise time
     char sunsetTime[12];                   // Sunset time
+    char moonriseTime[12];                 // Moonrise time
+    char moonsetTime[12];                  // Moonset time
+    char rainTime[6];                      // "HH:MM\0" for next rain event
+    int hourlyStartIndex;                  // Starting index for hourly graphs
 };
 
 enum TimeMode {
@@ -96,8 +102,8 @@ private:
     void configureTimezoneFromString_(const char* tzString);
     void configureTimezoneFromOffset_(int offsetSeconds);
     void normalize_(const owm_resp_onecall_t& src, NormalizedWeather& dst);
-    void breakDownLocalTime_(time_t timestamp, tm* result);  // No TZ conversion
-    void formatDisplayData_(const NormalizedWeather& norm, 
+    void formatDisplayData_(const owm_resp_onecall_t& apiData,
+                           const NormalizedWeather& norm,
                            TimeDisplayData& out,
                            unsigned long startTimeMillis);
     void syncRtcIfNeeded_(int offsetSeconds);

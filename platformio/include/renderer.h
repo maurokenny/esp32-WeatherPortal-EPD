@@ -77,20 +77,24 @@ void drawMultiLnString(int16_t x, int16_t y, const String &text,
                        uint16_t color=GxEPD_BLACK);
 void initDisplay();
 void powerOffDisplay();
-void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours);
+void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours,
+                         int64_t current_dt, const char* rainTimeStr);
 void drawCurrentConditions(const owm_current_t &current,
                            const owm_daily_t &today,
                            const owm_resp_air_pollution_t &owm_air_pollution,
                            float inTemp, float inHumidity,
                            const owm_hourly_t *hourly,
                            const char* sunriseTimeStr,
-                           const char* sunsetTimeStr);
+                           const char* sunsetTimeStr,
+                           const char* moonriseTimeStr,
+                           const char* moonsetTimeStr,
+                           const char* rainTimeStr);
 void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray);
 void drawAlerts(std::vector<owm_alerts_t> &alerts,
                 const String &city, const String &date);
 void drawLocationDate(const String &city, const String &date);
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
-                      const char hourlyLabels[][6], int64_t current_dt);
+                      const char hourlyLabels[][6], int startIndex);
 void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
                    int rssi, uint32_t batVoltage);
 void drawError(const uint8_t *bitmap_196x196,
@@ -101,8 +105,8 @@ void drawCurrentSunrise(const char* sunriseTimeStr);
 void drawCurrentSunset(const char* sunsetTimeStr);
 void drawCurrentInTemp(float inTemp);
 void drawCurrentInHumidity(float inHumidity);
-void drawCurrentMoonrise(const owm_daily_t &today);
-void drawCurrentMoonset(const owm_daily_t &today);
+void drawCurrentMoonrise(const char* moonriseTimeStr);
+void drawCurrentMoonset(const char* moonsetTimeStr);
 void drawCurrentWind(const owm_current_t &current);
 void drawCurrentHumidity(const owm_current_t &current);
 void drawCurrentUVI(const owm_current_t &current);

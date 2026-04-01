@@ -564,9 +564,11 @@ void updateWeather()
   {
     drawCurrentConditions(owm_onecall.current, owm_onecall.daily[0],
                           owm_air_pollution, inTemp, inHumidity, owm_onecall.hourly,
-                          timeData.sunriseTime, timeData.sunsetTime);
+                          timeData.sunriseTime, timeData.sunsetTime,
+                          timeData.moonriseTime, timeData.moonsetTime,
+                          timeData.rainTime);
     drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, 
-                     timeData.hourlyLabels, owm_onecall.current.dt);
+                     timeData.hourlyLabels, timeData.hourlyStartIndex);
     drawForecast(owm_onecall.daily, timeData.forecastDayOfWeek);
     String locationStr = String(strlen(ramCity) > 0 ? ramCity : CITY_STRING) + " - " + 
                          String(strlen(ramCountry) > 0 ? ramCountry : COUNTRY_STRING);

@@ -303,8 +303,9 @@ static int64_t timegm_compat(struct tm *timeinfo)
  * Format: "2026-03-24T18:15"
  * @param iso8601 ISO 8601 datetime string
  * @param inputIsUtc true when the input string is UTC (timezone=GMT), false when local time (timezone=auto)
+ * @param tzOffsetSeconds local timezone offset in seconds when inputIsUtc is false
  */
-int64_t parseIso8601(const char* iso8601, bool inputIsUtc)
+int64_t parseIso8601(const char* iso8601, bool inputIsUtc, int tzOffsetSeconds)
 {
   if (iso8601 == nullptr || strlen(iso8601) < 16) {
     return 0;
@@ -325,6 +326,11 @@ int64_t parseIso8601(const char* iso8601, bool inputIsUtc)
 
   if (inputIsUtc) {
     return timegm_compat(&timeinfo);
+  }
+
+  if (tzOffsetSeconds != 0) {
+    int64_t utcEpoch = timegm_compat(&timeinfo);
+    return utcEpoch - tzOffsetSeconds;
   }
 
   timeinfo.tm_isdst = -1;
@@ -679,7 +685,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonObject current = doc["current"];
   const char* timeStr = current["time"];
   if (timeStr != nullptr) {
-    r.current.dt = parseIso8601(timeStr, openMeteoTimeStringsAreUtc);
+    r.current.dt = parseIso8601(timeStr, openMeteoTimeStringsAreUtc, r.timezone_offset);
   } else {
     r.current.dt = 0;
   }
@@ -725,12 +731,12 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   
   int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
   for (int i = 0; i < dailyCount; i++) {
-    r.daily[i].dt = parseIso8601(daily_time[i], openMeteoTimeStringsAreUtc);
+    r.daily[i].dt = parseIso8601(daily_time[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     // Convert Celsius to Kelvin
     r.daily[i].temp.max = celsius_to_kelvin(daily_max[i].as<float>());
     r.daily[i].temp.min = celsius_to_kelvin(daily_min[i].as<float>());
-    r.daily[i].sunrise = parseIso8601(daily_sunrise[i], openMeteoTimeStringsAreUtc);
-    r.daily[i].sunset = parseIso8601(daily_sunset[i], openMeteoTimeStringsAreUtc);
+    r.daily[i].sunrise = parseIso8601(daily_sunrise[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
+    r.daily[i].sunset = parseIso8601(daily_sunset[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
     
     // Read daily precipitation (mm)
@@ -791,7 +797,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   
   int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
   for (int i = 0; i < hourlyCount; i++) {
-    r.hourly[i].dt = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc);
+    r.hourly[i].dt = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     // Convert Celsius to Kelvin
     r.hourly[i].temp = celsius_to_kelvin(hourly_temp[i].as<float>());
     r.hourly[i].feels_like = celsius_to_kelvin(hourly_feels[i].as<float>());
@@ -933,7 +939,7 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
   
   int count = min((int)hourly_time.size(), OWM_NUM_AIR_POLLUTION);
   for (int i = 0; i < count; i++) {
-    r.dt[i] = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc);
+    r.dt[i] = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc, 0);
     // AQI is calculated locally by calc_aqi() using pollutant concentrations
     // based on the configured AQI_SCALE for the locale
     r.main_aqi[i] = 0;  // Will be calculated from components
@@ -1007,7 +1013,7 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   JsonObject current = doc["current"];
   const char* timeStr = current["time"];
   if (timeStr != nullptr) {
-    r.current.dt = parseIso8601(timeStr, openMeteoTimeStringsAreUtc);
+    r.current.dt = parseIso8601(timeStr, openMeteoTimeStringsAreUtc, r.timezone_offset);
   } else {
     r.current.dt = 0;
   }
@@ -1052,7 +1058,7 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   
   int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
   for (int i = 0; i < hourlyCount; i++) {
-    r.hourly[i].dt = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc);
+    r.hourly[i].dt = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     r.hourly[i].temp = celsius_to_kelvin(hourly_temp[i].as<float>());
     r.hourly[i].feels_like = celsius_to_kelvin(hourly_feels[i].as<float>());
     r.hourly[i].humidity = hourly_humidity[i].as<int>();
@@ -1094,11 +1100,11 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   
   int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
   for (int i = 0; i < dailyCount; i++) {
-    r.daily[i].dt = parseIso8601(daily_time[i], openMeteoTimeStringsAreUtc);
+    r.daily[i].dt = parseIso8601(daily_time[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     r.daily[i].temp.max = celsius_to_kelvin(daily_max[i].as<float>());
     r.daily[i].temp.min = celsius_to_kelvin(daily_min[i].as<float>());
-    r.daily[i].sunrise = parseIso8601(daily_sunrise[i], openMeteoTimeStringsAreUtc);
-    r.daily[i].sunset = parseIso8601(daily_sunset[i], openMeteoTimeStringsAreUtc);
+    r.daily[i].sunrise = parseIso8601(daily_sunrise[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
+    r.daily[i].sunset = parseIso8601(daily_sunset[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
     
     // Read daily precipitation (mm)
@@ -1199,7 +1205,7 @@ DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t 
   
   int count = min((int)hourly_time.size(), OWM_NUM_AIR_POLLUTION);
   for (int i = 0; i < count; i++) {
-    r.dt[i] = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc);
+    r.dt[i] = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc, 0);
     // AQI is calculated locally by calc_aqi() using pollutant concentrations
     r.main_aqi[i] = 0;
     r.components.pm10[i] = hourly_pm10[i].as<float>();

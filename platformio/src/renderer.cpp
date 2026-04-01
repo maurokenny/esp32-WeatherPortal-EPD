@@ -764,9 +764,8 @@ void drawCurrentInHumidity(float inHumidity)
 
 // drawCurrentMoonrise
 #ifdef POS_MOONRISE
-void drawCurrentMoonrise(const owm_daily_t &today)
+void drawCurrentMoonrise(const char* moonriseTimeStr)
 {
-  String dataStr, unitStr;
   int PosX = POS_MOONRISE % 2;
   int PosY = static_cast<int>(POS_MOONRISE / 2);
 
@@ -780,11 +779,8 @@ void drawCurrentMoonrise(const owm_daily_t &today)
 
   // moonrise
   display.setFont(&FONT_12pt8b);
-  char timeBuffer[12] = {}; // big enough to accommodate "hh:mm:ss am"
-  time_t ts = today.moonrise;
-  tm *timeInfo = localtime(&ts);
-  _strftime(timeBuffer, sizeof(timeBuffer), TIME_FORMAT, timeInfo);
-  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, timeBuffer, LEFT);
+  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
+             moonriseTimeStr, LEFT);
 
   return;
 }
@@ -793,9 +789,8 @@ void drawCurrentMoonrise(const owm_daily_t &today)
 
 // drawCurrentMoonset
 #ifdef POS_MOONSET
-void drawCurrentMoonset(const owm_daily_t &today)
+void drawCurrentMoonset(const char* moonsetTimeStr)
 {
-  String dataStr, unitStr;
   int PosX = (POS_MOONSET % 2);
   int PosY = static_cast<int>(POS_MOONSET / 2);
   // icons
@@ -808,11 +803,8 @@ void drawCurrentMoonset(const owm_daily_t &today)
 
   // moonset
   display.setFont(&FONT_12pt8b);
-  char timeBuffer[12] = {}; // big enough to accommodate "hh:mm:ss am"
-  time_t ts = today.moonset;
-  tm *timeInfo = localtime(&ts);
-  _strftime(timeBuffer, sizeof(timeBuffer), TIME_FORMAT, timeInfo);
-  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, timeBuffer, LEFT);
+  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
+             moonsetTimeStr, LEFT);
 
   return;
 }
@@ -920,9 +912,9 @@ void drawCurrentDewpoint(const owm_current_t &current)
  * hours: number of hours to check
  * current_dt: current timestamp to calculate time until rain
  */
-void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int64_t current_dt)
+void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours,
+                         int64_t current_dt, const char* rainTimeStr)
 {
-  Serial.println(">>> drawUmbrellaWidget START <<<");
   // Position configuration - adjust these to move elements
   const int ICON_OFFSET_Y = -15;        // Vertical offset of umbrella icon
   const int TEXT_OFFSET_Y = 110;       // Vertical offset of text line
@@ -1006,18 +998,8 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
 
   int popPercent = static_cast<int>(std::round(maxPop * 100));
   int centerX = x + 64; // Center of 128px width
-  
-  
-  // Helper to format rain time string - always show exact time (at HH:MM)
-  String rainTimeStr;
-  if (minutesUntilRain > 0) {
-    // Always show actual hour (e.g., "at 20:00") instead of relative time
-    time_t rainTime = rainTimestamp;
-    tm *rainTm = localtime(&rainTime);
-    char timeBuffer[6];
-    strftime(timeBuffer, sizeof(timeBuffer), "%H:%M", rainTm);
-    rainTimeStr = "at " + String(timeBuffer);
-  }
+
+  const bool hasRainTime = (rainTimeStr != nullptr && rainTimeStr[0] != '\0');
   
   // State 1: No rain (POP < 20%)
   // Shows: Umbrella with X overlay + "No rain (X%)"
@@ -1043,8 +1025,8 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
     display.setFont(&FONT_8pt8b);
-    if (minutesUntilRain > 0) {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + rainTimeStr + " (" + String(popPercent) + "%)", CENTER);
+    if (minutesUntilRain > 0 && hasRainTime) {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + String(rainTimeStr) + " (" + String(popPercent) + "%)", CENTER);
     } else {
       drawString(centerX, y + TEXT_OFFSET_Y, "Rain now (" + String(popPercent) + "%)", CENTER);
     }
@@ -1063,8 +1045,8 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours, int
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_closed_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
     display.setFont(&FONT_8pt8b);
-    if (minutesUntilRain > 0) {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + rainTimeStr + " (" + String(popPercent) + "%)", CENTER);
+    if (minutesUntilRain > 0 && hasRainTime) {
+      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + String(rainTimeStr) + " (" + String(popPercent) + "%)", CENTER);
     } else {
       drawString(centerX, y + TEXT_OFFSET_Y, "Rain soon (" + String(popPercent) + "%)", CENTER);
     }
@@ -1081,7 +1063,10 @@ void drawCurrentConditions(const owm_current_t &current,
                            float inTemp, float inHumidity,
                            const owm_hourly_t *hourly,
                            const char* sunriseTimeStr,
-                           const char* sunsetTimeStr)
+                           const char* sunsetTimeStr,
+                           const char* moonriseTimeStr,
+                           const char* moonsetTimeStr,
+                           const char* rainTimeStr)
 {
     String dataStr, unitStr;
 
@@ -1136,7 +1121,7 @@ void drawCurrentConditions(const owm_current_t &current,
 
     // 2. Umbrella Widget (Bottom) - closer to cloud
     if (hourly != nullptr) {
-        drawUmbrellaWidget(rightX, 75, hourly, 24, current.dt);   // analyze 24 hours to find future rain
+        drawUmbrellaWidget(rightX, 75, hourly, 24, current.dt, rainTimeStr);
     }
 
     // ==================== LEFT PANEL: All other current data (unchanged) ====================
@@ -1171,10 +1156,10 @@ void drawCurrentConditions(const owm_current_t &current,
     drawCurrentInHumidity(inHumidity);
 #endif
 #ifdef POS_MOONRISE
-    drawCurrentMoonrise(today);
+    drawCurrentMoonrise(moonriseTimeStr);
 #endif
 #ifdef POS_MOONSET
-    drawCurrentMoonset(today);
+    drawCurrentMoonset(moonsetTimeStr);
 #endif
 #ifdef POS_MOONPHASE
     drawCurrentMoonphase(today);
@@ -1192,9 +1177,10 @@ void drawCurrentConditions(const owm_current_t &current,
  */
 void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray)
 {
-  // 5 day, forecast
+  // 5 day forecast starting today; weekdays are forced sequential to avoid repeated labels
   String hiStr, loStr;
   String dataStr, unitStr;
+  int baseWday = dayOfWeekArray[0];
   for (int i = 0; i < 5; ++i)
   {
 #ifndef DISP_BW_V1
@@ -1202,15 +1188,16 @@ void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray)
 #elif defined(DISP_BW_V1)
     int x = 318 + (i * 64);
 #endif
+    const owm_daily_t &day = daily[i];
     // icons
     display.drawInvertedBitmap(x, 98 + 69 / 2 - 32 - 6,
-                               getDailyForecastBitmap64(daily[i]),
+                               getDailyForecastBitmap64(day),
                                64, 64, GxEPD_BLACK);
-    // day of week label - use pre-calculated day from TimeCoordinator
+    // day of week label - calculate sequential weekday labels from today
     display.setFont(&FONT_11pt8b);
     char dayBuffer[8] = {};
     tm tmpTm = {};  // Only wday is used by _strftime for "%a"
-    tmpTm.tm_wday = dayOfWeekArray[i];
+    tmpTm.tm_wday = (baseWday + i) % 7;
     _strftime(dayBuffer, sizeof(dayBuffer), "%a", &tmpTm); // abbreviated day
     drawString(x + 31 - 2, 98 + 69 / 2 - 32 - 26 - 6 + 16, dayBuffer, CENTER);
 
@@ -1218,23 +1205,23 @@ void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray)
     display.setFont(&FONT_8pt8b);
     drawString(x + 31, 98 + 69 / 2 + 38 - 6 + 12, "|", CENTER);
 #ifdef UNITS_TEMP_KELVIN
-    hiStr = String(static_cast<int>(std::round(daily[i].temp.max)));
-    loStr = String(static_cast<int>(std::round(daily[i].temp.min)));
+    hiStr = String(static_cast<int>(std::round(day.temp.max)));
+    loStr = String(static_cast<int>(std::round(day.temp.min)));
 #endif
 #ifdef UNITS_TEMP_CELSIUS
     hiStr = String(static_cast<int>(
-                std::round(kelvin_to_celsius(daily[i].temp.max)))) +
+                std::round(kelvin_to_celsius(day.temp.max)))) +
             "\260";
     loStr = String(static_cast<int>(
-                std::round(kelvin_to_celsius(daily[i].temp.min)))) +
+                std::round(kelvin_to_celsius(day.temp.min)))) +
             "\260";
 #endif
 #ifdef UNITS_TEMP_FAHRENHEIT
     hiStr = String(static_cast<int>(
-                std::round(kelvin_to_fahrenheit(daily[i].temp.max)))) +
+                std::round(kelvin_to_fahrenheit(day.temp.max)))) +
             "\260";
     loStr = String(static_cast<int>(
-                std::round(kelvin_to_fahrenheit(daily[i].temp.min)))) +
+                std::round(kelvin_to_fahrenheit(day.temp.min)))) +
             "\260";
 #endif
 #ifdef TEMP_ORDER_HL
@@ -1250,11 +1237,11 @@ void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray)
 #if DISPLAY_DAILY_PRECIP
     float dailyPrecip;
 #if defined(UNITS_DAILY_PRECIP_POP)
-    dailyPrecip = daily[i].pop * 100;
+    dailyPrecip = day.pop * 100;
     dataStr = String(static_cast<int>(dailyPrecip));
     unitStr = "%";
 #else
-    dailyPrecip = daily[i].snow + daily[i].rain;
+    dailyPrecip = day.snow + day.rain;
 #if defined(UNITS_DAILY_PRECIP_MILLIMETERS)
     // Round up to nearest mm
     dailyPrecip = std::round(dailyPrecip);
@@ -1451,36 +1438,16 @@ int kelvin_to_plot_y(float kelvin, int tempBoundMin, float yPxPerUnit,
  * No timezone calculations here - all done by TimeCoordinator.
  */
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
-                      const char hourlyLabels[][6], int64_t current_dt)
+                      const char hourlyLabels[][6], int startIndex)
 {
   const int xPos0 = 350;
   int xPos1 = DISP_WIDTH;
   const int yPos0 = 216;
   const int yPos1 = DISP_HEIGHT - 46;
-  
-  // Find starting index - begin at current hour
-  int startIndex = 0;
-  for (int i = 0; i < OWM_NUM_HOURLY; i++) {
-    if (hourly[i].dt >= current_dt) {
-      startIndex = i;
-      break;
-    }
-  }
-  
-  // Limit to 24 hours from current time (but not exceeding available data)
+
+  // Limit to 24 hours from current hour index (but not exceeding available data)
   int endIndex = min(startIndex + 24, OWM_NUM_HOURLY);
   int numHours = endIndex - startIndex;
-  
-  // Debug: Show current time and first hour
-  char curTimeBuf[12] = {};
-  time_t cur_ts = (time_t)current_dt;
-  tm *cur_tm = localtime(&cur_ts);
-  _strftime(curTimeBuf, sizeof(curTimeBuf), "%H:%M", cur_tm);
-  
-  char firstHourBuf[12] = {};
-  time_t first_ts = (time_t)hourly[startIndex].dt;
-  tm *first_tm = localtime(&first_ts);
-  _strftime(firstHourBuf, sizeof(firstHourBuf), "%H:%M", first_tm);
   
 
   // calculate y max/min and intervals using only future hours
