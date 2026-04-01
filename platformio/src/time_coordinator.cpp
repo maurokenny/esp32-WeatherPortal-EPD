@@ -60,16 +60,10 @@ TimeDisplayData TimeCoordinator::process(const owm_resp_onecall_t& apiData,
         // MANUAL: RTC is at UTC0, convert to local using configured offset
         now = utcToLocal_(now);
     } else {
-        // AUTO: RTC may have been synced, but check if it's valid
-        // If RTC is still in UTC (e.g., NTP hasn't responded yet),
-        // calculate manually using API offset
-        if (now < 1000000000 || !rtcSynced_) {
-            // RTC not synced, calculate manually: UTC + offset
-            now = now + norm.apiOffsetSeconds;
-            Serial.printf("[TimeCoordinator] Using manual offset: UTC%+d\n", 
-                          norm.apiOffsetSeconds);
-        }
-        // If rtcSynced_ is true, RTC is already in local time
+        // AUTO: Always apply API offset to get local time
+        // The RTC sync is for long-term accuracy, but we always need to apply
+        // the offset because time(nullptr) returns UTC in ESP32
+        now = now + norm.apiOffsetSeconds;
     }
     
     // ═══════════════════════════════════════════════════════════════════════
