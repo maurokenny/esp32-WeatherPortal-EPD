@@ -144,8 +144,8 @@ const int SLEEP_DURATION = 30; // minutes
 // Bed Time Power Savings.
 // If BED_TIME == WAKE_TIME, then this battery saving feature will be disabled.
 // (range: [0-23])
-const int BED_TIME  = 00; // Last update at 00:00 (midnight) until WAKE_TIME.
-const int WAKE_TIME = 01; // Hour of first update after BED_TIME, 06:00.
+const int BED_TIME  = 01; // Last update at 00:00 (midnight) until WAKE_TIME.
+const int WAKE_TIME = 02; // Hour of first update after BED_TIME, 06:00.
 // Note that the minute alignment of SLEEP_DURATION begins at WAKE_TIME even if
 // Bed Time Power Savings is disabled.
 // For example, if WAKE_TIME = 00 (midnight) and SLEEP_DURATION = 120, then the

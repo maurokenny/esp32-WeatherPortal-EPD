@@ -26,13 +26,15 @@ RuntimeState runtime = {
 };
 
 // RTC RAM Variables for connection and location (persist during deep sleep)
-RTC_DATA_ATTR char ramSSID[64] = "";
-RTC_DATA_ATTR char ramPassword[64] = "";
-RTC_DATA_ATTR char ramCity[64] = "";
-RTC_DATA_ATTR char ramCountry[64] = "";
-RTC_DATA_ATTR char ramLat[32] = "";
-RTC_DATA_ATTR char ramLon[32] = "";
-RTC_DATA_ATTR char ramTimezone[64] = "UTC0";
+// Buffer sizes follow: Character Limit + 1 for null-terminator
+// Total RTC RAM saved: 43 bytes (from 386 to 343 bytes for these buffers)
+RTC_DATA_ATTR char ramSSID[33] = "";       // Wi-Fi SSID: 32 chars + \0 (optimized from 64)
+RTC_DATA_ATTR char ramPassword[64] = "";   // WPA2 password: 63 chars + \0
+RTC_DATA_ATTR char ramCity[64] = "";       // City name: 63 chars + \0
+RTC_DATA_ATTR char ramCountry[64] = "";    // Country: 63 chars + \0
+RTC_DATA_ATTR char ramLat[21] = "";        // Latitude: 20 chars + \0 (optimized from 32)
+RTC_DATA_ATTR char ramLon[21] = "";        // Longitude: 20 chars + \0 (optimized from 32)
+RTC_DATA_ATTR char ramTimezone[64] = "UTC0"; // Timezone: 63 chars + \0
 RTC_DATA_ATTR bool ramAutoGeo = false;
 RTC_DATA_ATTR uint8_t ramTimezoneMode = TIMEZONE_MODE_AUTO;  // Default: use API timezone
 RTC_DATA_ATTR bool rtcInitialized = false;
@@ -197,10 +199,14 @@ bool locateByIpAddress() {
         DeserializationError error = deserializeJson(doc, payload);
         
         if (!error && doc["status"] == "success") {
-            strncpy(ramCity, doc["city"] | "", 63);
-            strncpy(ramLat, doc["lat"].as<String>().c_str(), 31);
-            strncpy(ramLon, doc["lon"].as<String>().c_str(), 31);
-            strncpy(ramCountry, doc["country"] | "", 63);
+            strncpy(ramCity, doc["city"] | "", sizeof(ramCity) - 1);
+            ramCity[sizeof(ramCity) - 1] = '\0';
+            strncpy(ramLat, doc["lat"].as<String>().c_str(), sizeof(ramLat) - 1);
+            ramLat[sizeof(ramLat) - 1] = '\0';
+            strncpy(ramLon, doc["lon"].as<String>().c_str(), sizeof(ramLon) - 1);
+            ramLon[sizeof(ramLon) - 1] = '\0';
+            strncpy(ramCountry, doc["country"] | "", sizeof(ramCountry) - 1);
+            ramCountry[sizeof(ramCountry) - 1] = '\0';
             Serial.printf("Successfully geolocated to: %s, %s (%s, %s)\n", ramCity, ramCountry, ramLat, ramLon);
             success = true;
         } else {

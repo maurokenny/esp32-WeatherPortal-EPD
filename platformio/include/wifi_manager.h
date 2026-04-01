@@ -41,13 +41,14 @@ extern RuntimeState runtime;
 #define TIMEZONE_MODE_MANUAL 1   // Use user-selected timezone
 
 // RAM Variables for connection and location
-extern char ramSSID[64];
-extern char ramPassword[64];
-extern char ramCity[64];
-extern char ramCountry[64];
-extern char ramLat[32];
-extern char ramLon[32];
-extern char ramTimezone[64];
+// Buffer sizes follow: Character Limit + 1 for null-terminator
+extern char ramSSID[33];       // Wi-Fi SSID limit: 32 chars + \0
+extern char ramPassword[64];   // WPA2 password limit: 63 chars + \0
+extern char ramCity[64];       // Standard limit: 63 chars + \0
+extern char ramCountry[64];    // Standard limit: 63 chars + \0
+extern char ramLat[21];        // High-precision lat/lon: 20 chars + \0
+extern char ramLon[21];        // High-precision lat/lon: 20 chars + \0
+extern char ramTimezone[64];   // Standard limit: 63 chars + \0
 extern bool ramAutoGeo;
 extern uint8_t ramTimezoneMode;  // OPENMETEO_TIMEZONE_MODE_AUTO or OPENMETEO_TIMEZONE_MODE_MANUAL
 extern bool rtcInitialized;

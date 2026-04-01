@@ -21,34 +21,48 @@
 #include <ESPAsyncWebServer.h>
 
 // External RTC RAM variables (defined in wifi_manager.cpp)
-extern char ramSSID[64];
-extern char ramPassword[64];
-extern char ramCity[64];
-extern char ramCountry[64];
-extern char ramLat[32];
-extern char ramLon[32];
-extern char ramTimezone[64];
+// Buffer sizes: Character Limit + 1 for null-terminator
+extern char ramSSID[33];       // Wi-Fi SSID: 32 chars + \0
+extern char ramPassword[64];   // WPA2 password: 63 chars + \0
+extern char ramCity[64];       // City: 63 chars + \0
+extern char ramCountry[64];    // Country: 63 chars + \0
+extern char ramLat[21];        // Latitude: 20 chars + \0
+extern char ramLon[21];        // Longitude: 20 chars + \0
+extern char ramTimezone[64];   // Timezone: 63 chars + \0
 extern bool ramAutoGeo;
 extern uint8_t ramTimezoneMode;
 extern RuntimeState runtime;
 
 // Maximum input lengths (buffer size - 1 for null terminator)
-#define MAX_SSID_LEN       63
-#define MAX_PASSWORD_LEN   63
-#define MAX_CITY_LEN       63
-#define MAX_COUNTRY_LEN    63
-#define MAX_LAT_LEN        31
-#define MAX_LON_LEN        31
-#define MAX_TIMEZONE_LEN   63
+// These values MUST match the buffer sizes declared in wifi_manager.h
+// MAX_SSID_LEN (32) is defined by ESP32 SDK (esp_wifi_types.h) - use that directly
+#define MAX_PASSWORD_LEN   63   // WPA2 standard
+#define MAX_CITY_LEN       63   // General text field
+#define MAX_COUNTRY_LEN    63   // General text field
+#define MAX_LAT_LEN        20   // High-precision coordinate (e.g., "-122.1234567890")
+#define MAX_LON_LEN        20   // High-precision coordinate
+#define MAX_TIMEZONE_LEN   63   // POSIX timezone strings can be long
 
-// Safe string copy with guaranteed null termination
+// Safe string copy with guaranteed null termination using strlcpy
+// strlcpy is safer than strncpy as it always null-terminates and returns the
+// total length of the source string (allowing truncation detection)
 // Uses stack buffer approach - no dynamic allocation
 void safeCopy(const char* src, char* dest, size_t destLen) {
     if (!src || !dest || destLen == 0) {
+        if (dest && destLen > 0) {
+            dest[0] = '\0';
+        }
         return;
     }
-    strncpy(dest, src, destLen - 1);
-    dest[destLen - 1] = '\0';
+    // strlcpy guarantees null-termination and prevents buffer overflow
+    size_t srcLen = strlcpy(dest, src, destLen);
+    // Optional: Log truncation for debugging (can be removed in production)
+    #if DEBUG_LEVEL >= 1
+    if (srcLen >= destLen) {
+        Serial.printf("[WARNING] String truncated: source=%u, dest=%u\n", 
+                      (unsigned int)srcLen, (unsigned int)destLen);
+    }
+    #endif
 }
 
 // SSID validation: allow letters, numbers, spaces, underscore, dash, dot
@@ -319,13 +333,14 @@ void sendSuccessResponse(AsyncWebServerRequest* request) {
 // Validates all inputs, sanitizes strings, applies timezone
 void handleConfigSave(AsyncWebServerRequest* request) {
     // Temporary buffers for validation (on stack, no dynamic allocation)
-    char tempSSID[64] = {0};
-    char tempPassword[64] = {0};
-    char tempCity[64] = {0};
-    char tempCountry[64] = {0};
-    char tempLat[32] = {0};
-    char tempLon[32] = {0};
-    char tempTimezone[64] = {0};
+    // Sizes synchronized with RTC RAM variables in wifi_manager.cpp
+    char tempSSID[33] = {0};       // Matches ramSSID[33]
+    char tempPassword[64] = {0};   // Matches ramPassword[64]
+    char tempCity[64] = {0};       // Matches ramCity[64]
+    char tempCountry[64] = {0};    // Matches ramCountry[64]
+    char tempLat[21] = {0};        // Matches ramLat[21]
+    char tempLon[21] = {0};        // Matches ramLon[21]
+    char tempTimezone[64] = {0};   // Matches ramTimezone[64]
     bool tempAutoGeo = false;
 
     // Track validation errors

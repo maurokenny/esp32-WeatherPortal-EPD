@@ -681,20 +681,39 @@ void setup()
   disableBuiltinLED();
 
   // Load defaults into RTC RAM variables only if not already initialized (e.g. cold boot)
+  // All strncpy calls use sizeof(dest) - 1 to ensure null-termination
   if (!rtcInitialized) {
-    if (WIFI_SSID != nullptr && strlen(WIFI_SSID) > 0) strncpy(ramSSID, WIFI_SSID, 63);
-    if (WIFI_PASSWORD != nullptr && strlen(WIFI_PASSWORD) > 0) strncpy(ramPassword, WIFI_PASSWORD, 63);
-    
-    if (CITY_STRING.length() > 0) strncpy(ramCity, CITY_STRING.c_str(), 63);
-      if (LAT.length() > 0) strncpy(ramLat, LAT.c_str(), 31);
-      if (LON.length() > 0) strncpy(ramLon, LON.c_str(), 31);
-      if (COUNTRY_STRING.length() > 0) strncpy(ramCountry, COUNTRY_STRING.c_str(), 63);
+    if (WIFI_SSID != nullptr && strlen(WIFI_SSID) > 0) {
+      strncpy(ramSSID, WIFI_SSID, sizeof(ramSSID) - 1);
+      ramSSID[sizeof(ramSSID) - 1] = '\0';
+    }
+    if (WIFI_PASSWORD != nullptr && strlen(WIFI_PASSWORD) > 0) {
+      strncpy(ramPassword, WIFI_PASSWORD, sizeof(ramPassword) - 1);
+      ramPassword[sizeof(ramPassword) - 1] = '\0';
+    }
+    if (CITY_STRING.length() > 0) {
+      strncpy(ramCity, CITY_STRING.c_str(), sizeof(ramCity) - 1);
+      ramCity[sizeof(ramCity) - 1] = '\0';
+    }
+    if (LAT.length() > 0) {
+      strncpy(ramLat, LAT.c_str(), sizeof(ramLat) - 1);
+      ramLat[sizeof(ramLat) - 1] = '\0';
+    }
+    if (LON.length() > 0) {
+      strncpy(ramLon, LON.c_str(), sizeof(ramLon) - 1);
+      ramLon[sizeof(ramLon) - 1] = '\0';
+    }
+    if (COUNTRY_STRING.length() > 0) {
+      strncpy(ramCountry, COUNTRY_STRING.c_str(), sizeof(ramCountry) - 1);
+      ramCountry[sizeof(ramCountry) - 1] = '\0';
+    }
     rtcInitialized = true;
   }
-    // Ensure ramCountry is set if empty (fallback)
-    if (strlen(ramCountry) == 0 && COUNTRY_STRING.length() > 0) {
-      strncpy(ramCountry, COUNTRY_STRING.c_str(), 63);
-    }
+  // Ensure ramCountry is set if empty (fallback)
+  if (strlen(ramCountry) == 0 && COUNTRY_STRING.length() > 0) {
+    strncpy(ramCountry, COUNTRY_STRING.c_str(), sizeof(ramCountry) - 1);
+    ramCountry[sizeof(ramCountry) - 1] = '\0';
+  }
 
   wifiManagerSetup();
   
