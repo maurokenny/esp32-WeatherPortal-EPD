@@ -96,6 +96,7 @@ private:
     void configureTimezoneFromString_(const char* tzString);
     void configureTimezoneFromOffset_(int offsetSeconds);
     void normalize_(const owm_resp_onecall_t& src, NormalizedWeather& dst);
+    void breakDownLocalTime_(time_t timestamp, tm* result);  // No TZ conversion
     void formatDisplayData_(const NormalizedWeather& norm, 
                            TimeDisplayData& out,
                            unsigned long startTimeMillis);

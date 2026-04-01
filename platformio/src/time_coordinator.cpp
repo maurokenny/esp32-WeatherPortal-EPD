@@ -125,32 +125,58 @@ void TimeCoordinator::formatDisplayData_(const NormalizedWeather& norm,
              "%a, %d %b %Y", &tmLocal);
     
     // Forecast - day of week
-    // Use localtime_r() for all conversions - TZ is properly configured
+    // CRITICAL: In AUTO mode, API timestamps are already in LOCAL time
+    // We must NOT apply any timezone conversion to them
     for (int i = 0; i < OWM_NUM_DAILY; i++) {
         tm tmDaily = {};
-        localtime_r(&norm.daily[i].dt, &tmDaily);
+        if (mode_ == TIME_MODE_AUTO) {
+            breakDownLocalTime_(norm.daily[i].dt, &tmDaily);  // No TZ conversion
+        } else {
+            localtime_r(&norm.daily[i].dt, &tmDaily);  // Convert UTC to local
+        }
         out.forecastDayOfWeek[i] = tmDaily.tm_wday;
     }
     
     // Hourly labels
     for (int i = 0; i < OWM_NUM_HOURLY; i++) {
         tm tmHour = {};
-        localtime_r(&norm.hourlyDt[i], &tmHour);
+        if (mode_ == TIME_MODE_AUTO) {
+            breakDownLocalTime_(norm.hourlyDt[i], &tmHour);  // No TZ conversion
+        } else {
+            localtime_r(&norm.hourlyDt[i], &tmHour);  // Convert UTC to local
+        }
         snprintf(out.hourlyLabels[i], sizeof(out.hourlyLabels[0]), 
                  "%02dh", tmHour.tm_hour);
     }
     
-    // Sunrise and sunset
+    // Sunrise and sunset - API returns these in local time when in AUTO mode
     tm tmSunrise = {};
-    localtime_r(&norm.currentSunrise, &tmSunrise);
+    if (mode_ == TIME_MODE_AUTO) {
+        breakDownLocalTime_(norm.currentSunrise, &tmSunrise);  // No TZ conversion
+    } else {
+        localtime_r(&norm.currentSunrise, &tmSunrise);  // Convert UTC to local
+    }
     strftime(out.sunriseTime, sizeof(out.sunriseTime), TIME_FORMAT, &tmSunrise);
     
     tm tmSunset = {};
-    localtime_r(&norm.currentSunset, &tmSunset);
+    if (mode_ == TIME_MODE_AUTO) {
+        breakDownLocalTime_(norm.currentSunset, &tmSunset);  // No TZ conversion
+    } else {
+        localtime_r(&norm.currentSunset, &tmSunset);  // Convert UTC to local
+    }
     strftime(out.sunsetTime, sizeof(out.sunsetTime), TIME_FORMAT, &tmSunset);
     
     // Sleep duration calculation uses system local time
     out.sleepDurationSeconds = calculateSleep_(&tmLocal);
+}
+
+// Break down a timestamp that is already in local time
+// This does NOT apply any timezone conversion - just extracts year/month/day/hour/etc
+void TimeCoordinator::breakDownLocalTime_(time_t timestamp, tm* result) {
+    // Use gmtime_r which treats the timestamp as UTC (no offset applied)
+    // Since the API timestamp is already "local" (not UTC), this gives us
+    // the correct breakdown without any timezone conversion
+    gmtime_r(&timestamp, result);
 }
 
 uint64_t TimeCoordinator::calculateSleep_(const tm* localTime) {
