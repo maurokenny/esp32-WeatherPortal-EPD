@@ -243,6 +243,7 @@ bool validateTimezone(const char* tzStr) {
         else if (c >= '0' && c <= '9') valid = true;
         else if (c == '_' || c == '/' || c == '+' || c == '-') valid = true;
         else if (c == ',' || c == '.' || c == ':') valid = true;
+        else if (c == '<' || c == '>') valid = true;
 
         if (!valid) {
             return false;
