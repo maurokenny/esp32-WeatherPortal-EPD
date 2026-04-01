@@ -125,45 +125,28 @@ void TimeCoordinator::formatDisplayData_(const NormalizedWeather& norm,
              "%a, %d %b %Y", &tmLocal);
     
     // Forecast - day of week
-    // CRITICAL: In AUTO mode, API data is already local, use gmtime() (no TZ conversion)
-    // In MANUAL mode, API data is UTC, use localtime() (apply TZ conversion)
+    // Use localtime_r() for all conversions - TZ is properly configured
     for (int i = 0; i < OWM_NUM_DAILY; i++) {
         tm tmDaily = {};
-        if (mode_ == TIME_MODE_AUTO) {
-            gmtime_r(&norm.daily[i].dt, &tmDaily);  // No conversion - already local
-        } else {
-            localtime_r(&norm.daily[i].dt, &tmDaily);  // Convert UTC to local
-        }
+        localtime_r(&norm.daily[i].dt, &tmDaily);
         out.forecastDayOfWeek[i] = tmDaily.tm_wday;
     }
     
     // Hourly labels
     for (int i = 0; i < OWM_NUM_HOURLY; i++) {
         tm tmHour = {};
-        if (mode_ == TIME_MODE_AUTO) {
-            gmtime_r(&norm.hourlyDt[i], &tmHour);  // No conversion - already local
-        } else {
-            localtime_r(&norm.hourlyDt[i], &tmHour);  // Convert UTC to local
-        }
+        localtime_r(&norm.hourlyDt[i], &tmHour);
         snprintf(out.hourlyLabels[i], sizeof(out.hourlyLabels[0]), 
                  "%02dh", tmHour.tm_hour);
     }
     
-    // Sunrise and sunset - use gmtime in AUTO (already local), localtime in MANUAL
+    // Sunrise and sunset
     tm tmSunrise = {};
-    if (mode_ == TIME_MODE_AUTO) {
-        gmtime_r(&norm.currentSunrise, &tmSunrise);
-    } else {
-        localtime_r(&norm.currentSunrise, &tmSunrise);
-    }
+    localtime_r(&norm.currentSunrise, &tmSunrise);
     strftime(out.sunriseTime, sizeof(out.sunriseTime), TIME_FORMAT, &tmSunrise);
     
     tm tmSunset = {};
-    if (mode_ == TIME_MODE_AUTO) {
-        gmtime_r(&norm.currentSunset, &tmSunset);
-    } else {
-        localtime_r(&norm.currentSunset, &tmSunset);
-    }
+    localtime_r(&norm.currentSunset, &tmSunset);
     strftime(out.sunsetTime, sizeof(out.sunsetTime), TIME_FORMAT, &tmSunset);
     
     // Sleep duration calculation uses system local time
