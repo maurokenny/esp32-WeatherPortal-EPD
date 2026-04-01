@@ -670,7 +670,11 @@ void updateWeather()
   } while (display.nextPage());
   powerOffDisplay();
 
-  isFirstBoot = false;
+  // Mark first boot as complete and reset failure counter
+  if (isFirstBoot) {
+    isFirstBoot = false;
+  }
+  connectionFailCycles = 0;  // Reset on successful data fetch and render
   setFirmwareState(STATE_SLEEP_PENDING);
 }
 
@@ -732,6 +736,30 @@ void loop()
       updateWeather();
   } else if (currentState == STATE_SLEEP_PENDING) {
       beginDeepSleep(startTick, &currentTimInfo, apiTimezoneOffset);
+  } else if (currentState == STATE_ERROR_CONNECTION) {
+      // Indefinite deep sleep - device will not wake up automatically
+      // User must manually reset or power cycle to recover
+      Serial.println("ERROR_CONNECTION: Entering indefinite deep sleep.");
+      Serial.println("Manual reset required to recover.");
+      
+      // Note: Error screen should have been displayed by wifi_manager.cpp
+      // before transitioning to this state. If not, show generic error.
+      
+      // Sleep indefinitely - disable ALL wakeup sources
+      // Only EXT0/EXT1 (GPIO) or manual reset can wake the device now
+      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+      
+      // Ensure no GPIO wakeup is configured
+      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TOUCHPAD);
+      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ULP);
+      
+      Serial.println("All automatic wakeups disabled.");
+      Serial.flush();
+      
+      esp_deep_sleep_start();
+      
+      // Should never reach here
+      Serial.println("ERROR: Deep sleep failed!");
   }
 }
 

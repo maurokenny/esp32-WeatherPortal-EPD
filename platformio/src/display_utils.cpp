@@ -34,6 +34,9 @@
 // icon header files
 #include "icons/icons.h"
 #include "fonts/Ubuntu_R.h"
+#include "fonts/FreeSans/FreeSans_9pt8b.h"
+#include "fonts/FreeSans/FreeSans_12pt8b.h"
+#include "fonts/FreeSans/FreeSans_18pt8b.h"
 
 /* Returns battery voltage in millivolts (mv).
  */
@@ -1823,4 +1826,39 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 void drawTimeoutScreen()
 {
   drawLoading(warning_icon_196x196, "Setup Timed Out", "Device is entering deep sleep");
+}
+
+void drawErrorScreen(const char* title, const char* message, const char* action)
+{
+  initDisplay();
+  display.setFullWindow();
+  display.firstPage();
+  do {
+    display.fillScreen(GxEPD_WHITE);
+    display.setTextColor(GxEPD_BLACK);
+    
+    // Draw warning icon at top center
+    const uint8_t* icon = warning_icon_196x196;
+    int16_t iconX = (DISP_WIDTH - 196) / 2;
+    display.drawInvertedBitmap(iconX, 30, icon, 196, 196, GxEPD_BLACK);
+    
+    // Title - large
+    display.setFont(&FreeSans_18pt8b);
+    drawString(DISP_WIDTH / 2, 250, title, CENTER);
+    
+    // Message
+    display.setFont(&FreeSans_12pt8b);
+    drawString(DISP_WIDTH / 2, 300, message, CENTER);
+    
+    // Action instruction
+    if (action != nullptr) {
+      drawString(DISP_WIDTH / 2, 350, action, CENTER);
+    }
+    
+    // Bottom note
+    display.setFont(&FreeSans_9pt8b);
+    drawString(DISP_WIDTH / 2, 430, "Manual reset required to recover", CENTER);
+    
+  } while (display.nextPage());
+  powerOffDisplay();
 }

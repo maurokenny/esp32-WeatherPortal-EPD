@@ -138,7 +138,7 @@ Data structures and parsing:
 
 ### wifi_manager.cpp / wifi_manager.h
 WiFi connection and configuration portal:
-- State machine: BOOT → WIFI_CONNECTING → AP_CONFIG_MODE → NORMAL_MODE → SLEEP_PENDING
+- State machine: BOOT → WIFI_CONNECTING → AP_CONFIG_MODE → NORMAL_MODE → SLEEP_PENDING → ERROR_CONNECTION
 - Captive portal with automatic device detection
 - RTC RAM variables for persisting config across deep sleep
 - IP-based geolocation for automatic location detection

@@ -15,7 +15,8 @@
 FirmwareState currentState = STATE_BOOT;
 DeviceConfig wifiConfig = {
     .wifiConnectTimeout = 20,
-    .configTimeout = 300
+    // .configTimeout = 300
+    .configTimeout = 60
 };
 RuntimeState runtime = {
     .apMode = false,
@@ -39,6 +40,8 @@ RTC_DATA_ATTR bool ramAutoGeo = false;
 RTC_DATA_ATTR uint8_t ramTimezoneMode = TIMEZONE_MODE_AUTO;  // Default: use API timezone
 RTC_DATA_ATTR bool rtcInitialized = false;
 RTC_DATA_ATTR bool isFirstBoot = true;
+RTC_DATA_ATTR uint8_t connectionFailCycles = 0;  // Consecutive WiFi connection failure cycles
+RTC_DATA_ATTR bool isErrorState = false;         // Permanent error state flag
 
 AsyncWebServer server(80);
 DNSServer dnsServer;
@@ -127,15 +130,50 @@ void wifiManagerLoop() {
 
         case STATE_WIFI_CONNECTING:
             if (WiFi.status() == WL_CONNECTED) {
+                // SUCCESS: WiFi connected
                 runtime.wifiConnected = true;
+                // Reset failure counter on successful connection
+                connectionFailCycles = 0;
                 setFirmwareState(STATE_NORMAL_MODE);
                 if (isFirstBoot || !SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
             } else if (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000) {
-                Serial.println("Wi-Fi connection timed out. Falling back to AP Mode.");
+                // TIMEOUT: WiFi connection failed
+                Serial.println("Wi-Fi connection timed out.");
                 WiFi.disconnect();
-                startAP();
+                
+                // Only count failure cycles after first successful boot
+                if (!isFirstBoot) {
+                    connectionFailCycles++;
+                    Serial.printf("Connection fail cycle #%d\n", connectionFailCycles);
+                }
+                
+                // Determine next state based on connection history
+                if (isFirstBoot) {
+                    // Never connected before: allow configuration via AP mode
+                    Serial.println("First boot - starting AP Configuration Mode.");
+                    startAP();
+                } else {
+                    // Has connected before: check if max failures reached
+                    #if MAX_FAIL_CYCLES > 0
+                    if (connectionFailCycles >= MAX_FAIL_CYCLES) {
+                        Serial.printf("Max fail cycles (%d) reached. Entering ERROR_CONNECTION.\n", MAX_FAIL_CYCLES);
+                        char msgBuffer[64];
+                        snprintf(msgBuffer, sizeof(msgBuffer), "Failed to connect after %d attempts", connectionFailCycles);
+                        drawErrorScreen("Connection Failed", msgBuffer, "Please check WiFi signal and credentials");
+                        isErrorState = true;
+                        setFirmwareState(STATE_ERROR_CONNECTION);
+                    } else {
+                        Serial.printf("Retrying after sleep (fail cycle %d/%d).\n", connectionFailCycles, MAX_FAIL_CYCLES);
+                        setFirmwareState(STATE_SLEEP_PENDING);
+                    }
+                    #else
+                    // MAX_FAIL_CYCLES = 0: infinite retry mode
+                    Serial.println("Infinite retry mode - sleeping and will retry.");
+                    setFirmwareState(STATE_SLEEP_PENDING);
+                    #endif
+                }
             }
             break;
 
@@ -158,11 +196,15 @@ void wifiManagerLoop() {
 
              // Security timeout (only active if portal is waiting for input)
              if (runtime.portalActive && (millis() - runtime.portalStartTime > wifiConfig.configTimeout * 1000)) {
-                 Serial.println("Security timeout. Stopping AP and sleeping...");
+                 Serial.println("AP Configuration timeout. No config received. Entering ERROR_CONNECTION.");
                  server.end();
                  dnsServer.stop();
-                 drawTimeoutScreen();
-                 setFirmwareState(STATE_SLEEP_PENDING);
+                 WiFi.softAPdisconnect(true);
+                 drawErrorScreen("Setup Timed Out", 
+                                "No configuration received within timeout",
+                                "Please check WiFi credentials and try again");
+                 isErrorState = true;
+                 setFirmwareState(STATE_ERROR_CONNECTION);
              }
             break;
 
@@ -172,6 +214,11 @@ void wifiManagerLoop() {
 
         case STATE_SLEEP_PENDING:
             // Transition handled in main.cpp for deep sleep
+            break;
+
+        case STATE_ERROR_CONNECTION:
+            // Error state: handled in main.cpp for indefinite deep sleep
+            // This state prevents any automatic retries
             break;
     }
 }

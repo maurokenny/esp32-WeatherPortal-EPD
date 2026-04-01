@@ -87,6 +87,7 @@ void updateEinkStatus(const char* msg);
 void drawLoading(const uint8_t *bitmap_196x196, const char *msg, const char *submsg = nullptr);
 void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes);
 void drawTimeoutScreen();
+void drawErrorScreen(const char* title, const char* message, const char* action);
 
 #endif
 

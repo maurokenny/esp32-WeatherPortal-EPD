@@ -12,7 +12,8 @@ enum FirmwareState {
     STATE_WIFI_CONNECTING,
     STATE_AP_CONFIG_MODE,
     STATE_NORMAL_MODE,
-    STATE_SLEEP_PENDING
+    STATE_SLEEP_PENDING,
+    STATE_ERROR_CONNECTION
 };
 
 extern FirmwareState currentState;
@@ -53,6 +54,8 @@ extern bool ramAutoGeo;
 extern uint8_t ramTimezoneMode;  // OPENMETEO_TIMEZONE_MODE_AUTO or OPENMETEO_TIMEZONE_MODE_MANUAL
 extern bool rtcInitialized;
 extern bool isFirstBoot;
+extern uint8_t connectionFailCycles;  // Consecutive WiFi connection failure cycles
+extern bool isErrorState;             // Permanent error state flag (survives deep sleep)
 
 // Functions
 void wifiManagerSetup();
