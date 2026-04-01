@@ -83,12 +83,12 @@ void drawCurrentConditions(const owm_current_t &current,
                            const owm_resp_air_pollution_t &owm_air_pollution,
                            float inTemp, float inHumidity,
                            const owm_hourly_t *hourly = nullptr);
-void drawForecast(const owm_daily_t *daily, tm timeInfo);
+void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray);
 void drawAlerts(std::vector<owm_alerts_t> &alerts,
                 const String &city, const String &date);
 void drawLocationDate(const String &city, const String &date);
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
-                      tm timeInfo, int64_t current_dt);
+                      const char hourlyLabels[][6], int64_t current_dt);
 void drawStatusBar(const String &statusStr, const String &refreshTimeStr,
                    int rssi, uint32_t batVoltage);
 void drawError(const uint8_t *bitmap_196x196,

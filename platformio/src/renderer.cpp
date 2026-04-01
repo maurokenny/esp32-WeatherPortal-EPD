@@ -1195,8 +1195,10 @@ void drawCurrentConditions(const owm_current_t &current,
 } // end drawCurrentConditions
 
 /* This function is responsible for drawing the five day forecast.
+ * dayOfWeekArray: pre-calculated day of week (0=Sun, 1=Mon, etc.)
+ * No timezone calculations here - all done by TimeCoordinator.
  */
-void drawForecast(const owm_daily_t *daily, tm timeInfo)
+void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray)
 {
   // 5 day, forecast
   String hiStr, loStr;
@@ -1212,12 +1214,13 @@ void drawForecast(const owm_daily_t *daily, tm timeInfo)
     display.drawInvertedBitmap(x, 98 + 69 / 2 - 32 - 6,
                                getDailyForecastBitmap64(daily[i]),
                                64, 64, GxEPD_BLACK);
-    // day of week label
+    // day of week label - use pre-calculated day from TimeCoordinator
     display.setFont(&FONT_11pt8b);
     char dayBuffer[8] = {};
-    _strftime(dayBuffer, sizeof(dayBuffer), "%a", &timeInfo); // abbrv'd day
+    tm tmpTm = {};  // Only wday is used by _strftime for "%a"
+    tmpTm.tm_wday = dayOfWeekArray[i];
+    _strftime(dayBuffer, sizeof(dayBuffer), "%a", &tmpTm); // abbreviated day
     drawString(x + 31 - 2, 98 + 69 / 2 - 32 - 26 - 6 + 16, dayBuffer, CENTER);
-    timeInfo.tm_wday = (timeInfo.tm_wday + 1) % 7; // increment to next day
 
     // high | low
     display.setFont(&FONT_8pt8b);
@@ -1452,9 +1455,11 @@ int kelvin_to_plot_y(float kelvin, int tempBoundMin, float yPxPerUnit,
 
 /* This function is responsible for drawing the outlook graph for the specified
  * number of hours(up to 48).
+ * hourlyLabels: pre-formatted hour labels from TimeCoordinator (e.g., "14h", "15h")
+ * No timezone calculations here - all done by TimeCoordinator.
  */
 void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
-                      tm timeInfo, int64_t current_dt)
+                      const char hourlyLabels[][6], int64_t current_dt)
 {
   const int xPos0 = 350;
   int xPos1 = DISP_WIDTH;
@@ -1768,12 +1773,8 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
       // draw x tick marks
       display.drawLine(xTick    , yPos1 + 1, xTick    , yPos1 + 4, GxEPD_BLACK);
       display.drawLine(xTick + 1, yPos1 + 1, xTick + 1, yPos1 + 4, GxEPD_BLACK);
-      // draw x axis labels - use timestamp from hourly data
-      char timeBuffer[12] = {};
-      time_t ts = (time_t)hourly[hourlyIdx].dt;
-      tm *timeInfo = localtime(&ts);
-      _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
-      drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
+      // draw x axis labels - use pre-formatted labels from TimeCoordinator
+      drawString(xTick, yPos1 + 1 + 12 + 4 + 3, hourlyLabels[hourlyIdx], CENTER);
     }
 
 #ifdef ENABLE_HOURLY_PRECIP_GRAPH
@@ -1969,11 +1970,7 @@ void drawOutlookGraph(const owm_hourly_t *hourly, const owm_daily_t *daily,
     display.drawLine(xTick    , yPos1 + 1, xTick    , yPos1 + 4, GxEPD_BLACK);
     display.drawLine(xTick + 1, yPos1 + 1, xTick + 1, yPos1 + 4, GxEPD_BLACK);
     // draw x axis labels - last hour shown
-    char timeBuffer[12] = {};
-    time_t ts = (time_t)hourly[endIndex - 1].dt;
-    tm *timeInfo = localtime(&ts);
-    _strftime(timeBuffer, sizeof(timeBuffer), HOUR_FORMAT, timeInfo);
-    drawString(xTick, yPos1 + 1 + 12 + 4 + 3, timeBuffer, CENTER);
+    drawString(xTick, yPos1 + 1 + 12 + 4 + 3, hourlyLabels[endIndex - 1], CENTER);
   }
 
   return;
