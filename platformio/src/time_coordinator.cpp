@@ -39,31 +39,41 @@ TimeDisplayData TimeCoordinator::process(const owm_resp_onecall_t& apiData,
     TimeDisplayData out = {};  // Zero-initialize
     
     // ═══════════════════════════════════════════════════════════════════════
-    // ETAPA 1: Normalização (cópia, NÃO muta apiData)
+    // STEP 1: Normalization (copy, does NOT mutate apiData)
     // ═══════════════════════════════════════════════════════════════════════
     NormalizedWeather norm;
     normalize_(apiData, norm);
     
     // ═══════════════════════════════════════════════════════════════════════
-    // ETAPA 2: Sync RTC se necessário (ANTES de usar time())
+    // STEP 2: Sync RTC if needed (BEFORE using time())
     // ═══════════════════════════════════════════════════════════════════════
     if (mode_ == TIME_MODE_AUTO) {
         syncRtcIfNeeded_(norm.apiOffsetSeconds);
     }
     
     // ═══════════════════════════════════════════════════════════════════════
-    // ETAPA 3: Pega hora atual
+    // STEP 3: Get current time in LOCAL TIME
     // ═══════════════════════════════════════════════════════════════════════
     time_t now = time(nullptr);
     
     if (mode_ == TIME_MODE_MANUAL) {
-        // MANUAL: RTC está em UTC0, converte para local
+        // MANUAL: RTC is at UTC0, convert to local using configured offset
         now = utcToLocal_(now);
+    } else {
+        // AUTO: RTC may have been synced, but check if it's valid
+        // If RTC is still in UTC (e.g., NTP hasn't responded yet),
+        // calculate manually using API offset
+        if (now < 1000000000 || !rtcSynced_) {
+            // RTC not synced, calculate manually: UTC + offset
+            now = now + norm.apiOffsetSeconds;
+            Serial.printf("[TimeCoordinator] Using manual offset: UTC%+d\n", 
+                          norm.apiOffsetSeconds);
+        }
+        // If rtcSynced_ is true, RTC is already in local time
     }
-    // AUTO: RTC já está em hora local (sincronizado acima)
     
     // ═══════════════════════════════════════════════════════════════════════
-    // ETAPA 4: Formata tudo para UI
+    // STEP 4: Format everything for UI
     // ═══════════════════════════════════════════════════════════════════════
     formatDisplayData_(norm, out, now, startTimeMillis);
     
@@ -109,13 +119,13 @@ void TimeCoordinator::normalize_(const owm_resp_onecall_t& src,
 }
 
 void TimeCoordinator::syncRtcIfNeeded_(int offsetSeconds) {
-    // Check 1: Sessão atual já sincronizou?
+    // Check 1: Already synced this session?
     if (rtcSynced_) {
         Serial.println("[TimeCoordinator] RTC already synced this session");
         return;
     }
     
-    // Check 2: RTC sobreviveu ao deep sleep? (epoch razoável)
+    // Check 2: Did RTC survive deep sleep? (reasonable epoch)
     time_t currentTime = time(nullptr);
     if (currentTime > 1000000000) {  // > 2001-09-09
         Serial.println("[TimeCoordinator] RTC time valid, skip sync");
@@ -123,16 +133,16 @@ void TimeCoordinator::syncRtcIfNeeded_(int offsetSeconds) {
         return;
     }
     
-    // Precisa sincronizar
+    // Need to sync
     Serial.printf("[TimeCoordinator] Syncing RTC to UTC%+d\n", offsetSeconds);
     
-    // Configura timezone e NTP
+    // Configure timezone and NTP
     configTime(offsetSeconds, 0, "pool.ntp.org");
     
-    // Pequeno delay para estabilizar
+    // Small delay to stabilize
     delay(100);
     
-    // Verifica se conseguiu
+    // Check if succeeded
     time_t after = time(nullptr);
     if (after > 1000000000) {
         Serial.printf("[TimeCoordinator] RTC synced, time: %ld\n", (long)after);
@@ -148,22 +158,21 @@ void TimeCoordinator::formatDisplayData_(const NormalizedWeather& norm,
                                         unsigned long startTimeMillis) {
     tm* tmNow = localtime(&nowLocal);
     
-    // Hora para footer (ex: "14:32")
+    // Time for footer (e.g., "14:32")
     snprintf(out.updateTime, sizeof(out.updateTime), 
              "%02d:%02d", tmNow->tm_hour, tmNow->tm_min);
     
-    // Data para header (ex: "Ter, 15 Abr 2025")
-    // Usa formato localizado se disponível
+    // Date for header (e.g., "Tue, 15 Apr 2025")
     strftime(out.displayDate, sizeof(out.displayDate), 
              "%a, %d %b %Y", tmNow);
     
-    // Forecast - dia da semana para cada dia
+    // Forecast - day of week for each day
     for (int i = 0; i < OWM_NUM_DAILY; i++) {
         tm* tmDaily = localtime(&norm.daily[i].dt);
         out.forecastDayOfWeek[i] = tmDaily->tm_wday;
     }
     
-    // Hourly labels para outlook graph (ex: "14h", "15h")
+    // Hourly labels for outlook graph (e.g., "14h", "15h")
     for (int i = 0; i < OWM_NUM_HOURLY; i++) {
         tm* tmHour = localtime(&norm.hourlyDt[i]);
         snprintf(out.hourlyLabels[i], sizeof(out.hourlyLabels[0]), 
@@ -181,7 +190,7 @@ uint64_t TimeCoordinator::calculateSleep_(time_t nowLocal) {
     int curMin = tmNow->tm_min;
     int curSec = tmNow->tm_sec;
     
-    // Calcula tempo relativo a WAKE_TIME
+    // Calculate time relative to WAKE_TIME
     int bedtimeHour = INT_MAX;
     if (BED_TIME != WAKE_TIME) {
         bedtimeHour = (BED_TIME - WAKE_TIME + 24) % 24;
@@ -191,13 +200,13 @@ uint64_t TimeCoordinator::calculateSleep_(time_t nowLocal) {
     int curMinute = relHour * 60 + curMin;
     int curSecond = relHour * 3600 + curMin * 60 + curSec;
     
-    // Calcula minutos até próximo update
+    // Calculate minutes until next update
     int sleepMinutes = SLEEP_DURATION - (curMinute % SLEEP_DURATION);
     if (sleepMinutes < SLEEP_DURATION / 2) {
         sleepMinutes += SLEEP_DURATION;
     }
     
-    // Verifica se cai em período de sono
+    // Check if wake time falls in sleep period
     int predictedWakeHour = ((curMinute + sleepMinutes) / 60) % 24;
     
     uint64_t sleepDuration;
@@ -208,7 +217,7 @@ uint64_t TimeCoordinator::calculateSleep_(time_t nowLocal) {
         sleepDuration = hoursUntilWake * 3600ULL - (curMin * 60ULL + curSec);
     }
     
-    // Compensação para RTCs rápidos
+    // Compensation for fast RTCs
     sleepDuration += 3ULL;
     sleepDuration *= 1.0015f;
     
@@ -220,25 +229,25 @@ uint64_t TimeCoordinator::calculateSleep_(time_t nowLocal) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 int TimeCoordinator::parseTimezoneString_(const char* tzString) {
-    // Parse simplificado de string TZ POSIX
-    // Exemplos: "EST5EDT,M3.2.0,M11.1.0" ou "CET-1CEST,M3.5.0,M10.5.0/3"
+    // Simplified parsing of POSIX TZ string
+    // Examples: "EST5EDT,M3.2.0,M11.1.0" or "CET-1CEST,M3.5.0,M10.5.0/3"
     
     if (tzString == nullptr || strlen(tzString) == 0) {
         return 0;  // UTC
     }
     
-    // Procura por número na string (offset)
-    // Formato típico: "EST5" = UTC-5, "CET-1" = UTC+1
+    // Look for number in string (offset)
+    // Typical format: "EST5" = UTC-5, "CET-1" = UTC+1
     int offset = 0;
     bool negative = false;
     const char* p = tzString;
     
-    // Pula nome do timezone
+    // Skip timezone name
     while (*p && ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z'))) {
         p++;
     }
     
-    // Verifica sinal
+    // Check sign
     if (*p == '-') {
         negative = true;
         p++;
@@ -246,17 +255,17 @@ int TimeCoordinator::parseTimezoneString_(const char* tzString) {
         p++;
     }
     
-    // Parse número (horas)
+    // Parse number (hours)
     while (*p >= '0' && *p <= '9') {
         offset = offset * 10 + (*p - '0');
         p++;
     }
     
-    // Converte para segundos
+    // Convert to seconds
     int offsetSeconds = offset * 3600;
     
-    // Ajusta sinal (POSIX TZ: positive = west, negative = east)
-    // Queremos: positive = east (futuro), negative = west (passado)
+    // Adjust sign (POSIX TZ: positive = west, negative = east)
+    // We want: positive = east (future), negative = west (past)
     if (!negative) {
         offsetSeconds = -offsetSeconds;
     }

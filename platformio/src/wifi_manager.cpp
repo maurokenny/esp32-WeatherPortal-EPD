@@ -15,8 +15,8 @@
 FirmwareState currentState = STATE_BOOT;
 DeviceConfig wifiConfig = {
     .wifiConnectTimeout = 20,
-    // .configTimeout = 300
-    .configTimeout = 60
+    .configTimeout = 300
+    // .configTimeout = 60
 };
 RuntimeState runtime = {
     .apMode = false,
