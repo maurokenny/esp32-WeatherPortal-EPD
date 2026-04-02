@@ -24,6 +24,25 @@
 #include "display_utils.h"
 #include "umbrella_parser.h"
 
+/* Data validation utilities for API values - returns true if valid */
+namespace {
+  inline bool isValidWindSpeed(float windSpeed) {
+    return !std::isnan(windSpeed) && windSpeed >= 0.0f;
+  }
+  inline bool isValidHumidity(int humidity) {
+    return humidity >= 0 && humidity <= 100;
+  }
+  inline bool isValidPressure(float pressure) {
+    return !std::isnan(pressure) && pressure > 0.0f;
+  }
+  inline bool isValidVisibility(int visibility) {
+    return visibility > 0;
+  }
+  inline bool isValidUVI(float uvi) {
+    return !std::isnan(uvi) && uvi >= 0.0f;
+  }
+}
+
 // fonts
 #include FONT_HEADER
 
@@ -314,39 +333,60 @@ void drawCurrentWind(const owm_current_t &current)
 
   // wind
   display.setFont(&FONT_12pt8b);
-#ifdef WIND_INDICATOR_ARROW
-  display.drawInvertedBitmap(48 + (162 * PosX), 204 + 24 / 2 + (48 + 8) * PosY,
-                             getWindBitmap24(current.wind_deg),
-                             24, 24, GxEPD_BLACK);
-#endif
+  
+  // Set unit string based on configuration (always shown)
 #ifdef UNITS_SPEED_METERSPERSECOND
-  dataStr = String(static_cast<int>(std::round(current.wind_speed)));
   unitStr = String(" ") + TXT_UNITS_SPEED_METERSPERSECOND;
 #endif
 #ifdef UNITS_SPEED_FEETPERSECOND
-  dataStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_feetpersecond(current.wind_speed) )));
   unitStr = String(" ") + TXT_UNITS_SPEED_FEETPERSECOND;
 #endif
 #ifdef UNITS_SPEED_KILOMETERSPERHOUR
-  dataStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_kilometersperhour(current.wind_speed) )));
   unitStr = String(" ") + TXT_UNITS_SPEED_KILOMETERSPERHOUR;
 #endif
 #ifdef UNITS_SPEED_MILESPERHOUR
-  dataStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_milesperhour(current.wind_speed) )));
   unitStr = String(" ") + TXT_UNITS_SPEED_MILESPERHOUR;
 #endif
 #ifdef UNITS_SPEED_KNOTS
-  dataStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_knots(current.wind_speed) )));
   unitStr = String(" ") + TXT_UNITS_SPEED_KNOTS;
 #endif
 #ifdef UNITS_SPEED_BEAUFORT
-  dataStr = String(meterspersecond_to_beaufort(current.wind_speed));
   unitStr = String(" ") + TXT_UNITS_SPEED_BEAUFORT;
 #endif
+  
+  // Validate wind data before displaying
+  if (isValidWindSpeed(current.wind_speed)) {
+#ifdef WIND_INDICATOR_ARROW
+    display.drawInvertedBitmap(48 + (162 * PosX), 204 + 24 / 2 + (48 + 8) * PosY,
+                               getWindBitmap24(current.wind_deg),
+                               24, 24, GxEPD_BLACK);
+#endif
+#ifdef UNITS_SPEED_METERSPERSECOND
+    dataStr = String(static_cast<int>(std::round(current.wind_speed)));
+#endif
+#ifdef UNITS_SPEED_FEETPERSECOND
+    dataStr = String(static_cast<int>(std::round(
+                     meterspersecond_to_feetpersecond(current.wind_speed) )));
+#endif
+#ifdef UNITS_SPEED_KILOMETERSPERHOUR
+    dataStr = String(static_cast<int>(std::round(
+                     meterspersecond_to_kilometersperhour(current.wind_speed) )));
+#endif
+#ifdef UNITS_SPEED_MILESPERHOUR
+    dataStr = String(static_cast<int>(std::round(
+                     meterspersecond_to_milesperhour(current.wind_speed) )));
+#endif
+#ifdef UNITS_SPEED_KNOTS
+    dataStr = String(static_cast<int>(std::round(
+                     meterspersecond_to_knots(current.wind_speed) )));
+#endif
+#ifdef UNITS_SPEED_BEAUFORT
+    dataStr = String(meterspersecond_to_beaufort(current.wind_speed));
+#endif
+  } else {
+    // Invalid wind data - show "--"
+    dataStr = "--";
+  }
 
 #ifdef WIND_INDICATOR_ARROW
   drawString( (48 + 24)+ (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, dataStr, LEFT);
@@ -399,33 +439,41 @@ void drawCurrentUVI(const owm_current_t &current)
 
   // uv index
   display.setFont(&FONT_12pt8b);
-  unsigned int uvi = static_cast<unsigned int>(
-                                std::max(std::round(current.uvi), 0.0f));
-  dataStr = String(uvi);
-  drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, dataStr, LEFT);
-  display.setFont(&FONT_7pt8b);
-  dataStr = String(getUVIdesc(uvi));
-  int max_w = (162 + (PosX * 162) - sp) - (display.getCursorX() + sp);
-  if (getStringWidth(dataStr) <= max_w)
-  { // Fits on a single line, draw along bottom
-    drawString(display.getCursorX() + sp, 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
-               dataStr, LEFT);
-  }
-  else
-  { // use smaller font
-    display.setFont(&FONT_5pt8b);
+  
+  // Validate UVI data before displaying
+  if (isValidUVI(current.uvi)) {
+    unsigned int uvi = static_cast<unsigned int>(
+                                  std::max(std::round(current.uvi), 0.0f));
+    dataStr = String(uvi);
+    drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, dataStr, LEFT);
+    display.setFont(&FONT_7pt8b);
+    dataStr = String(getUVIdesc(uvi));
+    int max_w = (162 + (PosX * 162) - sp) - (display.getCursorX() + sp);
     if (getStringWidth(dataStr) <= max_w)
-    { // Fits on a single line with smaller font, draw along bottom
-      drawString(display.getCursorX() + sp,
-                 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
+    { // Fits on a single line, draw along bottom
+      drawString(display.getCursorX() + sp, 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
                  dataStr, LEFT);
     }
     else
-    { // Does not fit on a single line, draw higher to allow room for 2nd line
-      drawMultiLnString(display.getCursorX() + sp,
-                        204 + 17 / 2 + (48 + 8) * PosY + 48 / 2 - 10,
-                        dataStr, LEFT, max_w, 2, 10);
+    { // use smaller font
+      display.setFont(&FONT_5pt8b);
+      if (getStringWidth(dataStr) <= max_w)
+      { // Fits on a single line with smaller font, draw along bottom
+        drawString(display.getCursorX() + sp,
+                   204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
+                   dataStr, LEFT);
+      }
+      else
+      { // Does not fit on a single line, draw higher to allow room for 2nd line
+        drawMultiLnString(display.getCursorX() + sp,
+                          204 + 17 / 2 + (48 + 8) * PosY + 48 / 2 - 10,
+                          dataStr, LEFT, max_w, 2, 10);
+      }
     }
+  } else {
+    // Invalid UVI data - show "--"
+    dataStr = "--";
+    drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, dataStr, LEFT);
   }
   return;
 }
@@ -592,7 +640,11 @@ void drawCurrentHumidity(const owm_current_t &current)
 
   // humidity
   display.setFont(&FONT_12pt8b);
-  dataStr = String(current.humidity);
+  if (isValidHumidity(current.humidity)) {
+    dataStr = String(current.humidity);
+  } else {
+    dataStr = "--";
+  }
   drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, dataStr, LEFT);
   display.setFont(&FONT_8pt8b);
   drawString(display.getCursorX(), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
@@ -618,50 +670,74 @@ void drawCurrentPressure(const owm_current_t &current)
   drawString(48 + (162 * PosX), 204 + 10 + (48 + 8) * PosY, TXT_PRESSURE, LEFT);
 
   // pressure
+  // Set unit string based on configuration (always shown)
 #ifdef UNITS_PRES_HECTOPASCALS
-  dataStr = String(current.pressure);
   unitStr = String(" ") + TXT_UNITS_PRES_HECTOPASCALS;
 #endif
 #ifdef UNITS_PRES_PASCALS
-  dataStr = String(static_cast<int>(std::round(
-                   hectopascals_to_pascals(current.pressure) )));
   unitStr = String(" ") + TXT_UNITS_PRES_PASCALS;
 #endif
 #ifdef UNITS_PRES_MILLIMETERSOFMERCURY
-  dataStr = String(static_cast<int>(std::round(
-                   hectopascals_to_millimetersofmercury(current.pressure) )));
   unitStr = String(" ") + TXT_UNITS_PRES_MILLIMETERSOFMERCURY;
 #endif
 #ifdef UNITS_PRES_INCHESOFMERCURY
-  dataStr = String(std::round(1e1f *
-                   hectopascals_to_inchesofmercury(current.pressure)
-                   ) / 1e1f, 1);
   unitStr = String(" ") + TXT_UNITS_PRES_INCHESOFMERCURY;
 #endif
 #ifdef UNITS_PRES_MILLIBARS
-  dataStr = String(static_cast<int>(std::round(
-                   hectopascals_to_millibars(current.pressure) )));
   unitStr = String(" ") + TXT_UNITS_PRES_MILLIBARS;
 #endif
 #ifdef UNITS_PRES_ATMOSPHERES
-  dataStr = String(std::round(1e3f *
-                   hectopascals_to_atmospheres(current.pressure) )
-                   / 1e3f, 3);
   unitStr = String(" ") + TXT_UNITS_PRES_ATMOSPHERES;
 #endif
 #ifdef UNITS_PRES_GRAMSPERSQUARECENTIMETER
-  dataStr = String(static_cast<int>(std::round(
-                   hectopascals_to_gramspersquarecentimeter(current.pressure)
-                   )));
   unitStr = String(" ") + TXT_UNITS_PRES_GRAMSPERSQUARECENTIMETER;
 #endif
 #ifdef UNITS_PRES_POUNDSPERSQUAREINCH
-  dataStr = String(std::round(1e2f *
-                   hectopascals_to_poundspersquareinch(current.pressure)
-                   ) / 1e2f, 2);
   unitStr = String(" ") + TXT_UNITS_PRES_POUNDSPERSQUAREINCH;
 #endif
+
+  // Validate pressure data before displaying
   display.setFont(&FONT_12pt8b);
+  if (isValidPressure(static_cast<float>(current.pressure))) {
+#ifdef UNITS_PRES_HECTOPASCALS
+    dataStr = String(current.pressure);
+#endif
+#ifdef UNITS_PRES_PASCALS
+    dataStr = String(static_cast<int>(std::round(
+                     hectopascals_to_pascals(current.pressure) )));
+#endif
+#ifdef UNITS_PRES_MILLIMETERSOFMERCURY
+    dataStr = String(static_cast<int>(std::round(
+                     hectopascals_to_millimetersofmercury(current.pressure) )));
+#endif
+#ifdef UNITS_PRES_INCHESOFMERCURY
+    dataStr = String(std::round(1e1f *
+                     hectopascals_to_inchesofmercury(current.pressure)
+                     ) / 1e1f, 1);
+#endif
+#ifdef UNITS_PRES_MILLIBARS
+    dataStr = String(static_cast<int>(std::round(
+                     hectopascals_to_millibars(current.pressure) )));
+#endif
+#ifdef UNITS_PRES_ATMOSPHERES
+    dataStr = String(std::round(1e3f *
+                     hectopascals_to_atmospheres(current.pressure) )
+                     / 1e3f, 3);
+#endif
+#ifdef UNITS_PRES_GRAMSPERSQUARECENTIMETER
+    dataStr = String(static_cast<int>(std::round(
+                     hectopascals_to_gramspersquarecentimeter(current.pressure)
+                     )));
+#endif
+#ifdef UNITS_PRES_POUNDSPERSQUAREINCH
+    dataStr = String(std::round(1e2f *
+                     hectopascals_to_poundspersquareinch(current.pressure)
+                     ) / 1e2f, 2);
+#endif
+  } else {
+    dataStr = "--";
+  }
+  
   drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, dataStr, LEFT);
   display.setFont(&FONT_8pt8b);
   drawString(display.getCursorX(), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
@@ -690,34 +766,51 @@ void drawCurrentVisibility(const owm_current_t &current)
 
   // visibility
   display.setFont(&FONT_12pt8b);
+  
+  // Set unit string based on configuration (always shown)
 #ifdef UNITS_DIST_KILOMETERS
-  float vis = meters_to_kilometers(current.visibility);
   unitStr = String(" ") + TXT_UNITS_DIST_KILOMETERS;
 #endif
 #ifdef UNITS_DIST_MILES
-  float vis = meters_to_miles(current.visibility);
   unitStr = String(" ") + TXT_UNITS_DIST_MILES;
 #endif
-  // if visibility is less than 1.95, round to 1 decimal place
-  // else round to int
-  if (vis < 1.95)
-  {
-    dataStr = String(std::round(10 * vis) / 10.0, 1);
-  }
-  else
-  {
-    dataStr = String(static_cast<int>(std::round(vis)));
-  }
+
+  // Calculate visibility value (used for validation)
 #ifdef UNITS_DIST_KILOMETERS
-  if (vis >= 10)
-  {
+  float vis = meters_to_kilometers(current.visibility);
 #endif
 #ifdef UNITS_DIST_MILES
-  if (vis >= 6)
-  {
+  float vis = meters_to_miles(current.visibility);
 #endif
-    dataStr = "> " + dataStr;
+
+  // Validate visibility data before displaying
+  if (isValidVisibility(current.visibility)) {
+    // if visibility is less than 1.95, round to 1 decimal place
+    // else round to int
+    if (vis < 1.95)
+    {
+      dataStr = String(std::round(10 * vis) / 10.0, 1);
+    }
+    else
+    {
+      dataStr = String(static_cast<int>(std::round(vis)));
+    }
+#ifdef UNITS_DIST_KILOMETERS
+    if (vis >= 10)
+    {
+      dataStr = "> " + dataStr;
+    }
+#endif
+#ifdef UNITS_DIST_MILES
+    if (vis >= 6)
+    {
+      dataStr = "> " + dataStr;
+    }
+#endif
+  } else {
+    dataStr = "--";
   }
+  
   drawString(48 + (162 * PosX), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2, dataStr, LEFT);
   display.setFont(&FONT_8pt8b);
   drawString(display.getCursorX(), 204 + 17 / 2 + (48 + 8) * PosY + 48 / 2,
