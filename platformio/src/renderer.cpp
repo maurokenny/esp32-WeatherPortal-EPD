@@ -22,6 +22,7 @@
 #include "config.h"
 #include "conversions.h"
 #include "display_utils.h"
+#include "umbrella_parser.h"
 
 // fonts
 #include FONT_HEADER
@@ -911,6 +912,9 @@ void drawCurrentDewpoint(const owm_current_t &current)
  * hourly: hourly forecast data
  * hours: number of hours to check
  * current_dt: current timestamp to calculate time until rain
+ * rainTimeStr: pre-formatted rain time string from TimeCoordinator
+ * 
+ * Uses UmbrellaParser for data validation and wind-optional logic.
  */
 void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours,
                          int64_t current_dt, const char* rainTimeStr)
@@ -922,89 +926,16 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours,
   const int X_LINE1_END_X = 118;       // X end position for first diagonal line
   const int X_LINE_START_Y = -2;       // Y start position for X lines
   const int X_LINE_END_Y = 106;        // Y end position for X lines
-  const float WIND_THRESHOLD_KMH = 18.0f; // Wind threshold for umbrella decision (km/h)
-  const int MAX_ANALYSIS_HOURS = 24;      // Limit to 24 hours (1 day)
   
-  // Find max POP and first hour with rain in the next 24 hours
-  float maxPop = 0.0f;
-  int firstRainIndex = -1;
-  int64_t rainTimestamp = 0;
-  
-  // Find max wind speed in the same period
-  float maxWindSpeed = 0.0f;
-  
-  // Use provided hours or max 24, whichever is smaller
-  int analysisHours = (hours < MAX_ANALYSIS_HOURS) ? hours : MAX_ANALYSIS_HOURS;
-  
-  // Find starting index - skip hours that have already passed
-  int startIndex = 0;
-  for (int i = 0; i < analysisHours && i < HOURLY_GRAPH_MAX; i++) {
-    if (hourly[i].dt >= current_dt) {
-      startIndex = i;
-      break;
-    }
-  }
-  if (startIndex == 0) {
-  }
-  
-  for (int i = startIndex; i < analysisHours && i < HOURLY_GRAPH_MAX; i++) {
-    if (hourly[i].pop > maxPop) {
-      maxPop = hourly[i].pop;
-    }
-    if (hourly[i].wind_speed > maxWindSpeed) {
-      maxWindSpeed = hourly[i].wind_speed;
-    }
-    if (firstRainIndex == -1 && hourly[i].pop >= 0.20f) {
-      firstRainIndex = i;
-      rainTimestamp = hourly[i].dt;
-    }
-  }
-  
-  String windStr, windUnit;
-#ifdef UNITS_SPEED_METERSPERSECOND
-  windStr = String(static_cast<int>(std::round(maxWindSpeed)));
-  windUnit = TXT_UNITS_SPEED_METERSPERSECOND;
-#endif
-#ifdef UNITS_SPEED_FEETPERSECOND
-  windStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_feetpersecond(maxWindSpeed) )));
-  windUnit = TXT_UNITS_SPEED_FEETPERSECOND;
-#endif
-#ifdef UNITS_SPEED_KILOMETERSPERHOUR
-  windStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_kilometersperhour(maxWindSpeed) )));
-  windUnit = TXT_UNITS_SPEED_KILOMETERSPERHOUR;
-#endif
-#ifdef UNITS_SPEED_MILESPERHOUR
-  windStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_milesperhour(maxWindSpeed) )));
-  windUnit = TXT_UNITS_SPEED_MILESPERHOUR;
-#endif
-#ifdef UNITS_SPEED_KNOTS
-  windStr = String(static_cast<int>(std::round(
-                   meterspersecond_to_knots(maxWindSpeed) )));
-  windUnit = TXT_UNITS_SPEED_KNOTS;
-#endif
-#ifdef UNITS_SPEED_BEAUFORT
-  windStr = String(meterspersecond_to_beaufort(maxWindSpeed));
-  windUnit = TXT_UNITS_SPEED_BEAUFORT;
-#endif
-
-  // Calculate time until rain (in minutes)
-  int minutesUntilRain = -1;
-  if (firstRainIndex >= 0 && rainTimestamp > current_dt) {
-    minutesUntilRain = static_cast<int>((rainTimestamp - current_dt) / 60);
-  }
-
-  int popPercent = static_cast<int>(std::round(maxPop * 100));
   int centerX = x + 64; // Center of 128px width
-
-  const bool hasRainTime = (rainTimeStr != nullptr && rainTimeStr[0] != '\0');
+  
+  // Parse and validate API data using UmbrellaParser
+  UmbrellaData data = UmbrellaParser::parse(hourly, hours, current_dt, rainTimeStr);
   
   // State 1: No rain (POP < 20%)
   // Shows: Umbrella with X overlay + "No rain (X%)"
   // Note: POP < 20% is always "No rain", regardless of wind
-  if (maxPop < 0.20f) {
+  if (data.state == UMBRELLA_NO_RAIN) {
     // Draw umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     // Draw thick X over icon (3 parallel lines for thickness)
@@ -1016,42 +947,51 @@ void drawUmbrellaWidget(int x, int y, const owm_hourly_t *hourly, int hours,
     }
     // Text below with probability in parentheses
     display.setFont(&FONT_8pt8b);
-    drawString(centerX, y + TEXT_OFFSET_Y, "No rain (" + String(popPercent) + "%)", CENTER);
+    drawString(centerX, y + TEXT_OFFSET_Y, "No rain (" + data.popDisplayStr + "%)", CENTER);
   }
   // State 3: Take umbrella (POP >= 70%)
   // Shows: Open umbrella icon + "Rain at..." 
-  else if (maxPop >= 0.70f) {
+  else if (data.state == UMBRELLA_TAKE) {
     // Draw open umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
     display.setFont(&FONT_8pt8b);
-    if (minutesUntilRain > 0 && hasRainTime) {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + String(rainTimeStr) + " (" + String(popPercent) + "%)", CENTER);
+    if (data.minutesUntilRainValid && data.minutesUntilRain > 0 && 
+        data.rainTimeDisplayStr != UMBRELLA_DEFAULT_DISPLAY_VALUE) {
+      drawString(centerX, y + TEXT_OFFSET_Y, 
+                 "Rain " + data.rainTimeDisplayStr + " (" + data.popDisplayStr + "%)", CENTER);
     } else {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain now (" + String(popPercent) + "%)", CENTER);
+      drawString(centerX, y + TEXT_OFFSET_Y, 
+                 "Rain now (" + data.popDisplayStr + "%)", CENTER);
     }
   }
-  else if (meterspersecond_to_kilometersperhour(maxWindSpeed) >= WIND_THRESHOLD_KMH) {
+  // State: Too windy (POP >= 20% AND wind >= 18 km/h)
+  // Shows: Open umbrella icon + "Too windy (X km/h)"
+  // Note: Only reached if wind data is valid
+  else if (data.state == UMBRELLA_TOO_WINDY) {
     // Draw open umbrella icon
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
     display.setFont(&FONT_8pt8b);
-    drawString(centerX, y + TEXT_OFFSET_Y, "Too windy (" + windStr + windUnit + ")", CENTER);
+    drawString(centerX, y + TEXT_OFFSET_Y, 
+               "Too windy (" + data.windDisplayStr + data.windUnitStr + ")", CENTER);
   }
-  // State 2: Compact (POP 20-69% AND wind < 18 km/h)
+  // State 2: Compact (POP 20-69% AND (wind < 18 km/h OR no wind data))
   // Shows: Closed umbrella icon + "Rain at..."
   else {
     // Draw closed umbrella icon (U+1F302 🌂 style)
     display.drawInvertedBitmap(x, y + ICON_OFFSET_Y, wi_closed_umbrella_128x128, 128, 128, GxEPD_BLACK);
     
     display.setFont(&FONT_8pt8b);
-    if (minutesUntilRain > 0 && hasRainTime) {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain " + String(rainTimeStr) + " (" + String(popPercent) + "%)", CENTER);
+    if (data.minutesUntilRainValid && data.minutesUntilRain > 0 &&
+        data.rainTimeDisplayStr != UMBRELLA_DEFAULT_DISPLAY_VALUE) {
+      drawString(centerX, y + TEXT_OFFSET_Y, 
+                 "Rain " + data.rainTimeDisplayStr + " (" + data.popDisplayStr + "%)", CENTER);
     } else {
-      drawString(centerX, y + TEXT_OFFSET_Y, "Rain soon (" + String(popPercent) + "%)", CENTER);
+      drawString(centerX, y + TEXT_OFFSET_Y, 
+                 "Rain soon (" + data.popDisplayStr + "%)", CENTER);
     }
   }
-  Serial.println(">>> drawUmbrellaWidget END <<<");
 }
 
 /* This function is responsible for drawing the current conditions and
