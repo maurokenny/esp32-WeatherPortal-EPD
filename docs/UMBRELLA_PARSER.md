@@ -133,16 +133,32 @@ static UmbrellaData parse(const owm_hourly_t *hourly,
 | POP 20-69% + No wind data | Invalid/Missing | COMPACT (ignores wind) |
 | POP 20-69% + Wind = NaN | Invalid | COMPACT (ignores wind) |
 
+## Data Display Behavior
+
+### Valid vs Invalid Data
+
+The parser distinguishes between **valid zero values** and **invalid/missing data**:
+
+- **Valid data with value = 0** → Shows "0" (e.g., "No rain (0%)")
+- **Invalid/missing data** → Shows "--" (e.g., "No rain (--%)")
+
+This distinction ensures users can tell the difference between "no rain expected" and "we don't have rain data".
+
 ## Fallback Values
 
-### Display Fallbacks
+### Display Values
 
-| Field | Valid Value Example | Fallback Value |
-|-------|--------------------|----------------|
-| POP percentage | "75" | "--" |
-| Wind speed | "15" | "--" |
-| Wind unit | "km/h" | "--" |
-| Rain time | "14:30" | "--" |
+| Field | Example | Description |
+|-------|---------|-------------|
+| POP percentage | "75" | Maximum POP found in forecast |
+| POP percentage | "0" | Valid data but no precipitation expected |
+| POP percentage | "--" | No valid data available from API |
+| Wind speed | "15" | Maximum wind speed found |
+| Wind speed | "0" | Valid data but no wind |
+| Wind speed | "--" | No valid wind data available |
+| Wind unit | "km/h" | Unit string (matches "--" if wind invalid) |
+| Rain time | "14:30" | Time of first rain event |
+| Rain time | "--" | No rain expected or invalid data |
 
 ### Validation Rules
 
@@ -234,8 +250,9 @@ switch (data.state) {
 
 ### Test Cases
 
-1. **Missing POP data** → Should display "--" and default to NO_RAIN
-2. **POP = 0.15 (valid, no rain)** → NO_RAIN state
+1. **Missing POP data (no valid hourly)** → Should display "--%" and default to NO_RAIN
+2. **POP = 0.00 (valid data, no rain)** → NO_RAIN state, displays "0%"
+3. **POP = 0.15 (valid, no rain)** → NO_RAIN state, displays "15%"
 3. **POP = 0.50 + Wind = 25 km/h** → TOO_WINDY state
 4. **POP = 0.50 + Wind = NaN** → COMPACT state (ignores wind)
 5. **POP = 0.50 + No wind field** → COMPACT state (ignores wind)
@@ -245,11 +262,12 @@ switch (data.state) {
 
 ### Verification Steps
 
-1. Check that "--" appears when API data is missing
-2. Verify wind < 18 km/h with POP 20-69% shows COMPACT
-3. Verify missing wind with POP 20-69% shows COMPACT (not TOO_WINDY)
-4. Verify POP >= 70% always shows TAKE regardless of wind
-5. Verify POP < 20% always shows NO_RAIN regardless of wind
+1. Check that "--%" appears when API data is completely missing
+2. Check that "0%" appears when POP is 0 but data is valid
+3. Verify wind < 18 km/h with POP 20-69% shows COMPACT
+4. Verify missing wind with POP 20-69% shows COMPACT (not TOO_WINDY)
+5. Verify POP >= 70% always shows TAKE regardless of wind
+6. Verify POP < 20% always shows NO_RAIN regardless of wind
 
 ## Constants Reference
 

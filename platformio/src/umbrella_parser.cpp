@@ -81,16 +81,18 @@ UmbrellaData UmbrellaParser::parse(const owm_hourly_t *hourly,
     }
     
     // Track max POP
+    // Mark as valid even if POP is 0 (we have valid data)
+    data.maxPopValid = true;
     if (hourly[i].pop > data.maxPop) {
       data.maxPop = hourly[i].pop;
-      data.maxPopValid = true;
     }
     
     // Track max wind speed
+    // Mark as valid even if wind is 0 (we have valid data)
     if (isValidWindSpeed_(hourly[i].wind_speed)) {
+      data.windValid = true;
       if (hourly[i].wind_speed > data.maxWindSpeed) {
         data.maxWindSpeed = hourly[i].wind_speed;
-        data.windValid = true;
       }
     }
     
