@@ -134,10 +134,17 @@ void wifiManagerLoop() {
                 runtime.wifiConnected = true;
                 // Reset failure counter on successful connection
                 connectionFailCycles = 0;
-                setFirmwareState(STATE_NORMAL_MODE);
+                // Show status message (before changing isFirstBoot to preserve behavior)
                 if (isFirstBoot || !SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
+                // Mark first boot as complete as soon as WiFi connects
+                // This ensures that even if NTP/API fails later, we won't
+                // enter AP mode on subsequent connection failures
+                if (isFirstBoot) {
+                    isFirstBoot = false;
+                }
+                setFirmwareState(STATE_NORMAL_MODE);
             } else if (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000) {
                 // TIMEOUT: WiFi connection failed
                 Serial.println("Wi-Fi connection timed out.");
@@ -148,7 +155,7 @@ void wifiManagerLoop() {
                     connectionFailCycles++;
                     Serial.printf("Connection fail cycle #%d\n", connectionFailCycles);
                 }
-                
+
                 // Determine next state based on connection history
                 if (isFirstBoot) {
                     // Never connected before: allow configuration via AP mode
@@ -163,7 +170,7 @@ void wifiManagerLoop() {
                         snprintf(msgBuffer, sizeof(msgBuffer), "Failed to connect after %d attempts", connectionFailCycles);
                         drawErrorScreen("Connection Failed", msgBuffer, "Please check WiFi signal and credentials");
                         isErrorState = true;
-                        setFirmwareState(STATE_ERROR_CONNECTION);
+                        setFirmwareState(STATE_ERROR);
                     } else {
                         Serial.printf("Retrying after sleep (fail cycle %d/%d).\n", connectionFailCycles, MAX_FAIL_CYCLES);
                         setFirmwareState(STATE_SLEEP_PENDING);
@@ -204,7 +211,7 @@ void wifiManagerLoop() {
                                 "No configuration received within timeout",
                                 "Please check WiFi credentials and try again");
                  isErrorState = true;
-                 setFirmwareState(STATE_ERROR_CONNECTION);
+                 setFirmwareState(STATE_ERROR);
              }
             break;
 
@@ -216,7 +223,7 @@ void wifiManagerLoop() {
             // Transition handled in main.cpp for deep sleep
             break;
 
-        case STATE_ERROR_CONNECTION:
+        case STATE_ERROR:
             // Error state: handled in main.cpp for indefinite deep sleep
             // This state prevents any automatic retries
             break;

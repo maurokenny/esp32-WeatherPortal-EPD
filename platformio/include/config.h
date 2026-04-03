@@ -451,7 +451,7 @@ extern const int WAKE_TIME;
 // State Machine Configuration
 // Maximum consecutive WiFi connection failures before entering ERROR_CONNECTION state.
 // Set to 0 for infinite retries (device will never enter ERROR_CONNECTION due to WiFi failures).
-#define MAX_FAIL_CYCLES  3   // 0 = infinite retries, >0 = max failures before permanent sleep
+#define MAX_FAIL_CYCLES  10   // 0 = infinite retries, >0 = max failures before permanent sleep
 extern const int HOURLY_GRAPH_MAX;
 extern const uint32_t WARN_BATTERY_VOLTAGE;
 extern const uint32_t LOW_BATTERY_VOLTAGE;

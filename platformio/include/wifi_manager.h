@@ -13,7 +13,7 @@ enum FirmwareState {
     STATE_AP_CONFIG_MODE,
     STATE_NORMAL_MODE,
     STATE_SLEEP_PENDING,
-    STATE_ERROR_CONNECTION
+    STATE_ERROR
 };
 
 extern FirmwareState currentState;

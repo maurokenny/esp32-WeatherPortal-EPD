@@ -651,7 +651,7 @@ void loop()
   } else if (currentState == STATE_SLEEP_PENDING) {
       // Use sleep duration calculated by TimeCoordinator (no recalculation!)
       beginDeepSleep(startTick, calculatedSleepDuration);
-  } else if (currentState == STATE_ERROR_CONNECTION) {
+  } else if (currentState == STATE_ERROR) {
       // Indefinite deep sleep - device will not wake up automatically
       // User must manually reset or power cycle to recover
       Serial.println("ERROR_CONNECTION: Entering indefinite deep sleep.");
