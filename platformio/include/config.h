@@ -336,23 +336,26 @@
 //   Set to 0 if powering via USB/power supply (disables low voltage sleep)
 #define USING_BATTERY 0
 
-// MOCKUP DATA
-//   Set to 1 to use mockup/fake weather data instead of fetching from API
-//   Useful for testing display without WiFi connection
+// DATA SOURCE SELECTION (mutually exclusive)
+//   Choose ONE of the following data sources:
+//
+//   USE_MOCKUP_DATA - Use synthetic/fake weather data generated in code.
+//                     Useful for testing display layout without WiFi/API.
+//                     Configure the scenario with MOCKUP_CURRENT_WEATHER below.
+//
+//   USE_SAVED_API_DATA - Load real API response from include/saved_api_response.h
+//                        Useful for testing with real data without API calls.
+//                        Generate the header file with: python json_to_header.py
+//
+//   Default (both 0) - Fetch live data from Open-Meteo API (requires WiFi)
+
 #define USE_MOCKUP_DATA 0
+#define USE_SAVED_API_DATA 0
 
-// SAVE API RESPONSE TO HEADER FILE
-//   Set to 1 to print the API response to Serial in a format that can be copied
-//   to include/saved_api_response.h for offline testing
-//   After enabling this, flash and check serial monitor - copy the output between
-//   the "=== BEGIN API RESPONSE ===" and "=== END API RESPONSE ===" markers
-#define SAVE_API_RESPONSE_TO_HEADER 0
-
-// LOAD API RESPONSE FROM HEADER
-//   Set to 1 to load API response from include/saved_api_response.h
-//   Only used when USE_MOCKUP_DATA is 1
-//   This allows testing with real captured data without API calls
-#define LOAD_API_FROM_HEADER 0
+// Validation: cannot use both mockup and saved API data at the same time
+#if USE_MOCKUP_DATA && USE_SAVED_API_DATA
+  #error "Cannot enable both USE_MOCKUP_DATA and USE_SAVED_API_DATA. Choose one."
+#endif
 
 // MOCKUP WEATHER TYPE
 //   Select the weather scenario for mockup data
@@ -393,7 +396,7 @@ typedef enum {
 //   level 1: increased verbosity for debugging
 //   level 2: print api responses to serial monitor
 
-#define DEBUG_LEVEL 2
+#define DEBUG_LEVEL 0
 #define SILENT_STATUS true
 
 /** * Build System Macros

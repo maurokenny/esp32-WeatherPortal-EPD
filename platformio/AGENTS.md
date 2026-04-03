@@ -327,10 +327,22 @@ All files include GPL v3 license headers:
 
 ## Testing Strategies
 
+### Data Source Selection
+
+The firmware supports three mutually exclusive data sources (configured in `config.h`):
+
+| Mode | Config | Description | WiFi Required |
+|------|--------|-------------|---------------|
+| **Mockup Data** | `USE_MOCKUP_DATA 1` | Synthetic data generated in code | No |
+| **Saved API Data** | `USE_SAVED_API_DATA 1` | Real data from `include/saved_api_response.h` | No |
+| **Live API** | Both `0` | Fetch from Open-Meteo API | Yes |
+
+**Note:** `USE_MOCKUP_DATA` and `USE_SAVED_API_DATA` are mutually exclusive. Enabling both will cause a compile-time error.
+
 ### Mockup Data Mode
 
-Set `USE_MOCKUP_DATA 1` in `config.h` to test without WiFi/API:
-- Uses synthetic weather data
+Set `USE_MOCKUP_DATA 1` (and `USE_SAVED_API_DATA 0`) to test without WiFi/API:
+- Uses synthetic weather data generated in code
 - Bypasses all network operations
 - Useful for testing display layout and rendering
 - Multiple weather scenarios available:
@@ -347,10 +359,11 @@ Set `USE_MOCKUP_DATA 1` in `config.h` to test without WiFi/API:
 
 ### Loading Saved API Responses
 
-Set `LOAD_API_FROM_HEADER 1` in `config.h` (requires `USE_MOCKUP_DATA 1`):
+Set `USE_SAVED_API_DATA 1` (and `USE_MOCKUP_DATA 0`) to load from header file:
 - Loads real captured API data from `include/saved_api_response.h`
 - Allows testing with actual weather data without API calls
 - Useful for offline development and debugging specific weather conditions
+- Generate the header file with: `python json_to_header.py api_response.json`
 
 ### Saving API Responses
 
@@ -375,10 +388,17 @@ pio device monitor --baud 115200
 
 ### Testing Display Without Weather API
 
-1. Enable `USE_MOCKUP_DATA 1` in `config.h`
+**Option 1: Mockup Data (synthetic)**
+1. Set `USE_MOCKUP_DATA 1` and `USE_SAVED_API_DATA 0` in `config.h`
 2. Select desired weather scenario with `MOCKUP_CURRENT_WEATHER`
 3. Build and upload
 4. The display will show synthetic weather data
+
+**Option 2: Saved API Data (real)**
+1. Set `USE_SAVED_API_DATA 1` and `USE_MOCKUP_DATA 0` in `config.h`
+2. Generate `include/saved_api_response.h` from a real API response (see "Saving API Responses" below)
+3. Build and upload
+4. The display will show real weather data without API calls
 
 ## Security Considerations
 

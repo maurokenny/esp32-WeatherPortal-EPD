@@ -626,37 +626,6 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     if (jsonString[i] == '}') closeBraces++;
   }
   
-  
-#if SAVE_API_RESPONSE_TO_HEADER
-  // Print the JSON in a format that can be copied to saved_api_response.h
-  Serial.println("\n\n========== BEGIN API RESPONSE - COPY TO saved_api_response.h ==========\n");
-  Serial.println("#ifndef SAVED_OPENMETEO_FORECAST_JSON");
-  Serial.println("#define SAVED_OPENMETEO_FORECAST_JSON \\");
-  
-  // Print JSON in chunks to avoid Serial buffer issues
-  const int CHUNK_SIZE = 100;
-  for (int i = 0; i < (int)jsonString.length(); i += CHUNK_SIZE) {
-    String chunk = jsonString.substring(i, min(i + CHUNK_SIZE, (int)jsonString.length()));
-    // Escape quotes and backslashes for C string
-    chunk.replace("\\", "\\\\");
-    chunk.replace("\"", "\\\"");
-    Serial.print("\"");
-    Serial.print(chunk);
-    if (i + CHUNK_SIZE >= (int)jsonString.length()) {
-      Serial.println("\"");
-    } else {
-      Serial.println("\\");
-    }
-  }
-  Serial.println("#endif");
-  Serial.println("\n========== END API RESPONSE ==========\n");
-  
-  // Delay to allow user to copy from serial monitor
-  Serial.println("[SAVED] API response printed above. Copy between markers to saved_api_response.h");
-  Serial.println("[SAVED] Waiting 30 seconds for you to copy...");
-  delay(30000);
-#endif
-  
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, jsonString);
   
@@ -961,7 +930,7 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
 /*
  * Load API response from saved header file (for offline testing)
  */
-#if LOAD_API_FROM_HEADER
+#if USE_SAVED_API_DATA
   #include "saved_api_response.h"
 #endif
 
@@ -971,15 +940,15 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
  */
 DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
 {
-#if !LOAD_API_FROM_HEADER
+#if !USE_SAVED_API_DATA
   return DeserializationError::EmptyInput;
 #else
   Serial.println("[Header Loader] Loading forecast from saved_api_response.h");
   
-  const char* jsonData = SAVED_OPENMETEO_FORECAST_JSON;
+  const char* jsonData = SAVED_API_JSON;
   if (strlen(jsonData) == 0) {
-    Serial.println("[Header Loader] ERROR: SAVED_OPENMETEO_FORECAST_JSON is empty!");
-    Serial.println("[Header Loader] Please capture API response first with SAVE_API_RESPONSE_TO_HEADER");
+    Serial.println("[Header Loader] ERROR: SAVED_API_JSON is empty!");
+    Serial.println("[Header Loader] Please generate the header file using the external script");
     return DeserializationError::EmptyInput;
   }
   
@@ -1141,7 +1110,7 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   Serial.println("[Header Loader] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
   
   return error;
-#endif // LOAD_API_FROM_HEADER
+#endif // USE_SAVED_API_DATA
 }
 
 /**
@@ -1155,9 +1124,9 @@ DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t 
 #else
   Serial.println("[Header Loader] Loading air quality from saved_api_response.h");
   
-  const char* jsonData = SAVED_OPENMETEO_AIRQUALITY_JSON;
+  const char* jsonData = SAVED_API_JSON;
   if (strlen(jsonData) == 0) {
-    Serial.println("[Header Loader] WARNING: SAVED_OPENMETEO_AIRQUALITY_JSON is empty, using defaults");
+    Serial.println("[Header Loader] WARNING: SAVED_API_JSON (air quality) is empty, using defaults");
     // Fill with default values
     r.coord.lat = 0;
     r.coord.lon = 0;
@@ -1220,5 +1189,5 @@ DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t 
   
   Serial.println("[Header Loader] Successfully loaded air quality from header");
   return error;
-#endif // LOAD_API_FROM_HEADER
+#endif // USE_SAVED_API_DATA
 }

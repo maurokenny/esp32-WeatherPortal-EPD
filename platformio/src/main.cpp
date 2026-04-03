@@ -454,6 +454,16 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
     }
   }
   
+  // For mockup data, use default air quality values
+  for (int i = 0; i < OWM_NUM_AIR_POLLUTION; i++) {
+    owm_air_pollution.main_aqi[i] = 1;
+    owm_air_pollution.components.pm2_5[i] = 10.0f;
+    owm_air_pollution.components.pm10[i] = 20.0f;
+    owm_air_pollution.components.o3[i] = 30.0f;
+    owm_air_pollution.components.no2[i] = 15.0f;
+    owm_air_pollution.components.so2[i] = 5.0f;
+  }
+  
   Serial.println("Mockup data filled successfully!");
 }
 
@@ -518,12 +528,42 @@ void updateWeather()
     drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", ramCity);
   }
   
-#ifdef USE_HTTP
-  WiFiClient client;
+// DATA SOURCE SELECTION
+// Three options for getting weather data (configured in config.h):
+// 1. USE_MOCKUP_DATA - Synthetic data generated in code (no WiFi needed)
+// 2. USE_SAVED_API_DATA - Load from include/saved_api_response.h (no WiFi needed)
+// 3. Default - Fetch from Open-Meteo API (requires WiFi)
+
+#if USE_MOCKUP_DATA
+  // Option 1: Use synthetic mockup data
+  Serial.println("[Data Source] Using MOCKUP DATA (no WiFi/API calls)");
+  fillMockupData(owm_onecall, currentTimInfo);
+#elif USE_SAVED_API_DATA
+  // Option 2: Load from saved header file
+  Serial.println("[Data Source] Loading from saved_api_response.h");
+  DeserializationError error = loadOpenMeteoFromHeader(owm_onecall);
+  if (error) {
+    globalStatus = "Header Load Error: " + String(error.c_str());
+    Serial.println("[Data Source] ERROR: " + globalStatus);
+    setFirmwareState(STATE_SLEEP_PENDING);
+    return;
+  }
+  #ifdef POS_AIR_QULITY
+    error = loadOpenMeteoAirQualityFromHeader(owm_air_pollution);
+    if (error) {
+      Serial.println("[Data Source] Air quality load failed, using defaults");
+      // Already filled with defaults in the function
+    }
+  #endif
+
 #else
-  WiFiClientSecure client;
-  client.setInsecure();
-#endif
+  // Option 3: Fetch from Open-Meteo API (default)
+  #ifdef USE_HTTP
+    WiFiClient client;
+  #else
+    WiFiClientSecure client;
+    client.setInsecure();
+  #endif
 
   int rxStatus = getOpenMeteoForecast(client, owm_onecall);
   if (rxStatus != HTTP_CODE_OK)
@@ -533,13 +573,14 @@ void updateWeather()
     return;
   }
   
+  #ifdef POS_AIR_QULITY
+    rxStatus = getOpenMeteoAirQuality(client, owm_air_pollution);
+  #endif
+#endif // Data source selection
+
   // TimeCoordinator: Single Source of Truth for all time processing
   timeCoord.begin();
   TimeDisplayData timeData = timeCoord.process(owm_onecall, startTick);
-  
-#ifdef POS_AIR_QULITY
-  rxStatus = getOpenMeteoAirQuality(client, owm_air_pollution);
-#endif
 
   // GET INDOOR TEMPERATURE AND HUMIDITY
   pinMode(PIN_BME_PWR, OUTPUT);
