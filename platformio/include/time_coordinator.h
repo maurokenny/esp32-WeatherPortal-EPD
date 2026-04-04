@@ -1,4 +1,5 @@
 /* TimeCoordinator - Single Source of Truth for Time
+ * Copyright (C) 2026  Mauro Freitas
  * 
  * Centralizes all timezone logic and time conversions.
  * No other module should interpret timezones or apply offsets.

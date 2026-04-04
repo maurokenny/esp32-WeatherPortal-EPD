@@ -1,4 +1,5 @@
 /* TimeCoordinator Implementation
+ * Copyright (C) 2026  Mauro Freitas
  * 
  * Single Source of Truth for all time-related operations.
  * Uses system timezone support (setenv/tzset) for robust TZ handling.

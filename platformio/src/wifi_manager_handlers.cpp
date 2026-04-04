@@ -1,5 +1,5 @@
 /* wifi_manager_handlers.cpp - Secure configuration handler for ESP32 Weather Station
- * Copyright (C) 2025
+ * Copyright (C) 2026  Mauro Freitas
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
