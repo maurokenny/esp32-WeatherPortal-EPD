@@ -29,6 +29,7 @@
 #include "client_utils.h"
 #include "config.h"
 #include "display_utils.h"
+#include "failure_handler.h"
 #include "icons/icons_196x196.h"
 #include "renderer.h"
 #include "wifi_manager.h"
@@ -511,10 +512,14 @@ void updateWeather()
   isTimeConfigured = waitForSNTPSync(&currentTimInfo);
   if (!isTimeConfigured)
   {
-    Serial.println(TXT_TIME_SYNCHRONIZATION_FAILED);
-    updateEinkStatus(TXT_TIME_SYNCHRONIZATION_FAILED);
-    setFirmwareState(STATE_SLEEP_PENDING);
+    handleFailure(FAILURE_NTP, TXT_TIME_SYNCHRONIZATION_FAILED);
     return;
+  }
+  
+  // NTP Success: Reset counter
+  if (ntpFailCycles > 0) {
+    Serial.printf("[NTP] Success! Reset counter %d->0\n", ntpFailCycles);
+    ntpFailCycles = 0;
   }
 
   // MAKE API REQUESTS
@@ -568,9 +573,15 @@ void updateWeather()
   int rxStatus = getOpenMeteoForecast(client, owm_onecall);
   if (rxStatus != HTTP_CODE_OK)
   {
-    globalStatus = "Open-Meteo Forecast API Error";
-    setFirmwareState(STATE_SLEEP_PENDING);
+    String detail = String(rxStatus) + ": " + getHttpResponsePhrase(rxStatus);
+    handleFailure(FAILURE_API, "Open-Meteo Forecast API Error", detail);
     return;
+  }
+  
+  // API Success: Reset counter
+  if (apiFailCycles > 0) {
+    Serial.printf("[API] Success! Reset counter %d->0\n", apiFailCycles);
+    apiFailCycles = 0;
   }
   
   #ifdef POS_AIR_QULITY
@@ -621,15 +632,23 @@ void updateWeather()
   } while (display.nextPage());
   powerOffDisplay();
 
-  // Mark first boot as complete and reset failure counter
-  if (isFirstBoot) {
-    isFirstBoot = false;
+  // Success - reset all counters
+  if (isFirstBoot) isFirstBoot = false;
+  
+  if (connectionFailCycles > 0) {
+    Serial.printf("[WiFi] Reset counter %d->0\n", connectionFailCycles);
+    connectionFailCycles = 0;
   }
-  connectionFailCycles = 0;  // Reset on successful data fetch and render
+  if (ntpFailCycles > 0) {
+    Serial.printf("[NTP] Reset counter %d->0\n", ntpFailCycles);
+    ntpFailCycles = 0;
+  }
+  if (apiFailCycles > 0) {
+    Serial.printf("[API] Reset counter %d->0\n", apiFailCycles);
+    apiFailCycles = 0;
+  }
   
-  // Save sleep duration for use in loop()
   calculatedSleepDuration = timeData.sleepDurationSeconds;
-  
   setFirmwareState(STATE_SLEEP_PENDING);
 }
 
@@ -674,13 +693,63 @@ void setup()
     ramCountry[sizeof(ramCountry) - 1] = '\0';
   }
 
-  wifiManagerSetup();
+  // ============================================================
+  // BATTERY CHECK (ORIGINAL BEHAVIOR - Single threshold, no retries)
+  // ============================================================
+  // If battery is low, show error once and hibernate indefinitely.
+  // Only a manual reset or recharge can wake the device.
+  // ============================================================
+#if BATTERY_MONITORING
+  prefs.begin("storage", false);
   
-  // Battery checks (omitted for brevity in this refactor, but kept in logic)
   uint32_t batteryVoltage = readBatteryVoltage();
-  if (USING_BATTERY && batteryVoltage <= LOW_BATTERY_VOLTAGE) {
-      // Immediate sleep logic
+  Serial.print(TXT_BATTERY_VOLTAGE);
+  Serial.println(": " + String(batteryVoltage) + "mv");
+  
+  // Load persisted low battery state
+  bool lowBat = prefs.getBool("lowBat", false);
+  
+  // LOW BATTERY DETECTED (Single threshold - ORIGINAL BEHAVIOR)
+  if (batteryVoltage <= LOW_BATTERY_VOLTAGE)
+  {
+    if (!lowBat) {
+      // FIRST TIME: Show error screen and persist state
+      prefs.putBool("lowBat", true);
+      prefs.end();  // Close NVS before sleeping
+      
+      // Show low battery error screen
+      initDisplay();
+      do {
+        drawError(battery_alert_0deg_196x196, TXT_LOW_BATTERY);
+      } while (display.nextPage());
+      powerOffDisplay();
+      
+      Serial.println(TXT_LOW_BATTERY_VOLTAGE);
+    } else {
+      // ALREADY ALERTED: Just log and sleep
+      prefs.end();
+      Serial.println("[BATTERY] Low battery condition persists, hibernating...");
+    }
+    
+    // ORIGINAL: Hibernate indefinitely (NO timer wakeup)
+    // Device will NOT wake up automatically. Requires manual reset or recharge.
+    esp_deep_sleep_start();
   }
+  
+  // BATTERY RECOVERED (voltage back to normal)
+  if (batteryVoltage > LOW_BATTERY_VOLTAGE && lowBat) {
+    Serial.println("[BATTERY] Battery recovered, resetting flag");
+    prefs.putBool("lowBat", false);
+  }
+  
+  prefs.end();  // Close NVS if not already closed
+  
+#else
+  // USB MODE: Fake full battery
+  uint32_t batteryVoltage = UINT32_MAX;
+#endif
+
+  wifiManagerSetup();
 }
 
 void loop()

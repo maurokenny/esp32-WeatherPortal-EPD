@@ -325,16 +325,28 @@
 #define STATUS_BAR_EXTRAS_WIFI_STRENGTH  1
 #define STATUS_BAR_EXTRAS_WIFI_RSSI      1
 
-// BATTERY MONITORING
-//   You may choose to power your weather display with or without a battery.
-//   Low power behavior can be controlled in config.cpp.
-//   If you wish to disable battery monitoring set this macro to 0.
-#define BATTERY_MONITORING 1
+// ============================================================
+// BATTERY CONFIGURATION (SINGLE FLAG)
+// ============================================================
+//   0 = USB/Power Supply - No battery monitoring or protection
+//   1 = Battery Powered - Full monitoring + NVS persistence + protection
+#define BATTERY_MONITORING 0
 
-// POWER SOURCE
-//   Set to 1 if powering via battery (enables low voltage protection)
-//   Set to 0 if powering via USB/power supply (disables low voltage sleep)
-#define USING_BATTERY 0
+// ============================================================
+// RETRY POLICY (TOLERÂNCIA AMPLIADA)
+// ============================================================
+//   0 = Infinite retries (never enters STATE_ERROR)
+//   N = Max failures before entering STATE_ERROR (permanent sleep)
+#define MAX_WIFI_FAIL_CYCLES  10
+#define MAX_NTP_FAIL_CYCLES   10
+#define MAX_API_FAIL_CYCLES   10
+
+// ============================================================
+// SILENT MODE
+// ============================================================
+//   true = Hide loading/status screens, show only critical errors
+//   false = Show everything
+#define SILENT_STATUS true
 
 // DATA SOURCE SELECTION (mutually exclusive)
 //   Choose ONE of the following data sources:
@@ -397,7 +409,6 @@ typedef enum {
 //   level 2: print api responses to serial monitor
 
 #define DEBUG_LEVEL 0
-#define SILENT_STATUS true
 
 /** * Build System Macros
  * These values MUST be injected by the PlatformIO python script.
