@@ -28,7 +28,9 @@
 #include "api_response.h"
 #include "config.h"
 #include "display_utils.h"
+#include "failure_handler.h"
 #include "renderer.h"
+#include "wifi_manager.h"
 #include <qrcode.h>
 
 // icon header files
@@ -1861,4 +1863,59 @@ void drawErrorScreen(const char* title, const char* message, const char* action)
     
   } while (display.nextPage());
   powerOffDisplay();
+}
+
+// ============================================================
+// UNIFIED FAILURE HANDLER (V3 - Optimized)
+// ============================================================
+// Uses: drawError() from renderer, config table, avoids duplication
+// ============================================================
+
+// Failure counters are declared in failure_handler.h (extern)
+// and defined in wifi_manager.cpp (RTC_DATA_ATTR)
+
+// Config table - avoids repetitive switch-case
+static const struct FailureConfig {
+    uint8_t* counter;
+    uint8_t maxCycles;
+    const uint8_t* icon;
+    const char* name;
+} failureConfig[] = {
+    [FAILURE_WIFI]    = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_x_196x196,       "WiFi" },
+    [FAILURE_NTP]     = { &ntpFailCycles,        MAX_NTP_FAIL_CYCLES,  wi_time_4_196x196,    "NTP" },
+    [FAILURE_API]     = { &apiFailCycles,        MAX_API_FAIL_CYCLES,  wi_cloud_down_196x196,"API" },
+    [FAILURE_BATTERY] = { nullptr,               1,                    battery_alert_0deg_196x196, "Battery" }
+};
+
+void handleFailure(FailureType type, const String& line1, const String& line2)
+{
+    const FailureConfig& cfg = failureConfig[type];
+    
+    // Increment counter (except battery)
+    if (cfg.counter != nullptr) {
+        (*cfg.counter)++;
+        Serial.printf("[FAILURE] %s: attempt %d/%d\n", 
+                      cfg.name, *cfg.counter, cfg.maxCycles);
+    }
+    
+    // Calculate criticality
+    bool isCritical = (type == FAILURE_BATTERY) || 
+                      (cfg.maxCycles > 0 && cfg.counter && 
+                       *cfg.counter >= cfg.maxCycles);
+    
+    // Decide whether to show screen (battery always shows)
+    bool shouldShow = isCritical || !SILENT_STATUS || (type == FAILURE_BATTERY);
+    
+    if (shouldShow) {
+        Serial.println("[FAILURE] Showing error screen");
+        // USES drawError() FROM RENDERER - reuses existing code!
+        drawError(cfg.icon, line1, line2);
+    } else {
+        Serial.println("[FAILURE] Silent mode, skipping screen");
+    }
+    
+    // Post-failure state
+    setFirmwareState(isCritical ? STATE_ERROR : STATE_SLEEP_PENDING);
+    
+    Serial.println(isCritical ? "[FAILURE] CRITICAL state" : "[FAILURE] Will retry");
 }

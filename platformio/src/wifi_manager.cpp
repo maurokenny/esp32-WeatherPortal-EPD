@@ -8,7 +8,9 @@
 #include <ArduinoJson.h>
 #include "web_ui_data.h"
 #include "display_utils.h"
+#include "failure_handler.h"
 #include "config.h"
+#include "_locale.h"
 #include "icons/icons_196x196.h"
 
 // Global instances
@@ -40,7 +42,10 @@ RTC_DATA_ATTR bool ramAutoGeo = false;
 RTC_DATA_ATTR uint8_t ramTimezoneMode = TIMEZONE_MODE_AUTO;  // Default: use API timezone
 RTC_DATA_ATTR bool rtcInitialized = false;
 RTC_DATA_ATTR bool isFirstBoot = true;
-RTC_DATA_ATTR uint8_t connectionFailCycles = 0;  // Consecutive WiFi connection failure cycles
+// RTC RAM failure counters (persist during deep sleep)
+RTC_DATA_ATTR uint8_t connectionFailCycles = 0;  // WiFi connection failure cycles
+RTC_DATA_ATTR uint8_t ntpFailCycles = 0;         // NTP sync failure cycles  
+RTC_DATA_ATTR uint8_t apiFailCycles = 0;         // API request failure cycles
 RTC_DATA_ATTR bool isErrorState = false;         // Permanent error state flag
 
 AsyncWebServer server(80);
@@ -162,24 +167,13 @@ void wifiManagerLoop() {
                     Serial.println("First boot - starting AP Configuration Mode.");
                     startAP();
                 } else {
-                    // Has connected before: check if max failures reached
-                    #if MAX_FAIL_CYCLES > 0
-                    if (connectionFailCycles >= MAX_FAIL_CYCLES) {
-                        Serial.printf("Max fail cycles (%d) reached. Entering ERROR_CONNECTION.\n", MAX_FAIL_CYCLES);
-                        char msgBuffer[64];
-                        snprintf(msgBuffer, sizeof(msgBuffer), "Failed to connect after %d attempts", connectionFailCycles);
-                        drawErrorScreen("Connection Failed", msgBuffer, "Please check WiFi signal and credentials");
-                        isErrorState = true;
-                        setFirmwareState(STATE_ERROR);
-                    } else {
-                        Serial.printf("Retrying after sleep (fail cycle %d/%d).\n", connectionFailCycles, MAX_FAIL_CYCLES);
-                        setFirmwareState(STATE_SLEEP_PENDING);
-                    }
-                    #else
-                    // MAX_FAIL_CYCLES = 0: infinite retry mode
-                    Serial.println("Infinite retry mode - sleeping and will retry.");
-                    setFirmwareState(STATE_SLEEP_PENDING);
-                    #endif
+                    // Has connected before: count failures and use handler
+                    // Only count failure cycles after first successful boot
+                    connectionFailCycles++;
+                    Serial.printf("Connection fail cycle #%d/%d\n", connectionFailCycles, MAX_WIFI_FAIL_CYCLES);
+                    
+                    String detail = "Attempt " + String(connectionFailCycles) + "/" + String(MAX_WIFI_FAIL_CYCLES);
+                    handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail);
                 }
             }
             break;
