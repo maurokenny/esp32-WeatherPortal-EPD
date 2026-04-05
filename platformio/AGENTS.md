@@ -87,8 +87,7 @@ platformio/
 ├── data/                 # Web UI template files
 │   ├── setup.html        # Configuration portal HTML template
 │   └── saved_api_response.h # Saved API response data
-├── docs/                 # Documentation
-│   └── EPAPER_HORIZONTAL_LINES_BUG.md  # Known e-paper display issue
+├── docs/                 # Documentation (at project root)
 ├── .env                  # WiFi credentials (not versioned)
 ├── load_env.py           # Script to inject WiFi credentials from .env
 ├── build_web_ui.py       # Script to compress and embed web UI
@@ -430,7 +429,7 @@ The project supports three HTTP modes:
 
 When drawing precipitation bars using a horizontal dotted pattern (`y += 2` row skipping), the e-paper display renders as a completely white screen. However, a vertical dotted pattern (`x += 2` column skipping) works correctly.
 
-**Workaround**: Use vertical dotted patterns or solid fills instead of horizontal row skipping. See `docs/EPAPER_HORIZONTAL_LINES_BUG.md` for details.
+**Workaround**: Use vertical dotted patterns or solid fills instead of horizontal row skipping. See `../docs/EPAPER_HORIZONTAL_LINES_BUG.md` for details.
 
 ## Deployment Process
 
