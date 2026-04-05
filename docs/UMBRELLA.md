@@ -2,11 +2,11 @@
 
 ## Overview
 
-The Umbrella Widget provides recommendations on whether to take an umbrella based on precipitation probability (POP) and wind conditions for the next 12 hours.
+The Umbrella Widget provides recommendations on whether to take an umbrella based on precipitation probability (POP) and wind conditions for the next 24 hours.
 
 ## Decision Logic
 
-The widget analyzes hourly forecast data and makes a decision based on two factors:
+The widget analyzes up to 24 hours of hourly forecast data and makes a decision based on two factors:
 
 1. **Maximum POP** (Probability of Precipitation) in the forecast window
 2. **Maximum Wind Speed** in the forecast window
@@ -64,8 +64,8 @@ Key function: `drawUmbrellaWidget()` in `src/renderer.cpp`
 float maxPop = 0;
 float maxWindMs = 0;
 
-// Scan next 12 hours
-for (int i = 0; i < 12; i++) {
+// Scan up to 24 hours
+for (int i = 0; i < 24; i++) {
     maxPop = max(maxPop, hourly[i].pop);
     maxWindMs = max(maxWindMs, hourly[i].wind_speed);
 }
@@ -86,4 +86,15 @@ if (maxPop < 0.30f) {
 
 ## Configuration
 
-No compile-time configuration needed. All thresholds are constants in the renderer module.
+The analysis window is controlled by a constant in `src/umbrella_parser.cpp`:
+
+```cpp
+static const int MAX_ANALYSIS_HOURS = 24;  // Limit to 24 hours (1 day)
+```
+
+To change the forecast window (e.g., to 12 hours), modify this value.
+
+Other thresholds are also defined in the parser module:
+- `POP_THRESHOLD_NO_RAIN = 0.20f` (20%) - Below this: no rain needed
+- `POP_THRESHOLD_TAKE = 0.70f` (70%) - Above this: definitely take umbrella
+- `WIND_THRESHOLD_KMH = 18.0f` - Wind speed threshold for recommendations
