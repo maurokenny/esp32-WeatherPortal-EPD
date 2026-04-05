@@ -353,12 +353,15 @@
 //   Choose ONE of the following data sources:
 //
 //   USE_MOCKUP_DATA - Use synthetic/fake weather data generated in code.
-//                     Useful for testing display layout without WiFi/API.
+//                     Useful for testing display layouts. Device still connects
+//                     to WiFi for NTP time sync but skips the HTTP API call.
 //                     Configure the scenario with MOCKUP_CURRENT_WEATHER below.
 //
 //   USE_SAVED_API_DATA - Load real API response from include/saved_api_response.h
-//                        Useful for testing with real data without API calls.
-//                        Generate the header file with: python json_to_header.py
+//                        Device connects to WiFi for NTP but skips HTTP API call.
+//                        Useful for: avoiding API rate limits, faster testing,
+//                        or using consistent weather data.
+//                        Generate header: python json_to_header.py api_response.json
 //
 //   Default (both 0) - Fetch live data from Open-Meteo API (requires WiFi)
 

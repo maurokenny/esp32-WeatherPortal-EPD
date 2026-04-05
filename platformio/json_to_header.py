@@ -1,7 +1,32 @@
 #!/usr/bin/env python3
 """
-Script to convert JSON to C++ header for ESP32.
-Generates saved_api_response.h with escaped JSON for firmware use.
+json_to_header.py - Convert Open-Meteo API JSON to C++ header for ESP32
+
+This script converts a JSON API response into a C-compatible header file
+for offline testing of the weather station firmware. Used with USE_SAVED_API_DATA.
+
+Usage:
+    # Basic usage (default output path)
+    python json_to_header.py api_response.json
+    
+    # Custom output path
+    python json_to_header.py weather_data.json -o include/my_weather.h
+
+Input:
+    JSON file from Open-Meteo API (download with curl or browser)
+
+Output:
+    C++ header file with SAVED_API_JSON macro containing escaped JSON string
+
+Workflow:
+    1. Download Open-Meteo JSON: 
+       curl "https://api.open-meteo.com/v1/forecast?..." -o api_response.json
+    2. Convert to header:
+       python json_to_header.py api_response.json
+    3. Set USE_SAVED_API_DATA 1 in config.h
+    4. Rebuild firmware - skips HTTP API call (WiFi still required for NTP)
+
+See AGENTS.md for complete documentation.
 """
 
 import argparse

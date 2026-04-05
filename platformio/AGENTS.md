@@ -358,18 +358,28 @@ Set `USE_MOCKUP_DATA 1` (and `USE_SAVED_API_DATA 0`) to test without WiFi/API:
 
 ### Loading Saved API Responses
 
-Set `USE_SAVED_API_DATA 1` (and `USE_MOCKUP_DATA 0`) to load from header file:
-- Loads real captured API data from `include/saved_api_response.h`
-- Allows testing with actual weather data without API calls
-- Useful for offline development and debugging specific weather conditions
-- Generate the header file with: `python json_to_header.py api_response.json`
+Set `USE_SAVED_API_DATA 1` (and `USE_MOCKUP_DATA 0`) to load weather data from a header file:
+- Loads real API data from `include/saved_api_response.h`
+- **Note:** WiFi connection is still required - the device connects to WiFi for NTP time sync but skips the HTTP API call
+- Useful for: avoiding API rate limits, faster wake cycles, testing with known/consistent data
 
-### Saving API Responses
+**Generating the Header File:**
 
-Set `SAVE_API_RESPONSE_TO_HEADER 1` in `config.h`:
-- Prints API response to Serial in header file format
-- Copy output between markers to `include/saved_api_response.h`
-- Useful for capturing real weather data for later testing
+1. Download Open-Meteo API data (or use previously captured JSON):
+```bash
+curl "https://api.open-meteo.com/v1/forecast?latitude=XX.XX&longitude=YY.YY&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&timezone=auto&forecast_days=2" \
+  -o api_response.json
+```
+
+2. Convert JSON to C++ header:
+```bash
+cd platformio
+python json_to_header.py api_response.json
+```
+
+3. Set `USE_SAVED_API_DATA 1` in `config.h` and rebuild
+
+The device will still connect to WiFi but skip the API HTTP request, loading data directly from the compiled header.
 
 ### Debug Levels
 

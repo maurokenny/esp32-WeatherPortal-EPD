@@ -133,6 +133,37 @@ This is useful for:
 
 ---
 
+### 4. API Data Caching (Optional)
+
+Skip the HTTP API call by using pre-saved weather data. This is useful for:
+* Avoiding API rate limits during development
+* Faster display updates (skips HTTP request)
+* Testing with consistent/known weather data
+
+**Note:** WiFi connection is still required for NTP time synchronization - only the API HTTP call is skipped.
+
+**Setup:**
+
+1. **Download Open-Meteo Data:**
+   ```bash
+   curl "https://api.open-meteo.com/v1/forecast?latitude=YOUR_LAT&longitude=YOUR_LON&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&timezone=auto&forecast_days=2" \
+     -o api_response.json
+   ```
+
+2. **Convert to C++ Header:**
+   ```bash
+   cd platformio
+   python json_to_header.py api_response.json
+   ```
+
+3. **Enable Cached Data:**
+   Set `USE_SAVED_API_DATA 1` in `platformio/include/config.h` and rebuild.
+
+**For Display Testing:**
+Use `USE_MOCKUP_DATA 1` for synthetic weather data without API calls. This generates fake data in code (temperature, conditions, etc.) while still connecting to WiFi for time sync.
+
+---
+
 > **Warning: Security Notice**
 > The configuration Access Point (AP) created by the ESP32 operates over unencrypted **HTTP**.
 > Wi-Fi passwords entered in the portal are transmitted in **plain text** over the air.
