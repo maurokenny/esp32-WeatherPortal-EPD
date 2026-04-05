@@ -1,4 +1,25 @@
-# Local environment and credentials — do NOT commit
+# === Project Root (esp32-weather-epd/) ===
+
+# Backup and Large Files
+*.zip
+weather-eink_backup*
+
+# Python Virtual Environments
+.venv/
+.venv*/
+
+# Logs
+*.log
+logs/
+
+# VS Code
+.vscode/
+
+# PlatformIO Specific
+platformio/.pio/
 platformio/.env
 platformio/include/wifi_credentials.h
-*.log
+platformio/logs/
+
+# Miscellaneous / Editor swap files
+*.swp
