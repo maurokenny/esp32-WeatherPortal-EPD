@@ -54,8 +54,10 @@ stateDiagram-v2
     
     note right of WIFI_CONNECTING
         20 second timeout
-        Increment fail counter
-        if not first boot
+        Calls handleFailure() on timeout
+        handleFailure() decides:
+        - SLEEP_PENDING (retry available)
+        - STATE_ERROR (max retries reached)
     end note
     
     note right of AP_CONFIG_MODE
@@ -167,8 +169,8 @@ stateDiagram-v2
 |-----------|------------|---------|
 | `WiFi.status() == WL_CONNECTED` | `STATE_NORMAL_MODE` | Reset `connectionFailCycles = 0`, set `isFirstBoot = false` |
 | Timeout reached AND `isFirstBoot == true` | `STATE_AP_CONFIG_MODE` | Start AP for configuration |
-| Timeout reached AND `isFirstBoot == false` AND (`MAX_FAIL_CYCLES == 0` OR `connectionFailCycles < MAX_FAIL_CYCLES`) | `STATE_SLEEP_PENDING` | Increment `connectionFailCycles` |
-| Timeout reached AND `isFirstBoot == false` AND `MAX_FAIL_CYCLES > 0` AND `connectionFailCycles >= MAX_FAIL_CYCLES` | `STATE_ERROR` | Display error, set `isErrorState = true`, sleep forever |
+| Timeout reached AND `isFirstBoot == false` | `STATE_SLEEP_PENDING` or `STATE_ERROR` | Calls `handleFailure(FAILURE_WIFI, ...)`. `handleFailure()` increments counter, draws error screen, and decides: `SLEEP_PENDING` if retries remain, `STATE_ERROR` if max reached |
+| Timeout reached AND `isFirstBoot == false` AND `MAX_FAIL_CYCLES > 0` AND `connectionFailCycles >= MAX_FAIL_CYCLES` | `STATE_ERROR` | Same path as above — `handleFailure()` evaluates criticality and transitions to `STATE_ERROR` |
 
 **Timeout**: Defined by `wifiConfig.wifiConnectTimeout` (default: 20 seconds)
 
@@ -306,8 +308,8 @@ When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false`
 | BOOT | No credentials | `ramSSID` empty | AP_CONFIG_MODE | Start AP immediately |
 | WIFI_CONNECTING | WiFi connected | `WL_CONNECTED` | NORMAL_MODE | Reset fail counter |
 | WIFI_CONNECTING | Timeout, first boot | `isFirstBoot == true` | AP_CONFIG_MODE | Allow configuration |
-| WIFI_CONNECTING | Timeout, retry available | `isFirstBoot == false` AND (`MAX_FAIL_CYCLES == 0` OR `failCycles < MAX`) | SLEEP_PENDING | Increment fail counter |
-| WIFI_CONNECTING | Timeout, max failures | `isFirstBoot == false` AND `MAX_FAIL_CYCLES > 0` AND `failCycles >= MAX` | STATE_ERROR | Permanent sleep |
+| WIFI_CONNECTING | Timeout, post-first-boot | `isFirstBoot == false` | SLEEP_PENDING or STATE_ERROR | Calls `handleFailure()`. Retries → SLEEP_PENDING. Max reached → STATE_ERROR |
+| WIFI_CONNECTING | Timeout, max failures | `isFirstBoot == false` AND `MAX_FAIL_CYCLES > 0` AND `failCycles >= MAX` | STATE_ERROR | `handleFailure()` critical path |
 | AP_CONFIG_MODE | Config saved | Valid POST to `/save` | BOOT | Apply settings, restart flow |
 | AP_CONFIG_MODE | Timeout | `portalTimeout` exceeded | STATE_ERROR | Permanent sleep |
 | NORMAL_MODE | Success | Render complete | SLEEP_PENDING | Reset counters, sleep |
@@ -423,7 +425,63 @@ const int WAKE_TIME = 6;
 - Device updates every `SLEEP_DURATION` minutes continuously
 - No extended sleep periods
 
-#### Implementation Details
+#### Mock Mode State Machine Behavior
+
+When `USE_MOCKUP_DATA 1` is set in `include/config.h`, the state machine executes the **same visual flow** as production mode, but with simulated network operations:
+
+### Differences from Production Mode
+
+| Aspect | Production Mode | Mock Mode (`USE_MOCKUP_DATA 1`) |
+|--------|-----------------|--------------------------------|
+| **WiFi Connection** | Calls `WiFi.begin()` and polls `WiFi.status()` | Deterministic 2-second timer, no hardware calls |
+| **SSID Display** | Shows real `ramSSID` | Shows `ramSSID` if available, `"MockNetwork"` placeholder otherwise (RTC RAM is **never modified**) |
+| **NTP Time Sync** | Calls `configTzTime()` and `waitForSNTPSync()` | Skipped — `fillMockupData()` sets the internal clock directly via `settimeofday()` |
+| **Geolocation** | Calls `locateByIpAddress()` if `ramAutoGeo == true` | Skipped — mock data uses fixed coordinates |
+| **API Fetch** | HTTP request to Open-Meteo | `delay(1500)` simulates network latency, then `fillMockupData()` injects synthetic data |
+| **RSSI Display** | `WiFi.RSSI()` | Fixed mock value `-55` |
+
+### Visual Parity Guarantee
+
+No screen, label, or timing changes between mock and production:
+- **BOOT** → Same splash/initialization
+- **WIFI_CONNECTING** → Same `"Connecting to Wi-Fi..."` screen for ~2 seconds
+- **NORMAL_MODE loading** → Same `"Fetching weather..."` screen for ~1.5 seconds
+- **Dashboard** → Identical rendering with mock data
+- **SLEEP_PENDING** → Dashboard remains visible
+- **Deep Sleep** → Normal sleep/wake cycle
+
+### State Transitions in Mock Mode
+
+```mermaid
+stateDiagram-v2
+    [*] --> BOOT : Power On / Wake Up
+    
+    BOOT --> WIFI_CONNECTING : Mock mode (always)
+    note right of BOOT
+        No AP mode entry in mock.
+        Empty ramSSID shows
+        "MockNetwork" placeholder.
+    end note
+    
+    WIFI_CONNECTING --> NORMAL_MODE : 2-second timer expires
+    note right of WIFI_CONNECTING
+        Deterministic timer.
+        No WiFi.begin() call.
+        Same loading screen.
+    end note
+    
+    NORMAL_MODE --> SLEEP_PENDING : fillMockupData() + render
+    note right of NORMAL_MODE
+        Skips NTP and API.
+        1.5s simulated latency.
+        Same render pipeline.
+    end note
+    
+    SLEEP_PENDING --> [*] : Deep Sleep
+    SLEEP_PENDING --> BOOT : Wake Up
+```
+
+## Implementation Details
 
 The sleep duration calculation (in `time_coordinator.cpp`):
 
@@ -555,7 +613,7 @@ Or for testing, temporarily use a shorter timeout:
 A "failure cycle" is defined as a complete boot where:
 1. Device attempts to connect to WiFi (`STATE_WIFI_CONNECTING`)
 2. WiFi connection times out without success
-3. Device enters deep sleep (`STATE_SLEEP_PENDING`)
+3. `handleFailure()` is called — it increments the counter, displays an error screen, and transitions to either `STATE_SLEEP_PENDING` (to retry later) or `STATE_ERROR` (if max cycles reached)
 
 ### When is the Counter Incremented?
 
