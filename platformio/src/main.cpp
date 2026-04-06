@@ -495,6 +495,19 @@ void beginDeepSleep(unsigned long startTime, uint64_t sleepDurationSeconds)
 
 void updateWeather()
 {
+#if USE_MOCKUP_DATA
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MOCK MODE: Simulated network stack (no WiFi, no NTP, no API calls)
+  // ═══════════════════════════════════════════════════════════════════════════
+  int wifiRSSI = -55;  // Mock signal strength for status bar
+
+  // Skip NTP sync - fillMockupData() sets the internal clock via settimeofday()
+  isTimeConfigured = true;
+  // Skip geolocation - mock data already has fixed coordinates
+#else
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRODUCTION MODE: Full network stack (unchanged from original)
+  // ═══════════════════════════════════════════════════════════════════════════
   int wifiRSSI = 0;
   if (WiFi.status() == WL_CONNECTED) {
       wifiRSSI = WiFi.RSSI();
@@ -529,7 +542,11 @@ void updateWeather()
       ramAutoGeo = false; // Only do it once after setting it
     }
   }
-  
+#endif
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LOADING SCREEN: Identical for both mock and production
+  // ═══════════════════════════════════════════════════════════════════════════
   if (isFirstBoot || !SILENT_STATUS) {
     drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", ramCity);
   }
@@ -541,7 +558,8 @@ void updateWeather()
 // 3. Default - Fetch from Open-Meteo API (requires WiFi)
 
 #if USE_MOCKUP_DATA
-  // Option 1: Use synthetic mockup data
+  // Option 1: Use synthetic mockup data with simulated latency
+  delay(1500);  // Simulate network fetch time
   Serial.println("[Data Source] Using MOCKUP DATA (no WiFi/API calls)");
   fillMockupData(owm_onecall, currentTimInfo);
 #elif USE_SAVED_API_DATA

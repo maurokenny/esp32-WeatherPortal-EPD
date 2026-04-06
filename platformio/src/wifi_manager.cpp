@@ -45,6 +45,11 @@ RuntimeState runtime = {
     .portalStartTime = 0
 };
 
+#if USE_MOCKUP_DATA
+// Mock mode: deterministic WiFi simulation timer
+static uint32_t mockWifiStartTime = 0;
+#endif
+
 // RTC RAM Variables for connection and location (persist during deep sleep)
 // Buffer sizes follow: Character Limit + 1 for null-terminator
 // Total RTC RAM saved: 43 bytes (from 386 to 343 bytes for these buffers)
@@ -138,6 +143,20 @@ void wifiManagerSetup() {
 void wifiManagerLoop() {
     switch (currentState) {
         case STATE_BOOT:
+#if USE_MOCKUP_DATA
+            // MOCK MODE: Simulate WiFi connection without hardware
+            // Inject a dummy SSID if none exists to avoid AP mode
+            if (strlen(ramSSID) == 0) {
+                strncpy(ramSSID, "MockNetwork", sizeof(ramSSID) - 1);
+                ramSSID[sizeof(ramSSID) - 1] = '\0';
+            }
+            mockWifiStartTime = millis();
+            setFirmwareState(STATE_WIFI_CONNECTING);
+            if (isFirstBoot || !SILENT_STATUS) {
+                drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ramSSID);
+            }
+#else
+            // PRODUCTION MODE: Original behavior unchanged
             if (strlen(ramSSID) > 0) {
                 WiFi.begin(ramSSID, ramPassword);
                 runtime.wifiStartTime = millis();
@@ -148,9 +167,25 @@ void wifiManagerLoop() {
             } else {
                 startAP();
             }
+#endif
             break;
 
         case STATE_WIFI_CONNECTING:
+#if USE_MOCKUP_DATA
+            // MOCK MODE: Deterministic 2-second WiFi success
+            if (millis() - mockWifiStartTime > 2000) {
+                runtime.wifiConnected = true;
+                connectionFailCycles = 0;
+                if (isFirstBoot || !SILENT_STATUS) {
+                    updateEinkStatus("Wi-Fi Connected!");
+                }
+                if (isFirstBoot) {
+                    isFirstBoot = false;
+                }
+                setFirmwareState(STATE_NORMAL_MODE);
+            }
+#else
+            // PRODUCTION MODE: Original behavior unchanged
             if (WiFi.status() == WL_CONNECTED) {
                 // SUCCESS: WiFi connected
                 runtime.wifiConnected = true;
@@ -193,6 +228,7 @@ void wifiManagerLoop() {
                     handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail);
                 }
             }
+#endif
             break;
 
         case STATE_AP_CONFIG_MODE:
