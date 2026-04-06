@@ -143,10 +143,19 @@ void TimeCoordinator::formatDisplayData_(const owm_resp_onecall_t& apiData,
              "%a, %d %b %Y", &tmLocal);
     
     // Forecast - day of week
+    // Calculate based on actual API timestamps, not sequential from today
+    // This handles cases where API daily[] doesn't start from today (e.g., late night)
     for (int i = 0; i < OWM_NUM_DAILY; i++) {
         tm tmDaily = {};
-        localtime_r(&norm.daily[i].dt, &tmDaily);
-        out.forecastDayOfWeek[i] = tmDaily.tm_wday;
+        time_t dailyDt = norm.daily[i].dt;
+        if (dailyDt > MIN_VALID_EPOCH) {
+            // Use localtime to get correct weekday from the actual timestamp
+            localtime_r(&dailyDt, &tmDaily);
+            out.forecastDayOfWeek[i] = tmDaily.tm_wday;
+        } else {
+            // Fallback: sequential calculation for invalid timestamps
+            out.forecastDayOfWeek[i] = (tmLocal.tm_wday + i) % 7;
+        }
     }
     
     // Hourly labels
