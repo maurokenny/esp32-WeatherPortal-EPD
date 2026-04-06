@@ -1,6 +1,6 @@
-# ESP32 E-Paper Weather Display (Modernized)
+# ESP32 E-Paper Weather Display
 
-A low-power weather display using a Wi-Fi-enabled ESP32 microcontroller and a 7.5" E-Paper display. Featuring a modern web-based setup portal and weather data provided by **Open-Meteo**.
+A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. It features a modern web-based setup experience and uses **Open-Meteo** for free weather data (no API key required for personal use).
 
 <p float="left">
   <img src="showcase/assembled-demo-raleigh-front.jpg" />
@@ -8,193 +8,199 @@ A low-power weather display using a Wi-Fi-enabled ESP32 microcontroller and a 7.
   <img src="showcase/assembled-demo-raleigh-back.jpg" width="49%" />
 </p>
 
-## Highlights (New Features)
+---
 
-* **Open-Meteo Integration**: No more API keys! The project now uses Open-Meteo for high-quality weather data without the hassle of subscriptions.
-* **Interactive Captive Portal**: First-time setup is now handled via a web interface. No need to hardcode Wi-Fi credentials.
-* **Visual QR Code Setup**: Scannable QR code on the E-ink display for instant mobile connection.
-* **Auto-Geolocation**: Optionally detect your city and coordinates automatically using your IP address.
-* **Ultra-low power consumption**: Optimized for long battery life (6–12 months), achieving ~14μA in deep sleep when using a FireBeetle ESP32.
+## Features
 
-> **Warning: Hardware Limitation**
-> When using the E-Paper ESP32 Driver Board (Rev 3), power consumption will be significantly higher due to its less efficient voltage regulator and USB-to-Serial circuit. The ~14μA deep sleep target is **not achievable** with this board.
+* **No API Key Required** – Powered by Open-Meteo (free for personal, non-commercial use)
+* **Easy Setup** – Captive portal with automatic mobile detection
+* **QR Code Onboarding** – Connect instantly by scanning from the display
+* **Auto Location Detection** – Optional IP-based geolocation
+* **Umbrella Indicator** – Quick visual cue for rain probability
+* **Multi-Display Support** – Works with multiple Waveshare / Good Display 7.5" panels
+* **Offline Development Mode** – Full simulation without WiFi or API calls
+
+> **Power Note**
+> This project currently targets the **E-Paper ESP32 Driver Board Rev 3 (USB-powered)**.
+> Deep sleep consumption is higher than ultra-low-power builds due to onboard components. Battery optimization has not yet been implemented.
 
 ---
 
-## Notes on This Version
+## Quick Start
 
-This fork includes several practical changes and adaptations based on available hardware and observed issues:
+### 1. Build & Flash
 
-* **Different Hardware Setup**
-  This version uses:
+```bash
+cd platformio
 
-  * **E-Paper ESP32 Driver Board Rev 3**
-  * **Waveshare e-paper adapter**
+pio run
+pio run --target upload
+pio device monitor --baud 115200
+```
 
-  The original low-power reference setup (e.g., FireBeetle ESP32) is not used in this build.
+### 2. First Boot
 
-* **No Battery / Sensor Integration (Yet)**
-  This implementation currently runs:
-
-  * Without a battery
-  * Without external environmental sensors
-
-  These may be added in future iterations.
-
-* **Planned Ultra-Low Power Version**
-  I plan to gain access to a **FireBeetle ESP32** and the original hardware configuration proposed in the reference project.
-  The goal is to build a **fully optimized ultra-low-power version with battery support**, matching the intended long-term autonomous operation.
-
-* **Precipitation Probability Display Workaround**
-  A bug was encountered where the display would turn completely white when rendering **precipitation probability**.
-  As a workaround, the **visual pattern used to represent precipitation probability was modified**, which resolves the issue on this hardware.
-
-* **Umbrella Widget**
-  A custom **umbrella widget** was added — this was the original motivation for the project for personal use.
-  It provides a quick, intuitive visual indicator of precipitation likelihood.
-
-* **Optional `.env` Configuration**
-  In addition to the web portal and `config.cpp`, you can define:
-
-  ```
-  WIFI_SSID=your_wifi
-  WIFI_PASSWORD=your_password
-  ```
-
-  This helps avoid hardcoding credentials and improves local development workflows.
+On first boot, the device creates a Wi-Fi access point for configuration.
 
 ---
 
-## Setup Guide
+## Setup
 
-### 1. First-Time Configuration (Web Portal)
+### Web Portal (Recommended)
 
-The easiest way to configure your display is through the interactive setup portal:
-
-1. **Power On**
-   On the first boot (or if Wi-Fi fails), the display will show a **Setup Mode** screen with a large QR Code.
-
-2. **Connect**
-   Scan the QR code with your phone or connect manually to the Wi-Fi network:
-
+1. **Power on the device**
+2. Scan the QR code on the display
+   *or connect manually to:*
    ```
-   esp32-weather-setup
+   weather_eink-AP
    ```
 
-3. **Configure**
-   Your device should automatically open the setup page. If not, visit:
+3. Open the setup page:
+   * http://weather.local
+   * http://192.168.4.1
 
-   * [http://weather.local](http://weather.local)
-   * [http://192.168.4.1](http://192.168.4.1)
+4. Configure:
+   * Wi-Fi credentials
+   * Location (or enable auto-detection)
 
-4. **Save**
+5. Save → device restarts and begins updating weather
 
-   * Enter your Wi-Fi password
-   * Select your location
-   * Optionally enable **"Detect location automatically"**
-
-5. **Finish**
-   The device will restart, connect to your Wi-Fi, and begin displaying weather data.
-
----
-
-### 2. Manual Configuration (Developers)
-
-If you prefer to "bake in" your settings:
-
-* Edit:
-
-  ```
-  platformio/src/config.cpp
-  ```
-* Set your:
-
-  * Default SSID
-  * City
-  * Coordinates
-
-These values will act as defaults in the web portal and during cold boots.
+> ⚠️ **Security Notice**
+> Setup runs over **unencrypted HTTP**.
+> Perform configuration on a trusted network.
 
 ---
 
-### 3. Environment Variables (.env) (Optional)
+### Alternative Configuration
 
-You can also configure Wi-Fi credentials using a `.env` file:
+#### Manual Defaults (Firmware)
+
+Edit:
 
 ```
+platformio/src/config.cpp
+```
+
+Used for:
+* Default values in the portal
+* Fallback when configuration is missing
+
+---
+
+#### Environment Variables
+
+Create:
+
+```
+platformio/.env
+```
+
+```env
 WIFI_SSID=your_wifi
 WIFI_PASSWORD=your_password
 ```
 
-This is useful for:
-
-* Keeping credentials out of version control
-* Cleaner development setup
+Loaded at build time via `load_env.py`.
 
 ---
 
-### 4. API Data Caching (Optional)
+## Hardware
 
-Skip the HTTP API call by using pre-saved weather data. This is useful for:
-* Avoiding API rate limits during development
-* Faster display updates (skips HTTP request)
-* Testing with consistent/known weather data
+Current development setup:
 
-**Note:** WiFi connection is still required for NTP time synchronization - only the API HTTP call is skipped.
+* **ESP32 Board**
+  E-Paper ESP32 Driver Board Rev 3
 
-**Setup:**
+* **Display**
+  Waveshare 7.5" e-paper (800×480, Black/White)
 
-1. **Download Open-Meteo Data:**
-   ```bash
-   curl "https://api.open-meteo.com/v1/forecast?latitude=YOUR_LAT&longitude=YOUR_LON&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&timezone=auto&forecast_days=2" \
-     -o api_response.json
-   ```
+* **Adapter**
+  Waveshare e-Paper adapter
 
-2. **Convert to C++ Header:**
-   ```bash
-   cd platformio
-   python json_to_header.py api_response.json
-   ```
-
-3. **Enable Cached Data:**
-   Set `USE_SAVED_API_DATA 1` in `platformio/include/config.h` and rebuild.
-
-**For Display Testing:**
-Use `USE_MOCKUP_DATA 1` for synthetic weather data without API calls. This generates fake data in code (temperature, conditions, etc.) while still connecting to WiFi for time sync.
+* **Power**
+  USB-powered
 
 ---
 
-> **Warning: Security Notice**
-> The configuration Access Point (AP) created by the ESP32 operates over unencrypted **HTTP**.
-> Wi-Fi passwords entered in the portal are transmitted in **plain text** over the air.
-> It is recommended to perform the initial setup in a secure/private environment.
+## Development & Testing
+
+### Offline Mode (No WiFi)
+
+Enable in `config.h`:
+
+```c
+#define USE_MOCKUP_DATA 1
+```
+
+Simulates full device lifecycle:
+
+* Boot → WiFi → Fetch → Display → Sleep
+* Deterministic timing (no network dependency)
+
+Available scenarios:
+
+* Weather: SUNNY, RAINY, SNOWY, CLOUDY, THUNDER
+* Rain widget: NO_RAIN, COMPACT, TAKE, GRAPH_TEST
 
 ---
 
-## Hardware Requirements
+### Using Saved API Data
 
-* **ESP32**
+Skip live API calls and replay real responses:
 
-  * E-Paper ESP32 Driver Board Rev 3
-  * Waveshare e-paper adapter
+1. Download data:
+```bash
+curl "https://api.open-meteo.com/..." -o api_response.json
+```
 
-* **E-Paper Display**
+2. Convert:
+```bash
+python json_to_header.py api_response.json
+```
 
-  * Waveshare / Good Display 7.5" (800x480)
+3. Enable:
+```c
+#define USE_SAVED_API_DATA 1
+```
 
 ---
 
-## Acknowledgments
+## Troubleshooting
 
-This project is a modernized fork of the excellent work by **Luke Marzen**
-[https://github.com/lmarzen/esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd)
+| Issue | Fix |
+|------|-----|
+| Display not updating | Check SPI wiring and BUSY pin |
+| White/washed display | Known panel limitation (pattern workaround applied) |
+| WiFi fails | Verify credentials and signal strength |
+| Time sync issues | Check timezone and NTP settings |
 
-Special thanks for providing the original foundation.
+For deeper debugging, see `platformio/AGENTS.md`.
 
 ---
 
-## Licensing
+## Project Background
 
-Licensed under the **GNU General Public License v3.0**.
+This project is a significantly reworked fork of the excellent [esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd) by Luke Marzen.
 
-Includes assets and libraries from various authors (see original README or LICENSE file for full details).
+### Key Changes
+
+* Migrated to **Open-Meteo** (no API key required)
+* Added web-based setup portal
+* Introduced state machine architecture
+* Implemented umbrella indicator
+* Fixed display rendering issues on certain panels
+
+---
+
+## Credits & Acknowledgments
+
+* Fork of [esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd) by **Luke Marzen**
+* Libraries: GxEPD2, ArduinoJson, Adafruit ecosystem
+* PlatformIO community
+
+---
+
+## License
+
+Licensed under **GPL v3.0**.
+See original project for full attribution of third-party assets.

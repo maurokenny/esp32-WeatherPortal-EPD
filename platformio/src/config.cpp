@@ -140,7 +140,7 @@ const unsigned long NTP_TIMEOUT = 20000; // ms
 // minutes past the hour. (range: [2-1440])
 // Note: The OpenWeatherMap model is updated every 10 minutes, so updating more
 //       frequently than that is unnessesary.
-const int SLEEP_DURATION = 360; // minutes
+const int SLEEP_DURATION = 30; // minutes
 // Bed Time Power Savings.
 // If BED_TIME == WAKE_TIME, then this battery saving feature will be disabled.
 // (range: [0-23])
