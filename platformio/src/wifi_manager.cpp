@@ -145,15 +145,14 @@ void wifiManagerLoop() {
         case STATE_BOOT:
 #if USE_MOCKUP_DATA
             // MOCK MODE: Simulate WiFi connection without hardware
-            // Inject a dummy SSID if none exists to avoid AP mode
-            if (strlen(ramSSID) == 0) {
-                strncpy(ramSSID, "MockNetwork", sizeof(ramSSID) - 1);
-                ramSSID[sizeof(ramSSID) - 1] = '\0';
-            }
+            // Never enter AP mode in mock; always simulate a connection attempt
             mockWifiStartTime = millis();
             setFirmwareState(STATE_WIFI_CONNECTING);
             if (isFirstBoot || !SILENT_STATUS) {
-                drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ramSSID);
+                // Use real SSID if available, otherwise show a placeholder
+                // without modifying ramSSID (RTC RAM must be preserved)
+                const char* ssidToShow = (strlen(ramSSID) > 0) ? ramSSID : "MockNetwork";
+                drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ssidToShow);
             }
 #else
             // PRODUCTION MODE: Original behavior unchanged

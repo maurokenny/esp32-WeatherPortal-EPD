@@ -97,7 +97,10 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   owm_onecall.current.weather.main = "";
   owm_onecall.current.weather.description = "";
   owm_onecall.current.weather.icon = "";
-  
+
+  // Timezone offset for TimeCoordinator (UTC base for mock data)
+  owm_onecall.timezone_offset = 0;
+
   // Set current time - initialize all fields to avoid undefined behavior
   timeInfo = {};  // Value-initialization for tm struct
   timeInfo.tm_year = 2025 - 1900;  // Year since 1900

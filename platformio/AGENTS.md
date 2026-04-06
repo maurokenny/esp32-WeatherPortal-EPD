@@ -332,7 +332,7 @@ The firmware supports three mutually exclusive data sources (configured in `conf
 
 | Mode | Config | Description | WiFi Required |
 |------|--------|-------------|---------------|
-| **Mockup Data** | `USE_MOCKUP_DATA 1` | Synthetic data generated in code | No |
+| **Mockup Data** | `USE_MOCKUP_DATA 1` | Full state machine with synthetic data (no WiFi) | No |
 | **Saved API Data** | `USE_SAVED_API_DATA 1` | Real data from `include/saved_api_response.h` | No |
 | **Live API** | Both `0` | Fetch from Open-Meteo API | Yes |
 
@@ -341,9 +341,16 @@ The firmware supports three mutually exclusive data sources (configured in `conf
 ### Mockup Data Mode
 
 Set `USE_MOCKUP_DATA 1` (and `USE_SAVED_API_DATA 0`) to test without WiFi/API:
-- Uses synthetic weather data generated in code
-- Bypasses all network operations
-- Useful for testing display layout and rendering
+- Executes the **complete state machine** (Boot → WiFi → Fetch → Dashboard → Sleep)
+- **100% visual parity with production** — same screens, same flow, same timings
+- Only the data sources and transition triggers are replaced:
+  - WiFi connection is simulated with a deterministic 2-second timer
+  - NTP sync is skipped — the internal clock is set directly by `fillMockupData()`
+  - API calls are replaced with a 1.5-second simulated latency
+- Useful for:
+  - Validating every screen and transition reliably
+  - Debugging without external dependencies
+  - Testing display layout and rendering
 - Multiple weather scenarios available:
   - `MOCKUP_WEATHER_SUNNY`: Clear sky, warm (25°C)
   - `MOCKUP_WEATHER_RAINY`: Moderate rain (15°C), 85% humidity
@@ -400,8 +407,9 @@ pio device monitor --baud 115200
 **Option 1: Mockup Data (synthetic)**
 1. Set `USE_MOCKUP_DATA 1` and `USE_SAVED_API_DATA 0` in `config.h`
 2. Select desired weather scenario with `MOCKUP_CURRENT_WEATHER`
-3. Build and upload
-4. The display will show synthetic weather data
+3. Select rain widget test state with `MOCKUP_RAIN_WIDGET_STATE`
+4. Build and upload
+5. The device will boot, show the WiFi connecting screen, the fetching data screen, render the full dashboard, and enter deep sleep — exactly as in production
 
 **Option 2: Saved API Data (real)**
 1. Set `USE_SAVED_API_DATA 1` and `USE_MOCKUP_DATA 0` in `config.h`
