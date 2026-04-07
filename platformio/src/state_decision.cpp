@@ -94,8 +94,8 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
             break;
 
         case STATE_SLEEP_PENDING:
-            // Next wake will always be STATE_BOOT (restart)
-            output.nextState = STATE_BOOT;
+            // Stay in this state until hardware reset/deep sleep restart
+            output.nextState = STATE_SLEEP_PENDING;
             break;
 
         case STATE_ERROR:
@@ -128,7 +128,7 @@ uint32_t calculateSleepDuration(int curHour, int curMin, int curSec,
     
     // Standard sleep interval
     int sleepMinutes = sleepDurationMin - (curMinuteTotal % sleepDurationMin);
-    if (sleepMinutes < sleepDurationMin / 2) {
+    if (sleepMinutes < 5) { // Ensure at least 5 mins of sleep
         sleepMinutes += sleepDurationMin;
     }
     
