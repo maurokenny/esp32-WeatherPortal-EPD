@@ -38,7 +38,9 @@ else:
 
 # Inject the credentials as global C++ macros (-D)
 # env.StringifyMacro is used to ensure the values are wrapped in escaped quotes.
-env.Append(CPPDEFINES=[
-    ("WIFI_SSID_VALUE", env.StringifyMacro(wifi_ssid)),
-    ("WIFI_PASSWORD_VALUE", env.StringifyMacro(wifi_password))
-])
+env.Append(
+    CPPDEFINES=[
+        ("WIFI_SSID_VALUE", env.StringifyMacro(wifi_ssid)),
+        ("WIFI_PASSWORD_VALUE", env.StringifyMacro(wifi_password)),
+    ]
+)

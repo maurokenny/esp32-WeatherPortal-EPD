@@ -19,7 +19,8 @@ from cryptography.hazmat.primitives.serialization import pkcs7
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.hazmat.primitives.serialization import PublicFormat
 
-def printData(data, showPub = True):
+
+def printData(data, showPub=True):
     try:
         xcert = x509.load_der_x509_certificate(data)
     except:
@@ -31,32 +32,34 @@ def printData(data, showPub = True):
             except:
                 xcert = pkcs7.load_pem_pkcs7_certificates(data)
             if len(xcert) > 1:
-                print('// Warning: TODO: pkcs7 has {} entries'.format(len(xcert)))
+                print("// Warning: TODO: pkcs7 has {} entries".format(len(xcert)))
             xcert = xcert[0]
 
-    cn = ''
-    for dn in xcert.subject.rfc4514_string().split(','):
-        keyval = dn.split('=')
-        if keyval[0] == 'CN':
+    cn = ""
+    for dn in xcert.subject.rfc4514_string().split(","):
+        keyval = dn.split("=")
+        if keyval[0] == "CN":
             cn += keyval[1]
-    name = re.sub('[^a-zA-Z0-9_]', '_', cn)
-    print('// CN: {} => name: {}'.format(cn, name))
+    name = re.sub("[^a-zA-Z0-9_]", "_", cn)
+    print("// CN: {} => name: {}".format(cn, name))
 
-    print('// not valid before:', xcert.not_valid_before_utc)
-    print('// not valid after: ', xcert.not_valid_after_utc)
+    print("// not valid before:", xcert.not_valid_before_utc)
+    print("// not valid after: ", xcert.not_valid_after_utc)
 
     if showPub:
-
-        fingerprint = xcert.fingerprint(hashes.SHA1()).hex(':')
+        fingerprint = xcert.fingerprint(hashes.SHA1()).hex(":")
         print('const char fingerprint_{}[] PROGMEM = "{}";'.format(name, fingerprint))
 
-        pem = xcert.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo).decode('utf-8')
+        pem = (
+            xcert.public_key()
+            .public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+            .decode("utf-8")
+        )
         print('const char pubkey_{}[] PROGMEM = R"PUBKEY('.format(name))
         print(pem + ')PUBKEY";')
 
     else:
-
-        cert = xcert.public_bytes(Encoding.PEM).decode('utf-8')
+        cert = xcert.public_bytes(Encoding.PEM).decode("utf-8")
         print('const char cert_{}[] PROGMEM = R"CERT('.format(name))
         print(cert + ')CERT";')
 
@@ -64,13 +67,17 @@ def printData(data, showPub = True):
     for ext in xcert.extensions:
         if ext.oid == x509.ObjectIdentifier("1.3.6.1.5.5.7.1.1"):
             for desc in ext.value:
-                if desc.access_method == x509.oid.AuthorityInformationAccessOID.CA_ISSUERS:
+                if (
+                    desc.access_method
+                    == x509.oid.AuthorityInformationAccessOID.CA_ISSUERS
+                ):
                     cas.append(desc.access_location.value)
     for ca in cas:
         with urllib.request.urlopen(ca) as crt:
             print()
-            print('// ' + ca)
+            print("// " + ca)
             printData(crt.read(), False)
+
 
 def get_certificate(hostname, port, name):
     context = ssl.create_default_context()
@@ -78,8 +85,8 @@ def get_certificate(hostname, port, name):
     context.verify_mode = ssl.CERT_NONE
     with socket.create_connection((hostname, port)) as sock:
         with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-            print('////////////////////////////////////////////////////////////')
-            print('// certificate chain for {}:{}'.format(hostname, port))
+            print("////////////////////////////////////////////////////////////")
+            print("// certificate chain for {}:{}".format(hostname, port))
             print()
             # if name:
             #     print('const char* {}_host = "{}";'.format(name, hostname));
@@ -87,21 +94,30 @@ def get_certificate(hostname, port, name):
             #     print()
             printData(ssock.getpeercert(binary_form=True))
             print()
-            print('// end of certificate chain for {}:{}'.format(hostname, port))
-            print('////////////////////////////////////////////////////////////')
+            print("// end of certificate chain for {}:{}".format(hostname, port))
+            print("////////////////////////////////////////////////////////////")
             print()
             return 0
 
+
 def main():
-    parser = argparse.ArgumentParser(description='download certificate chain and public keys under a C++/Arduino compilable form')
-    parser.add_argument('-s', '--server', action='store', required=True, help='TLS server dns name')
-    parser.add_argument('-p', '--port', action='store', required=False, help='TLS server port')
-    parser.add_argument('-n', '--name', action='store', required=False, help='variable name')
+    parser = argparse.ArgumentParser(
+        description="download certificate chain and public keys under a C++/Arduino compilable form"
+    )
+    parser.add_argument(
+        "-s", "--server", action="store", required=True, help="TLS server dns name"
+    )
+    parser.add_argument(
+        "-p", "--port", action="store", required=False, help="TLS server port"
+    )
+    parser.add_argument(
+        "-n", "--name", action="store", required=False, help="variable name"
+    )
     port = 443
     args = parser.parse_args()
     server = args.server
     try:
-        split = server.split(':')
+        split = server.split(":")
         server = split[0]
         port = int(split[1])
     except:
@@ -111,21 +127,28 @@ def main():
     except:
         pass
 
-    print('// this file is autogenerated - any modification will be overwritten')
-    print('// unused symbols will not be linked in the final binary')
-    print('// generated on {}'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    print('// by \'' + ' '.join(sys.argv) + '\'')
+    print("// this file is autogenerated - any modification will be overwritten")
+    print("// unused symbols will not be linked in the final binary")
+    print(
+        "// generated on {}".format(
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+    )
+    print("// by '" + " ".join(sys.argv) + "'")
     print()
-    print('// alternatively, the certificate chain can be extracted using openssl')
-    print('// \'openssl s_client -verify 5 -showcerts -connect api.openweathermap.org:443 < /dev/null\'')
+    print("// alternatively, the certificate chain can be extracted using openssl")
+    print(
+        "// 'openssl s_client -verify 5 -showcerts -connect api.openweathermap.org:443 < /dev/null'"
+    )
     print()
-    print('#ifndef __CERT_H__')
-    print('#define __CERT_H__')
+    print("#ifndef __CERT_H__")
+    print("#define __CERT_H__")
     print()
     get_certificate(server, port, args.name)
-    print('#endif')
+    print("#endif")
     print()
     return
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

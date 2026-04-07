@@ -8,7 +8,7 @@ for offline testing of the weather station firmware. Used with USE_SAVED_API_DAT
 Usage:
     # Basic usage (default output path)
     python json_to_header.py api_response.json
-    
+
     # Custom output path
     python json_to_header.py weather_data.json -o include/my_weather.h
 
@@ -19,7 +19,7 @@ Output:
     C++ header file with SAVED_API_JSON macro containing escaped JSON string
 
 Workflow:
-    1. Download Open-Meteo JSON: 
+    1. Download Open-Meteo JSON:
        curl "https://api.open-meteo.com/v1/forecast?..." -o api_response.json
     2. Convert to header:
        python json_to_header.py api_response.json
@@ -34,27 +34,28 @@ import json
 import os
 import sys
 
+
 def escape_c_string(s):
     """Escape string for C code usage."""
-    return (s.replace('\\', '\\\\')
-             .replace('"', '\\"')
-             .replace('\n', '\\n')
-             .replace('\r', '\\r')
-             .replace('\t', '\\t'))
+    return (
+        s.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Convert JSON file to C++ header for ESP32'
+        description="Convert JSON file to C++ header for ESP32"
     )
+    parser.add_argument("json_file", help="Input JSON file")
     parser.add_argument(
-        'json_file',
-        help='Input JSON file'
-    )
-    parser.add_argument(
-        '--output',
-        '-o',
-        default='include/saved_api_response.h',
-        help='Output file (default: include/saved_api_response.h)'
+        "--output",
+        "-o",
+        default="include/saved_api_response.h",
+        help="Output file (default: include/saved_api_response.h)",
     )
 
     args = parser.parse_args()
@@ -66,7 +67,7 @@ def main():
 
     # Read and validate JSON
     try:
-        with open(args.json_file, 'r', encoding='utf-8') as f:
+        with open(args.json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         print(f"Error: Invalid JSON in '{args.json_file}': {e}", file=sys.stderr)
@@ -76,7 +77,7 @@ def main():
         return 1
 
     # Convert to compact JSON
-    json_compact = json.dumps(data, separators=(',', ':'), ensure_ascii=False)
+    json_compact = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
     # Escape for C string
     json_escaped = escape_c_string(json_compact)
@@ -94,7 +95,7 @@ def main():
 
     # Write file
     try:
-        with open(args.output, 'w', encoding='utf-8') as f:
+        with open(args.output, "w", encoding="utf-8") as f:
             f.write(header_content)
         print(f"Header generated successfully: {args.output}")
         print(f"Compact JSON size: {len(json_compact)} characters")
@@ -105,5 +106,6 @@ def main():
 
     return 0
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())
