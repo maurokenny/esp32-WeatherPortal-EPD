@@ -170,7 +170,7 @@ stateDiagram-v2
 | `WiFi.status() == WL_CONNECTED` | `STATE_NORMAL_MODE` | Reset `connectionFailCycles = 0`, set `isFirstBoot = false` |
 | Timeout reached AND `isFirstBoot == true` | `STATE_AP_CONFIG_MODE` | Start AP for configuration |
 | Timeout reached AND `isFirstBoot == false` | `STATE_SLEEP_PENDING` or `STATE_ERROR` | Calls `handleFailure(FAILURE_WIFI, ...)`. `handleFailure()` increments counter, draws error screen, and decides: `SLEEP_PENDING` if retries remain, `STATE_ERROR` if max reached |
-| Timeout reached AND `isFirstBoot == false` AND `MAX_FAIL_CYCLES > 0` AND `connectionFailCycles >= MAX_FAIL_CYCLES` | `STATE_ERROR` | Same path as above — `handleFailure()` evaluates criticality and transitions to `STATE_ERROR` |
+| Timeout reached AND `isFirstBoot == false` AND `MAX_WIFI_FAIL_CYCLES > 0` AND `connectionFailCycles >= MAX_WIFI_FAIL_CYCLES` | `STATE_ERROR` | Same path as above — `handleFailure()` evaluates criticality and transitions to `STATE_ERROR` |
 
 **Timeout**: Defined by `wifiConfig.wifiConnectTimeout` (default: 20 seconds)
 
@@ -293,7 +293,7 @@ When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false`
 - This clears RTC memory (including `connectionFailCycles` and `isErrorState`)
 
 **When Entered**:
-1. WiFi fails `MAX_FAIL_CYCLES` consecutive times (if `MAX_FAIL_CYCLES > 0`)
+1. WiFi fails `MAX_WIFI_FAIL_CYCLES` consecutive times (if `MAX_WIFI_FAIL_CYCLES > 0`)
 2. AP configuration mode times out without receiving valid credentials
 
 ---
@@ -309,7 +309,7 @@ When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false`
 | WIFI_CONNECTING | WiFi connected | `WL_CONNECTED` | NORMAL_MODE | Reset fail counter |
 | WIFI_CONNECTING | Timeout, first boot | `isFirstBoot == true` | AP_CONFIG_MODE | Allow configuration |
 | WIFI_CONNECTING | Timeout, post-first-boot | `isFirstBoot == false` | SLEEP_PENDING or STATE_ERROR | Calls `handleFailure()`. Retries → SLEEP_PENDING. Max reached → STATE_ERROR |
-| WIFI_CONNECTING | Timeout, max failures | `isFirstBoot == false` AND `MAX_FAIL_CYCLES > 0` AND `failCycles >= MAX` | STATE_ERROR | `handleFailure()` critical path |
+| WIFI_CONNECTING | Timeout, max failures | `isFirstBoot == false` AND `MAX_WIFI_FAIL_CYCLES > 0` AND `connectionFailCycles >= MAX_WIFI_FAIL_CYCLES` | STATE_ERROR | `handleFailure()` critical path |
 | AP_CONFIG_MODE | Config saved | Valid POST to `/save` | BOOT | Apply settings, restart flow |
 | AP_CONFIG_MODE | Timeout | `portalTimeout` exceeded | STATE_ERROR | Permanent sleep |
 | NORMAL_MODE | Success | Render complete | SLEEP_PENDING | Reset counters, sleep |
@@ -327,6 +327,8 @@ Variables stored in RTC memory survive deep sleep but are cleared on power loss:
 |----------|------|---------|
 | `isFirstBoot` | `bool` | `true` until first successful data fetch and render |
 | `connectionFailCycles` | `uint8_t` | Consecutive WiFi connection failures after first boot |
+| `ntpFailCycles` | `uint8_t` | Consecutive NTP synchronization failures |
+| `apiFailCycles` | `uint8_t` | Consecutive API request failures |
 | `isErrorState` | `bool` | Permanent error state flag (survives deep sleep) |
 | `ramSSID[33]` | `char[]` | WiFi SSID (32 chars + null) |
 | `ramPassword[64]` | `char[]` | WiFi password (63 chars + null) |
@@ -343,22 +345,30 @@ Variables stored in RTC memory survive deep sleep but are cleared on power loss:
 
 ## Configuration
 
-### MAX_FAIL_CYCLES
+### MAX_FAIL_CYCLES (Per-Subsystem)
 
 Located in `include/config.h`:
 
 ```cpp
-// Maximum consecutive WiFi connection failures before entering STATE_ERROR state.
-// Set to 0 for infinite retries (device will never enter STATE_ERROR due to WiFi failures).
-#define MAX_FAIL_CYCLES  3   // 0 = infinite retries, >0 = max failures before permanent sleep
+/// @defgroup retry_policy Retry Policy Configuration
+/// @brief Maximum consecutive failures before entering permanent error state
+/// @details Set to 0 for infinite retries (device never enters STATE_ERROR)
+/// @{
+#define MAX_WIFI_FAIL_CYCLES  10  ///< WiFi connection failures
+#define MAX_NTP_FAIL_CYCLES   10  ///< NTP synchronization failures
+#define MAX_API_FAIL_CYCLES   10  ///< API request failures
+/// @}
 ```
 
-| Value | Behavior |
-|-------|----------|
-| `0` | Infinite retries. Device never enters `STATE_ERROR` from WiFi failures. Always sleeps and retries. |
-| `1` | Single failure allowed. Second consecutive failure enters `STATE_ERROR`. |
-| `3` | (Default) Three failures allowed. Fourth failure enters `STATE_ERROR`. |
-| `N` | N failures allowed. (N+1)th failure enters `STATE_ERROR`. |
+Each subsystem has its own independent failure counter and limit:
+
+| Constant | Default | Behavior when `0` | Behavior when `N > 0` |
+|----------|---------|-------------------|----------------------|
+| `MAX_WIFI_FAIL_CYCLES` | 10 | Infinite WiFi retries | Error after N consecutive WiFi failures |
+| `MAX_NTP_FAIL_CYCLES` | 10 | Infinite NTP retries | Error after N consecutive NTP failures |
+| `MAX_API_FAIL_CYCLES` | 10 | Infinite API retries | Error after N consecutive API failures |
+
+**Note**: Set to `0` for any subsystem you want to retry infinitely, regardless of failures.
 
 ### Bed Time Power Savings (BED_TIME / WAKE_TIME)
 
@@ -608,6 +618,50 @@ Or for testing, temporarily use a shorter timeout:
 
 ## Failure Cycle Logic
 
+### Per-Subsystem Failure Tracking
+
+The firmware tracks failures **independently for each subsystem** rather than using a single global counter:
+
+| Subsystem | Counter Variable | Max Config | Purpose |
+|-----------|------------------|------------|---------|
+| **WiFi Connection** | `connectionFailCycles` | `MAX_WIFI_FAIL_CYCLES` | WiFi network connectivity |
+| **NTP Time Sync** | `ntpFailCycles` | `MAX_NTP_FAIL_CYCLES` | Time synchronization |
+| **API Request** | `apiFailCycles` | `MAX_API_FAIL_CYCLES` | Weather data fetch |
+
+#### Why Separate Counters Instead of Global?
+
+**Granular Control**: Different subsystems may deserve different tolerance levels:
+- WiFi might fail intermittently due to router issues → tolerate 10+ failures
+- API might be temporarily down → tolerate 5 failures
+- NTP rarely fails if WiFi works → tolerate 3 failures
+
+**Isolation**: A failure in one subsystem doesn't "drain" the tolerance of others:
+```
+Scenario with GLOBAL counter (bad):
+  Boot 1: WiFi fails    (counter: 1/10)
+  Boot 2: WiFi fails    (counter: 2/10)
+  Boot 3: NTP fails     (counter: 3/10)
+  ...
+  Boot 10: API fails    (counter: 10/10 → STATE_ERROR)
+  Result: Device enters error state due to API, but WiFi and API actually work!
+
+Scenario with PER-SUBSYSTEM counters (good):
+  Boot 1: WiFi fails    (wifi: 1/10, ntp: 0, api: 0)
+  Boot 2: WiFi fails    (wifi: 2/10, ntp: 0, api: 0)
+  Boot 3: NTP fails     (wifi: 2/10, ntp: 1/3, api: 0)
+  ...
+  Boot 10: WiFi fails   (wifi: 10/10 → STATE_ERROR)
+  Result: Only WiFi failures trigger error; NTP/API tracked separately
+```
+
+**Better Diagnostics**: The error screen shows exactly which subsystem failed:
+```cpp
+// Error display shows specific icon and message per failure type
+[FAILURE_WIFI] = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_x_196x196, "WiFi" },
+[FAILURE_NTP]  = { &ntpFailCycles,        MAX_NTP_FAIL_CYCLES,  wi_time_4_196x196,    "NTP" },
+[FAILURE_API]  = { &apiFailCycles,        MAX_API_FAIL_CYCLES,  wi_cloud_down_196x196,"API" },
+```
+
 ### What Counts as a Failure Cycle?
 
 A "failure cycle" is defined as a complete boot where:
@@ -637,7 +691,7 @@ The counter is reset to 0 when:
 1. WiFi connects successfully (`STATE_WIFI_CONNECTING` → `STATE_NORMAL_MODE`)
 2. Weather data is fetched and rendered successfully (end of `STATE_NORMAL_MODE`)
 
-### Example Scenario (MAX_FAIL_CYCLES = 3)
+### Example Scenario (MAX_WIFI_FAIL_CYCLES = 3)
 
 | Boot # | isFirstBoot | WiFi Result | Fail Cycles | Action | Next State |
 |--------|-------------|-------------|-------------|--------|------------|
@@ -650,6 +704,20 @@ The counter is reset to 0 when:
 | 6 | false | Timeout | 4 | Max reached! | STATE_ERROR |
 
 \* After WiFi connects successfully, `isFirstBoot` is immediately set to `false` (persisted in RTC memory)
+
+### Example with Multiple Subsystem Failures
+
+Different counters track different failures independently:
+
+| Boot # | WiFi | NTP | API | WiFi Ctr | NTP Ctr | API Ctr | Result |
+|--------|------|-----|-----|----------|---------|---------|--------|
+| 1 | OK | Fail | OK | 0 | 1 | 0 | Sleep, retry later |
+| 2 | OK | OK | Fail | 0 | 0 | 1 | Sleep, retry later |
+| 3 | Fail | OK | OK | 1 | 0 | 0 | Sleep, retry later |
+| 4 | Fail | Fail | OK | 2 | 1 | 0 | Sleep, retry later |
+| 5 | Fail | OK | Fail | 3 | 0 | 1 | Sleep, retry later |
+| ... | ... | ... | ... | ... | ... | ... | ... |
+| 12 | Fail | OK | OK | 10 | 0 | 2 | **STATE_ERROR** (WiFi max reached) |
 
 ### Post-First Boot Failure Flow
 
@@ -745,7 +813,7 @@ The state machine is single-threaded and runs in the main `loop()`. No concurren
 
 ### Device sleeps forever (STATE_ERROR)
 - Check `connectionFailCycles` in Serial output
-- Verify `MAX_FAIL_CYCLES` setting in `include/config.h`
+- Verify `MAX_WIFI_FAIL_CYCLES` / `MAX_NTP_FAIL_CYCLES` / `MAX_API_FAIL_CYCLES` settings in `include/config.h`
 - Power cycle to clear RTC memory and reset counters
 - Check if AP mode timeout was reached (5 minutes without configuration)
 
