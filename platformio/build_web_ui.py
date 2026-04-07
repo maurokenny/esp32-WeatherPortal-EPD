@@ -162,6 +162,5 @@ def build_web_ui(source, target, env):
     print(f"Successfully generated {output_path}")
 
 
-# Add the build step
-env.AddPreAction("buildprog", build_web_ui)
-env.AddPreAction("checkprog", build_web_ui)  # For IDE checks
+# Execute immediately (pre: script runs before any build steps)
+build_web_ui(None, None, env)
