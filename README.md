@@ -114,7 +114,7 @@ Used for:
 Create:
 
 ```
-platformio/.env
+.env
 ```
 
 ```env
@@ -122,7 +122,7 @@ WIFI_SSID=your_wifi
 WIFI_PASSWORD=your_password
 ```
 
-Loaded at build time via `load_env.py`. **Optional** - if not provided, fallback values are used and WiFi can be configured via the web portal.
+Loaded at build time via `platformio/load_env.py`. **Optional** - if not provided, fallback values are used and WiFi can be configured via the web portal.
 
 ---
 

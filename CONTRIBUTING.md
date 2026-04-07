@@ -22,7 +22,7 @@ Thank you for your interest in contributing to this project! We welcome contribu
 
 1. Install PlatformIO
 2. Clone and enter the project directory
-3. Optionally copy `platformio/.env.example` to `platformio/.env` and configure WiFi credentials (or use the web portal for setup)
+3. Optionally copy `.env.example` to `.env` and configure WiFi credentials (or use the web portal for setup)
 4. Build and test: `cd platformio && pio run`
 
 ## Reporting Issues
