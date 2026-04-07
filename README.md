@@ -26,6 +26,28 @@ A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. It fea
 
 ---
 
+## Requirements
+
+### Hardware
+- ESP32 Dev Module or FireBeetle ESP32
+- 7.5" e-paper display (Waveshare or Good Display compatible)
+- Compatible driver board (DESPI-C02 or Waveshare)
+- Optional: BME280/BME680 sensor for indoor readings
+
+### Software
+- PlatformIO Core 6.0+ (with Arduino framework)
+- Python 3.8+ (for build scripts)
+- Git
+
+### Dependencies
+All dependencies are managed automatically by PlatformIO:
+- GxEPD2 (e-paper display driver)
+- ArduinoJson (JSON parsing)
+- ESPAsyncWebServer (web portal)
+- Adafruit sensor libraries
+
+---
+
 ## Quick Start
 
 ### 1. Build & Flash
@@ -100,7 +122,7 @@ WIFI_SSID=your_wifi
 WIFI_PASSWORD=your_password
 ```
 
-Loaded at build time via `load_env.py`.
+Loaded at build time via `load_env.py`. **Optional** - if not provided, fallback values are used and WiFi can be configured via the web portal.
 
 ---
 

@@ -21,5 +21,8 @@ platformio/.env
 platformio/include/wifi_credentials.h
 platformio/logs/
 
+# Environment Variables (contains sensitive WiFi credentials)
+.env
+
 # Miscellaneous / Editor swap files
 *.swp
