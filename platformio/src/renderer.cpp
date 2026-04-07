@@ -21,6 +21,7 @@
 #include "conversions.h"
 #include "display_utils.h"
 #include "umbrella_parser.h"
+#include "state_decision.h"
 
 /// @brief API data validation utilities
 /// @details Inline validators for weather data sanity checking
@@ -1232,12 +1233,10 @@ void drawForecast(const owm_daily_t *daily, int todayDayOfWeek)
     display.drawInvertedBitmap(x, 98 + 69 / 2 - 32 - 6,
                                getDailyForecastBitmap64(day),
                                64, 64, GxEPD_BLACK);
-    // day of week label - calculate sequential weekday labels from today
+    // day of week label - calculate sequential weekday labels from today using pure logic
     display.setFont(&FONT_11pt8b);
     char dayBuffer[8] = {};
-    tm tmpTm = {};  // Only wday is used by _strftime for "%a"
-    tmpTm.tm_wday = (baseWday + i) % 7;
-    _strftime(dayBuffer, sizeof(dayBuffer), "%a", &tmpTm); // abbreviated day
+    getForecastDayName(baseWday, i, dayBuffer, sizeof(dayBuffer));
     drawString(x + 31 - 2, 98 + 69 / 2 - 32 - 26 - 6 + 16, dayBuffer, CENTER);
 
     // high | low

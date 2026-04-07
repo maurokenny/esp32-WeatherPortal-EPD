@@ -17,6 +17,7 @@
 #include "time_coordinator.h"
 #include "config.h"
 #include "wifi_manager.h"
+#include "state_decision.h"
 
 RTC_DATA_ATTR bool TimeCoordinator::rtcSynced_ = false;
 
@@ -225,35 +226,7 @@ void TimeCoordinator::formatDisplayData_(const owm_resp_onecall_t& apiData,
 /// @details Implements wake/sleep schedule logic based on BED_TIME/WAKE_TIME.
 /// Does NOT apply timezone conversion - assumes localTime is already localized.
 uint64_t TimeCoordinator::calculateSleep_(const tm* localTime) {
-    int curHour = localTime->tm_hour;
-    int curMin = localTime->tm_min;
-    int curSec = localTime->tm_sec;
-    
-    int bedtimeHour = INT_MAX;
-    if (BED_TIME != WAKE_TIME) {
-        bedtimeHour = (BED_TIME - WAKE_TIME + 24) % 24;
-    }
-    
-    int relHour = (curHour - WAKE_TIME + 24) % 24;
-    int curMinute = relHour * 60 + curMin;
-    
-    int sleepMinutes = SLEEP_DURATION - (curMinute % SLEEP_DURATION);
-    if (sleepMinutes < SLEEP_DURATION / 2) {
-        sleepMinutes += SLEEP_DURATION;
-    }
-    
-    int predictedWakeHour = ((curMinute + sleepMinutes) / 60) % 24;
-    
-    uint64_t sleepDuration;
-    if (predictedWakeHour < bedtimeHour) {
-        sleepDuration = sleepMinutes * 60 - curSec;
-    } else {
-        int hoursUntilWake = 24 - relHour;
-        sleepDuration = hoursUntilWake * 3600ULL - (curMin * 60ULL + curSec);
-    }
-    
-    sleepDuration += 3ULL;
-    sleepDuration *= 1.0015f;
-    
-    return sleepDuration;
+    return calculateSleepDuration(localTime->tm_hour, localTime->tm_min, 
+                                  localTime->tm_sec, BED_TIME, WAKE_TIME, 
+                                  SLEEP_DURATION);
 }

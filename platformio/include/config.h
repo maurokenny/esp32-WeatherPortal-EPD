@@ -340,7 +340,7 @@ typedef enum {
 
 /// @brief Debug verbosity level
 /// @details 0=Basic status, 1=Increased verbosity + heap usage, 2=Full API responses
-#define DEBUG_LEVEL 0
+#define DEBUG_LEVEL 2
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BUILD SYSTEM INJECTION (do not modify)

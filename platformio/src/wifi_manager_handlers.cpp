@@ -56,6 +56,8 @@ void safeCopy(const char* src, char* dest, size_t destLen) {
     }
     // strlcpy guarantees null-termination and prevents buffer overflow
     size_t srcLen = strlcpy(dest, src, destLen);
+    (void)srcLen; // Suppress unused warning when DEBUG_LEVEL < 1
+
     // Optional: Log truncation for debugging (can be removed in production)
     #if DEBUG_LEVEL >= 1
     if (srcLen >= destLen) {

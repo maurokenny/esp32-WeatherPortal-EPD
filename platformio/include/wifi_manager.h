@@ -17,6 +17,7 @@
 #define WIFI_MANAGER_H
 
 #include <Arduino.h>
+#include "state_decision.h"
 
 // Forward declaration for AsyncWebServerRequest to avoid including full header
 class AsyncWebServerRequest;
@@ -26,15 +27,8 @@ class AsyncWebServerRequest;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// @brief Firmware operational states
-/// @details State machine controls WiFi connection flow and error handling
-enum FirmwareState {
-  STATE_BOOT,              ///< Initial state: load credentials, begin connection
-  STATE_WIFI_CONNECTING,   ///< Attempting to connect to configured WiFi
-  STATE_AP_CONFIG_MODE,    ///< Access point mode for configuration
-  STATE_NORMAL_MODE,       ///< Connected, ready for weather updates
-  STATE_SLEEP_PENDING,     ///< Weather fetched, preparing for deep sleep
-  STATE_ERROR              ///< Permanent error state (manual reset required)
-};
+/// @details Alias for State defined in state_decision.h for backward compatibility
+using FirmwareState = State;
 
 /// @brief Global firmware state
 /// @details State transitions logged to serial for debugging

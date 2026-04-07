@@ -817,7 +817,6 @@ void setup()
   
 #else
   // USB MODE: Fake full battery
-  uint32_t batteryVoltage = UINT32_MAX;
 #endif
 
   wifiManagerSetup();

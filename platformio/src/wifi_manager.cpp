@@ -24,6 +24,7 @@
 #include "web_ui_data.h"
 #include "display_utils.h"
 #include "failure_handler.h"
+#include "state_decision.h"
 #include "config.h"
 #include "_locale.h"
 #include "icons/icons_196x196.h"
@@ -152,138 +153,103 @@ void wifiManagerSetup() {
 /// @brief Execute WiFi state machine iteration
 /// @details Non-blocking state machine. Call repeatedly from loop().
 void wifiManagerLoop() {
-    switch (currentState) {
-        case STATE_BOOT:
+    // 1. GATHER INPUT (Impure environment sensing)
+    DecisionInput input = {};
+    input.hasCredentials = (strlen(ramSSID) > 0);
+    input.isFirstBoot = isFirstBoot;
+    
+    // Config limits from config.h or NVS
+    input.maxWifiFail = MAX_WIFI_FAIL_CYCLES;
+    input.maxNtpFail = MAX_NTP_FAIL_CYCLES;
+    input.maxApiFail = MAX_API_FAIL_CYCLES;
+    
+    // Status counters from RTC memory
+    input.wifiFailCycles = connectionFailCycles;
+    input.ntpFailCycles = 0; // Handled in main.cpp for now
+    input.apiFailCycles = 0; // Handled in main.cpp for now
+
 #if USE_MOCKUP_DATA
-            // MOCK MODE: Simulate WiFi connection without hardware
-            // Never enter AP mode in mock; always simulate a connection attempt
-            mockWifiStartTime = millis();
-            setFirmwareState(STATE_WIFI_CONNECTING);
-            if (isFirstBoot || !SILENT_STATUS) {
-                // Use real SSID if available, otherwise show a placeholder
-                // without modifying ramSSID (RTC RAM must be preserved)
-                const char* ssidToShow = (strlen(ramSSID) > 0) ? ramSSID : "MockNetwork";
-                drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ssidToShow);
-            }
+    // MOCK MODE: Simulate WiFi feedback
+    input.wifiConnected = (millis() - mockWifiStartTime > 2000);
+    input.wifiTimeout = false; 
+    input.portalTimeout = false;
+    input.configSaved = (!runtime.portalActive && input.hasCredentials);
 #else
-            // PRODUCTION MODE: Original behavior unchanged
-            if (strlen(ramSSID) > 0) {
-                WiFi.begin(ramSSID, ramPassword);
-                runtime.wifiStartTime = millis();
-                setFirmwareState(STATE_WIFI_CONNECTING);
-                if (isFirstBoot || !SILENT_STATUS) {
-                    drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ramSSID);
+    // PRODUCTION MODE: Real hardware feedback
+    input.wifiConnected = (WiFi.status() == WL_CONNECTED);
+    input.wifiTimeout = (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000);
+    input.portalTimeout = (millis() - runtime.portalStartTime > 300000); // 5 min timeout
+    input.configSaved = (!runtime.portalActive && input.hasCredentials);
+#endif
+
+    // 2. DECIDE (Pure logic)
+    DecisionOutput output = decideTransition(currentState, input);
+
+    // 3. EXECUTE SIDE EFFECTS (Impure hardware/UI calls)
+    if (output.nextState != currentState) {
+        
+        // Actions on ENTERING a new state
+        switch (output.nextState) {
+            case STATE_WIFI_CONNECTING:
+#if USE_MOCKUP_DATA
+                mockWifiStartTime = millis();
+#else
+                if (currentState == STATE_BOOT) {
+                    WiFi.begin(ramSSID, ramPassword);
+                    runtime.wifiStartTime = millis();
                 }
-            } else {
+#endif
+                if (isFirstBoot || !SILENT_STATUS) {
+                    const char* ssidToShow = (strlen(ramSSID) > 0) ? ramSSID : "MockNetwork";
+                    drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ssidToShow);
+                }
+                break;
+
+            case STATE_NORMAL_MODE:
+                runtime.wifiConnected = true;
+                if (isFirstBoot || !SILENT_STATUS) {
+                    updateEinkStatus("Wi-Fi Connected!");
+                }
+                break;
+
+            case STATE_AP_CONFIG_MODE:
                 startAP();
-            }
-#endif
-            break;
+                break;
 
-        case STATE_WIFI_CONNECTING:
-#if USE_MOCKUP_DATA
-            // MOCK MODE: Deterministic 2-second WiFi success
-            if (millis() - mockWifiStartTime > 2000) {
-                runtime.wifiConnected = true;
-                connectionFailCycles = 0;
-                if (isFirstBoot || !SILENT_STATUS) {
-                    updateEinkStatus("Wi-Fi Connected!");
+            case STATE_ERROR:
+                if (output.setErrorFlag) {
+                    // Logic from original handleFailure / startAP timeout
+                    if (currentState == STATE_WIFI_CONNECTING) {
+                        String detail = "Attempt " + String(connectionFailCycles + 1) + "/" + String(MAX_WIFI_FAIL_CYCLES);
+                        handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail);
+                    } else {
+                        handleFailure(FAILURE_BATTERY, "System Error", "Timeout");
+                    }
                 }
-                if (isFirstBoot) {
-                    isFirstBoot = false;
+                break;
+
+            case STATE_SLEEP_PENDING:
+                // If it was a WiFi timeout, we might want to log it
+                if (currentState == STATE_WIFI_CONNECTING && !isFirstBoot) {
+                    Serial.printf("Connection fail cycle #%d/%d. Retrying later...\n", 
+                                  connectionFailCycles + 1, MAX_WIFI_FAIL_CYCLES);
                 }
-                setFirmwareState(STATE_NORMAL_MODE);
-            }
-#else
-            // PRODUCTION MODE: Original behavior unchanged
-            if (WiFi.status() == WL_CONNECTED) {
-                // SUCCESS: WiFi connected
-                runtime.wifiConnected = true;
-                // Reset failure counter on successful connection
-                connectionFailCycles = 0;
-                // Show status message (before changing isFirstBoot to preserve behavior)
-                if (isFirstBoot || !SILENT_STATUS) {
-                    updateEinkStatus("Wi-Fi Connected!");
-                }
-                // Mark first boot as complete as soon as WiFi connects
-                // This ensures that even if NTP/API fails later, we won't
-                // enter AP mode on subsequent connection failures
-                if (isFirstBoot) {
-                    isFirstBoot = false;
-                }
-                setFirmwareState(STATE_NORMAL_MODE);
-            } else if (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000) {
-                // TIMEOUT: WiFi connection failed
-                Serial.println("Wi-Fi connection timed out.");
-                WiFi.disconnect();
+                break;
                 
-                // Only count failure cycles after first successful boot
-                if (!isFirstBoot) {
-                    connectionFailCycles++;
-                    Serial.printf("Connection fail cycle #%d\n", connectionFailCycles);
-                }
+            default: break;
+        }
 
-                // Determine next state based on connection history
-                if (isFirstBoot) {
-                    // Never connected before: allow configuration via AP mode
-                    Serial.println("First boot - starting AP Configuration Mode.");
-                    startAP();
-                } else {
-                    // Has connected before: count failures and use handler
-                    // Only count failure cycles after first successful boot
-                    connectionFailCycles++;
-                    Serial.printf("Connection fail cycle #%d/%d\n", connectionFailCycles, MAX_WIFI_FAIL_CYCLES);
-                    
-                    String detail = "Attempt " + String(connectionFailCycles) + "/" + String(MAX_WIFI_FAIL_CYCLES);
-                    handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail);
-                }
-            }
-#endif
-            break;
+        // Apply state variables
+        if (output.updateFirstBoot) { isFirstBoot = false; }
+        if (output.resetWifiFail) { connectionFailCycles = 0; }
+        if (output.incWifiFail) { connectionFailCycles++; }
+        
+        setFirmwareState(output.nextState);
+    }
 
-        case STATE_AP_CONFIG_MODE:
-            dnsServer.processNextRequest();
-            
-            // Check for switch trigger if portalActive was set to false by /save
-            if (!runtime.portalActive && strlen(ramSSID) > 0) {
-                static uint32_t switchDelay = 0;
-                if (switchDelay == 0) switchDelay = millis();
-                if (millis() - switchDelay > 3000) {
-                    Serial.println("Applying settings and connecting...");
-                    server.end();
-                    dnsServer.stop();
-                    WiFi.softAPdisconnect(true); // Clean up AP
-                    setFirmwareState(STATE_BOOT);
-                    switchDelay = 0; // Reset
-                }
-            }
-
-             // Security timeout (only active if portal is waiting for input)
-             if (runtime.portalActive && (millis() - runtime.portalStartTime > wifiConfig.configTimeout * 1000)) {
-                 Serial.println("AP Configuration timeout. No config received. Entering ERROR_CONNECTION.");
-                 server.end();
-                 dnsServer.stop();
-                 WiFi.softAPdisconnect(true);
-                 drawErrorScreen("Setup Timed Out", 
-                                "No configuration received within timeout",
-                                "Please check WiFi credentials and try again");
-                 isErrorState = true;
-                 setFirmwareState(STATE_ERROR);
-             }
-            break;
-
-        case STATE_NORMAL_MODE:
-            // Handled in main loop for weather updates
-            break;
-
-        case STATE_SLEEP_PENDING:
-            // Transition handled in main.cpp for deep sleep
-            break;
-
-        case STATE_ERROR:
-            // Error state: handled in main.cpp for indefinite deep sleep
-            // This state prevents any automatic retries
-            break;
+    // 4. RUN PERIODIC TASKS (State-specific polling)
+    if (currentState == STATE_AP_CONFIG_MODE) {
+        dnsServer.processNextRequest();
     }
 }
 
