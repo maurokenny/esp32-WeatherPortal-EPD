@@ -1206,16 +1206,15 @@ void drawCurrentConditions(const owm_current_t &current,
 } // end drawCurrentConditions
 
 /* This function is responsible for drawing the five day forecast.
- * dayOfWeekArray: pre-calculated day of week (0=Sun, 1=Mon, etc.)
- *   Each entry corresponds to the actual weekday of daily[i].dt from the API.
- * No timezone calculations here - all done by TimeCoordinator.
+ * todayDayOfWeek: system-local weekday for the current day (0=Sun, 1=Mon, etc.)
+ * The forecast labels are rendered sequentially from today.
  */
-void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray)
+void drawForecast(const owm_daily_t *daily, int todayDayOfWeek)
 {
-  // 5 day forecast; weekdays are from actual API timestamps (may not start from today)
+  // 5 day forecast; weekdays are calculated sequentially from today's weekday.
   String hiStr, loStr;
   String dataStr, unitStr;
-  int baseWday = dayOfWeekArray[0];
+  int baseWday = todayDayOfWeek;
   for (int i = 0; i < 5; ++i)
   {
 #ifndef DISP_BW_V1

@@ -90,7 +90,7 @@ void drawCurrentConditions(const owm_current_t &current,
                            const char* moonriseTimeStr,
                            const char* moonsetTimeStr,
                            const char* rainTimeStr);
-void drawForecast(const owm_daily_t *daily, const int* dayOfWeekArray);
+void drawForecast(const owm_daily_t *daily, int todayDayOfWeek);
 void drawAlerts(std::vector<owm_alerts_t> &alerts,
                 const String &city, const String &date);
 void drawLocationDate(const String &city, const String &date);

@@ -56,7 +56,7 @@ struct TimeDisplayData {
     char updateTime[6];                    // "HH:MM\0"
     char displayDate[32];                  // "Day, DD Mon YYYY\0"
     char hourlyLabels[OWM_NUM_HOURLY][6];  // "14h\0", "15h\0"...
-    int forecastDayOfWeek[OWM_NUM_DAILY];  // 0=Sun, 1=Mon...
+    int todayDayOfWeek;                    // 0=Sun, 1=Mon... (current day from system)
     uint64_t sleepDurationSeconds;         // Ready for esp_sleep_enable_timer_wakeup
     // Current conditions - pre-formatted times
     char sunriseTime[12];                  // Sunrise time

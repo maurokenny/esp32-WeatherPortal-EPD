@@ -643,7 +643,7 @@ void updateWeather()
                           timeData.rainTime);
     drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, 
                      timeData.hourlyLabels, timeData.hourlyStartIndex);
-    drawForecast(owm_onecall.daily, timeData.forecastDayOfWeek);
+    drawForecast(owm_onecall.daily, timeData.todayDayOfWeek);
     String locationStr = String(strlen(ramCity) > 0 ? ramCity : CITY_STRING) + " - " + 
                          String(strlen(ramCountry) > 0 ? ramCountry : COUNTRY_STRING);
     drawLocationDate(locationStr, timeData.displayDate);
