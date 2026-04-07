@@ -1,106 +1,94 @@
-import os
+"""Build script to compress and embed web UI as C header.
+
+Compresses data/setup.html with gzip and generates include/web_ui_data.h
+containing the compressed bytes as a PROGMEM array.
+"""
+
 import gzip
+import html
+import os
 import re
-import csv
+from csv import reader
 
 Import("env")
 
 
 def get_config_value(file_path, key):
+    """Extract string value from C++ source by key name."""
     if not os.path.exists(file_path):
         return ""
+
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
-        # Match ACTIVE const String KEY = "VALUE"; (Ignores lines starting with //)
-        match = re.search(
-            rf'^\s*const\s+String\s+{key}\s*=\s*"([^"]*)"', content, re.MULTILINE
-        )
+
+    # Match: const String KEY = "VALUE";
+    #        const char *KEY = "VALUE";
+    #        #define KEY "VALUE"
+    #        #define KEY_VALUE "VALUE"
+    patterns = [
+        rf'^\s*const\s+String\s+{key}\s*=\s*"([^"]*)"',
+        rf'^\s*const\s+char\s+\*{key}\s*=\s*"([^"]*)"',
+        rf'^\s*#define\s+{key}\s*"([^"]*)"',
+        rf'^\s*#define\s+{key}_VALUE\s*"([^"]*)"',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, content, re.MULTILINE)
         if match:
             return match.group(1)
-        # Match ACTIVE const char \*KEY = "VALUE";
-        match = re.search(
-            rf'^\s*const\s+char\s+\*{key}\s*=\s*"([^"]*)"', content, re.MULTILINE
-        )
-        if match:
-            return match.group(1)
-        # Match ACTIVE #define KEY "VALUE"
-        match = re.search(rf'^\s*#define\s+{key}\s*"([^"]*)"', content, re.MULTILINE)
-        if match:
-            return match.group(1)
-        # Match ACTIVE #define KEY_VALUE "VALUE" (for wifi_credentials)
-        match = re.search(
-            rf'^\s*#define\s+{key}_VALUE\s*"([^"]*)"', content, re.MULTILINE
-        )
-        if match:
-            return match.group(1)
+
     return ""
 
 
 def load_timezones(zones_file):
-    """Load timezone entries from zones.csv file.
-
-    Returns a list of tuples (timezone_name, posix_string).
-    """
-    timezones = []
+    """Load timezone entries from zones.csv file."""
     if not os.path.exists(zones_file):
         print(f"Warning: zones.csv not found at {zones_file}")
-        return timezones
+        return []
 
     try:
         with open(zones_file, "r", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if len(row) >= 2:
-                    # Remove quotes if present
-                    tz_name = row[0].strip().strip('"')
-                    tz_posix = row[1].strip().strip('"')
-                    if tz_name and tz_posix:
-                        timezones.append((tz_name, tz_posix))
+            return [
+                (row[0].strip().strip('"'), row[1].strip().strip('"'))
+                for row in reader(f)
+                if len(row) >= 2 and row[0].strip() and row[1].strip()
+            ]
     except Exception as e:
         print(f"Error loading zones.csv: {e}")
-
-    return timezones
+        return []
 
 
 def generate_timezone_options(timezones, selected_tz):
-    """Generate HTML select options from timezone list.
-
-    Format: <option value="POSIX_STRING" selected>Timezone Name</option>
-    Shows the timezone name to user, sends POSIX string as value.
-    """
+    """Generate HTML select options from timezone list."""
     options = []
     for tz_name, tz_posix in timezones:
-        # Escape HTML special characters
-        escaped_name = (
-            tz_name.replace("&", "&amp;")
-            .replace('"', "&quot;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
-        escaped_posix = (
-            tz_posix.replace("&", "&amp;")
-            .replace('"', "&quot;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
-
-        # Mark as selected if matches current timezone
-        selected_attr = " selected" if tz_posix == selected_tz else ""
+        selected = " selected" if tz_posix == selected_tz else ""
         options.append(
-            f'<option value="{escaped_posix}"{selected_attr}>{escaped_name}</option>'
+            f'<option value="{html.escape(tz_posix)}"{selected}>'
+            f'{html.escape(tz_name)}</option>'
         )
-
     return "\n                        ".join(options)
 
 
+def format_c_array(data, bytes_per_line=12):
+    """Format binary data as C-style hex array."""
+    hex_bytes = [f"0x{b:02x}" for b in data]
+    lines = [
+        ", ".join(hex_bytes[i : i + bytes_per_line]) + ","
+        for i in range(0, len(hex_bytes), bytes_per_line)
+    ]
+    return "\n  ".join(lines)
+
+
 def build_web_ui(source, target, env):
+    """Generate compressed web UI header from template."""
     project_dir = env.get("PROJECT_DIR")
     data_dir = os.path.join(project_dir, "data")
-    template_path = os.path.join(data_dir, "setup.html")
     include_dir = os.path.join(project_dir, "include")
-    output_path = os.path.join(include_dir, "web_ui_data.h")
-    zones_file = os.path.join(data_dir, "zones.csv")
 
+    template_path = os.path.join(data_dir, "setup.html")
+    zones_file = os.path.join(data_dir, "zones.csv")
+    output_path = os.path.join(include_dir, "web_ui_data.h")
     config_cpp = os.path.join(project_dir, "src", "config.cpp")
 
     if not os.path.exists(template_path):
@@ -119,45 +107,43 @@ def build_web_ui(source, target, env):
     timezone_options = generate_timezone_options(timezones, timezone)
 
     print(
-        f"Baking settings into UI: City='{city}', Country='{country}', {lat}/{lon}, Timezone='{timezone}'"
+        f"Baking settings into UI: City='{city}', Country='{country}', "
+        f"{lat}/{lon}, Timezone='{timezone}'"
     )
     print(f"Loaded {len(timezones)} timezones from zones.csv")
 
+    # Load and process template
     with open(template_path, "r", encoding="utf-8") as f:
-        html = f.read()
+        html_content = f.read()
 
-    # Replace placeholders
-    html = html.replace("{{CITY_STRING}}", city)
-    html = html.replace("{{COUNTRY_STRING}}", country)
-    html = html.replace("{{LAT}}", lat)
-    html = html.replace("{{LON}}", lon)
+    html_content = html_content.replace("{{CITY_STRING}}", city)
+    html_content = html_content.replace("{{COUNTRY_STRING}}", country)
+    html_content = html_content.replace("{{LAT}}", lat)
+    html_content = html_content.replace("{{LON}}", lon)
+    html_content = html_content.replace(
+        "{{TIMEZONE_SELECTED_EMPTY}}", "" if timezone else "selected"
+    )
+    html_content = html_content.replace("{{TIMEZONE_OPTIONS}}", timezone_options)
 
-    # Timezone: if empty, show placeholder as selected
-    if timezone:
-        html = html.replace("{{TIMEZONE_SELECTED_EMPTY}}", "")
-    else:
-        html = html.replace("{{TIMEZONE_SELECTED_EMPTY}}", "selected")
+    # Compress and generate header
+    compressed = gzip.compress(html_content.encode("utf-8"))
 
-    html = html.replace("{{TIMEZONE_OPTIONS}}", timezone_options)
+    header_content = f"""#ifndef WEB_UI_DATA_H
+#define WEB_UI_DATA_H
 
-    # GZIP compress
-    compressed = gzip.compress(html.encode("utf-8"))
+#include <Arduino.h>
 
-    # Generate header file
+// Auto-generated from data/setup.html at build time
+const uint8_t index_html_gz[] PROGMEM = {{
+  {format_c_array(compressed)}
+}};
+const uint32_t index_html_gz_len = {len(compressed)};
+
+#endif
+"""
+
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write("#ifndef WEB_UI_DATA_H\n#define WEB_UI_DATA_H\n\n")
-        f.write("#include <Arduino.h>\n\n")
-        f.write("// Auto-generated from data/setup.html at build time\n")
-        f.write("const uint8_t index_html_gz[] PROGMEM = {\n  ")
-        for i, b in enumerate(compressed):
-            f.write(f"0x{b:02x}")
-            if i < len(compressed) - 1:
-                f.write(", ")
-            if (i + 1) % 12 == 0:
-                f.write("\n  ")
-        f.write("\n};\n")
-        f.write(f"const uint32_t index_html_gz_len = {len(compressed)};\n\n")
-        f.write("#endif\n")
+        f.write(header_content)
 
     print(f"Successfully generated {output_path}")
 
