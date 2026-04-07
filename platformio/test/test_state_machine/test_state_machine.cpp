@@ -241,6 +241,50 @@ void test_wake_at_7am_wifi_fail_goes_to_sleep_not_ap_mode(void) {
     TEST_ASSERT_TRUE(output.incWifiFail);
 }
 
+void test_sleep_duration_midnight_rollover(void) {
+    // 23:55:00, Bed/Wake: 0 (No bedtime), Interval: 6min
+    uint32_t sleep = calculateSleepDuration(23, 55, 0, 0, 0, 6);
+    // Next boundary is 00:00:00 (5m = 300s)
+    // (300+3)*1.0015 = 303.4...
+    TEST_ASSERT_INT_WITHIN(5, 303, sleep);
+}
+
+void test_sleep_duration_exact_boundary(void) {
+    // 12:00:00, Bed/Wake: 0, Interval: 30min
+    uint32_t sleep = calculateSleepDuration(12, 0, 0, 0, 0, 30);
+    // It's exactly on the boundary. It should sleep for a full 30m.
+    // (1800+3)*1.0015 = 1805.7
+    TEST_ASSERT_INT_WITHIN(5, 1806, sleep);
+}
+
+void test_sleep_duration_pre_bedtime(void) {
+    // 21:30:00, Bed: 22h, Wake: 07h, Interval: 60min
+    uint32_t sleep = calculateSleepDuration(21, 30, 0, 22, 7, 60);
+    // Next boundary is 22:00:00 (30m = 1800s).
+    // (1800+3)*1.0015 = 1805.7.
+    // HOWEVER, the logic check in predictedWakeRelHour means it skips bedtime!
+    // So it sleeps until WakeTime (9.5 hours = 34200s).
+    // (34200+3)*1.0015 = 34254
+    TEST_ASSERT_INT_WITHIN(60, 34254, sleep); 
+}
+
+void test_sleep_duration_extreme_intervals(void) {
+    // 2 min interval
+    uint32_t sleep2m = calculateSleepDuration(12, 0, 0, 0, 0, 2);
+    TEST_ASSERT_INT_WITHIN(5, 123, sleep2m); // (120+3)*1.0015
+    
+    // 24h interval (1440m)
+    uint32_t sleep24h = calculateSleepDuration(12, 0, 0, 12, 12, 1440);
+    TEST_ASSERT_INT_WITHIN(60, 86529, sleep24h); // (86400+3)*1.0015
+}
+
+void test_sleep_duration_drift_verification(void) {
+    // 10:00:00, 10m interval.
+    uint32_t sleep = calculateSleepDuration(10, 0, 0, 0, 0, 10);
+    // (600 + 3) * 1.0015 = 603.9... 
+    TEST_ASSERT_INT_WITHIN(1, 603, sleep);
+}
+
 void test_forecast_weekday_cycling(void) {
     // Basic cycling
     TEST_ASSERT_EQUAL(1, getForecastWeekday(0, 1)); // Sun -> Mon
@@ -298,6 +342,11 @@ int main(int argc, char **argv) {
     RUN_TEST(test_sleep_duration_bedtime_trigger);
     RUN_TEST(test_sleep_duration_midnight_cross);
     RUN_TEST(test_sleep_duration_no_bedtime_loop);
+    RUN_TEST(test_sleep_duration_midnight_rollover);
+    RUN_TEST(test_sleep_duration_exact_boundary);
+    RUN_TEST(test_sleep_duration_pre_bedtime);
+    RUN_TEST(test_sleep_duration_extreme_intervals);
+    RUN_TEST(test_sleep_duration_drift_verification);
 
     // Forecast Days
     RUN_TEST(test_forecast_weekday_cycling);

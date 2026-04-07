@@ -417,6 +417,58 @@ pio device monitor --baud 115200
 3. Build and upload
 4. The display will show real weather data without API calls
 
+### Running Unit Tests
+
+The project includes unit tests that run on your development machine (native host) using the Unity test framework. These tests validate the state machine logic and sleep duration calculations without requiring ESP32 hardware.
+
+**Prerequisites:**
+- PlatformIO CLI installed
+- Native build tools (GCC)
+
+**Test Environment:**
+The `native` environment in `platformio.ini` is configured to run tests on Linux/Mac/PC:
+```ini
+[env:native]
+platform = native
+test_framework = unity
+build_flags = -D UNIT_TEST -D LOCALE=en_US -I test/native_mock
+```
+
+**Running Tests:**
+```bash
+# Run all tests on native environment
+pio test -e native
+
+# Run tests with verbose output
+pio test -e native -v
+
+# Run specific test file
+pio test -e native --filter test_state_machine
+```
+
+**Test Coverage:**
+- State machine transitions (Boot → WiFi → Normal → Sleep)
+- WiFi connection failure handling (first boot vs subsequent boots)
+- Sleep duration calculations (daytime intervals, bedtime logic, midnight rollover)
+- Forecast day name generation and weekday cycling
+
+**Adding New Tests:**
+1. Add test functions to `test/test_state_machine/test_state_machine.cpp`
+2. Register the test in `main()` with `RUN_TEST(your_test_function)`
+3. Run `pio test -e native` to verify
+
+Example test structure:
+```cpp
+void test_your_feature(void) {
+    DecisionInput input = {};
+    input.hasCredentials = true;
+    
+    DecisionOutput output = decideTransition(STATE_BOOT, input);
+    
+    TEST_ASSERT_EQUAL(STATE_WIFI_CONNECTING, output.nextState);
+}
+```
+
 ## Security Considerations
 
 ### HTTPS Certificate Verification
