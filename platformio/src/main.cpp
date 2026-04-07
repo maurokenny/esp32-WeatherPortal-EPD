@@ -515,11 +515,21 @@ void beginDeepSleep(unsigned long startTime, uint64_t sleepDurationSeconds)
   printHeapUsage();
 #endif
 
+  // Ensure all serial output is flushed before sleeping
+  Serial.flush();
+  
+  // Small delay to allow background tasks to complete and prevent watchdog issues
+  delay(100);
+
   esp_sleep_enable_timer_wakeup(sleepDurationSeconds * 1000000ULL);
   Serial.print(TXT_AWAKE_FOR);
   Serial.println(" "  + String((millis() - startTime) / 1000.0, 3) + "s");
   Serial.print(TXT_ENTERING_DEEP_SLEEP_FOR);
   Serial.println(" " + String(sleepDurationSeconds) + "s");
+  
+  // Flush again before the final sleep call
+  Serial.flush();
+  
   esp_deep_sleep_start();
 } // end beginDeepSleep
 
@@ -731,6 +741,14 @@ void setup()
 
   // Load defaults into RTC RAM variables only if not already initialized (e.g. cold boot)
   // All strncpy calls use sizeof(dest) - 1 to ensure null-termination
+  
+  // Sanity check: if rtcInitialized is true but credentials are empty,
+  // RTC memory was likely corrupted (e.g., watchdog reset). Force reload.
+  if (rtcInitialized && strlen(ramSSID) == 0) {
+    Serial.println("[WARNING] RTC initialized but credentials corrupted. Reloading defaults.");
+    rtcInitialized = false;
+  }
+  
   if (!rtcInitialized) {
     if (WIFI_SSID != nullptr && strlen(WIFI_SSID) > 0) {
       strncpy(ramSSID, WIFI_SSID, sizeof(ramSSID) - 1);
