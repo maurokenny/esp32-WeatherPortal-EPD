@@ -5,8 +5,9 @@ from os.path import join
 Import("env")
 
 # Define paths for the environment configuration
+# Look for .env in repository root (parent of project dir)
 project_dir = env["PROJECT_DIR"]
-env_file = join(project_dir, ".env")
+env_file = join(os.path.dirname(project_dir), ".env")
 
 # Fallback values used if the .env file is missing or keys are not found
 wifi_ssid = "Default SSID"
