@@ -1,20 +1,22 @@
-/* Main program for esp32-weather-epd.
- * Copyright (C) 2022-2025  Luke Marzen
- * Copyright (C) 2026  Mauro Freitas
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file main.cpp
+/// @brief Main application entry point and weather update orchestration
+/// @copyright Copyright (C) 2022-2025 Luke Marzen, 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// ESP32 Weather E-Paper Display main application. Implements:
+/// - Hardware initialization and power management
+/// - State machine integration with WiFi manager
+/// - Weather data acquisition (mock, saved, or live API)
+/// - Sensor reading (BME280/BME680)
+/// - Display rendering with paged mode
+/// - Deep sleep scheduling for battery operation
+///
+/// Application flow:
+/// 1. setup(): Initialize hardware, load RTC RAM, check battery
+/// 2. loop(): Execute WiFi manager state machine
+/// 3. updateWeather(): Fetch data, read sensors, render display
+/// 4. beginDeepSleep(): Calculate sleep duration, enter ultra-low-power mode
 
 #include "config.h"
 #include <Arduino.h>
@@ -49,27 +51,54 @@
   #include "cert.h"
 #endif
 
-// too large to allocate locally on stack
+/// @brief Global weather data structure (static to avoid stack overflow)
+/// @details OWM_NUM_HOURLY * hourly struct size + OWM_NUM_DAILY * daily struct size
+/// exceeds safe stack limits for ESP32 task. Static allocation prevents stack overflow.
 static owm_resp_onecall_t       owm_onecall;
+
+/// @brief Global air quality data structure (static allocation)
 static owm_resp_air_pollution_t owm_air_pollution;
 
+/// @brief NVS preferences for persistent storage
 Preferences prefs;
 
+/// @brief Application start time (millis())
+/// @details Used to calculate total awake time for display
 unsigned long startTick = 0;
-tm currentTimInfo = {};
-bool isTimeConfigured = false;
-String globalStatus = {};
-String globalTmpStr = {};
-// TimeCoordinator: Single Source of Truth for time/timezone
-TimeCoordinator timeCoord;
-uint64_t calculatedSleepDuration = 0;  // Calculated by TimeCoordinator, used in loop()
 
+/// @brief Current time information structure
+tm currentTimInfo = {};
+
+/// @brief Flag indicating successful NTP time synchronization
+bool isTimeConfigured = false;
+
+/// @brief Global status string for status bar
+String globalStatus = {};
+
+/// @brief Temporary string for formatting operations
+String globalTmpStr = {};
+
+/// @brief Time coordinator instance (Single Source of Truth)
+/// @details Centralizes all timezone and time formatting logic
+TimeCoordinator timeCoord;
+
+/// @brief Calculated deep sleep duration in seconds
+/// @details Set by TimeCoordinator::process(), consumed by beginDeepSleep()
+uint64_t calculatedSleepDuration = 0;
+
+/// @brief Fetch weather data and update display
+/// @details Main weather update orchestration function
 void updateWeather();
 
-/* Fill data structures with mockup data for testing without WiFi/API
- * Temperature values are kept below 100 degrees to ensure proper display
- * layout (2-digit temperatures fit better in the UI than 3-digit ones).
- */
+/// @brief Populate weather structures with synthetic test data
+/// @param owm_onecall Weather data structure to populate
+/// @param timeInfo Time structure to initialize
+/// @details Generates realistic weather data for testing without WiFi/API.
+/// Scenario selection via MOCKUP_CURRENT_WEATHER and MOCKUP_RAIN_WIDGET_STATE.
+/// Temperature values kept below 100°C for 2-digit display layout.
+///
+/// @note Initializes only used fields individually to avoid 171+ String constructor
+/// calls from aggregate initialization (stack overflow prevention).
 void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
 {
   Serial.println("Using MOCKUP DATA - No WiFi/API calls");
@@ -472,10 +501,14 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   Serial.println("Mockup data filled successfully!");
 }
 
-/* Put esp32 into ultra low-power deep sleep (<11μA).
- * Sleep duration is calculated by TimeCoordinator (Single Source of Truth).
- * No timezone calculations here - they belong in TimeCoordinator only.
- */
+/// @brief Enter ultra-low-power deep sleep mode
+/// @param startTime Application start time (millis())
+/// @param sleepDurationSeconds Time to sleep in seconds
+/// @details Configures ESP32 deep sleep timer and enters hibernation.
+/// Current consumption: <11μA during sleep.
+///
+/// @warning Must call powerOffDisplay() before this function.
+/// @note Wake up causes ESP32 reset; execution restarts from setup().
 void beginDeepSleep(unsigned long startTime, uint64_t sleepDurationSeconds)
 {
 #if DEBUG_LEVEL >= 1
@@ -490,12 +523,27 @@ void beginDeepSleep(unsigned long startTime, uint64_t sleepDurationSeconds)
   esp_deep_sleep_start();
 } // end beginDeepSleep
 
-/* Program entry point.
- */
-// Old setup() removed.
-// setup_old removed
-// Old blocking logic removed.
+/// @brief Program entry point
+/// @details
+/// 1. Initialize serial and disable LED
+/// 2. Load RTC RAM variables (WiFi creds, location)
+/// 3. Check battery voltage (hibernate if critical)
+/// 4. Initialize WiFi manager state machine
+///
+/// @note This function runs after every wake from deep sleep (reset).
 
+/// @brief Execute complete weather update cycle
+/// @details
+/// 1. Determine data source (mock, saved header, or live API)
+/// 2. Fetch weather and air quality data
+/// 3. Synchronize time via NTP (if not mock mode)
+/// 4. Read indoor sensor (BME280/BME680)
+/// 5. Process time data through TimeCoordinator
+/// 6. Render full display with all widgets
+/// 7. Calculate and store sleep duration
+/// 8. Transition to STATE_SLEEP_PENDING
+///
+/// @note Error handling through handleFailure() with retry logic
 void updateWeather()
 {
 #if USE_MOCKUP_DATA
@@ -674,6 +722,7 @@ void updateWeather()
   setFirmwareState(STATE_SLEEP_PENDING);
 }
 
+/// @brief Arduino framework setup function
 void setup()
 {
   startTick = millis();
@@ -774,6 +823,11 @@ void setup()
   wifiManagerSetup();
 }
 
+/// @brief Arduino framework main loop
+/// @details Non-blocking state machine execution:
+/// - STATE_NORMAL_MODE: Call updateWeather()
+/// - STATE_SLEEP_PENDING: Enter deep sleep
+/// - STATE_ERROR: Enter permanent hibernation (manual reset required)
 void loop()
 {
   wifiManagerLoop();

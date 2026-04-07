@@ -1,22 +1,27 @@
-/* TimeCoordinator Implementation
- * Copyright (C) 2026  Mauro Freitas
- * 
- * Single Source of Truth for all time-related operations.
- * Uses system timezone support (setenv/tzset) for robust TZ handling.
- * 
- * Critical design:
- * - System time (time(nullptr)): always UTC, converted via localtime()
- * - API data in AUTO mode: already local, use gmtime() (no conversion!)
- * - API data in MANUAL mode: UTC, converted via localtime()
- */
+/// @file time_coordinator.cpp
+/// @brief TimeCoordinator implementation - centralized time management
+/// @copyright Copyright (C) 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// Single Source of Truth for all time-related operations.
+/// Uses system timezone support (setenv/tzset) for robust TZ handling.
+///
+/// Critical design principles:
+/// - System time (time(nullptr)): always UTC, converted via localtime()
+/// - API data in AUTO mode: already local, use gmtime() (no conversion!)
+/// - API data in MANUAL mode: UTC, converted via localtime()
+///
+/// Architecture: API Response -> Parser -> TimeCoordinator -> UI / PowerManager
 
 #include "time_coordinator.h"
 #include "config.h"
 #include "wifi_manager.h"
 
 RTC_DATA_ATTR bool TimeCoordinator::rtcSynced_ = false;
-static constexpr time_t MIN_VALID_EPOCH = 1609459200; // 2021-01-01 00:00:00 UTC
 
+/// @brief Initialize TimeCoordinator
+/// @details Detects mode from ramTimezoneMode and configures system timezone
 void TimeCoordinator::begin() {
     mode_ = (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? 
             TIME_MODE_AUTO : TIME_MODE_MANUAL;
@@ -26,6 +31,11 @@ void TimeCoordinator::begin() {
                   mode_ == TIME_MODE_AUTO ? "AUTO" : "MANUAL");
 }
 
+/// @brief Process API data and generate display-ready time information
+/// @param apiData Raw weather API response
+/// @param startTimeMillis Device startup time from millis()
+/// @return TimeDisplayData with all pre-formatted time strings
+/// @note Does not modify apiData - creates normalized copy internally
 TimeDisplayData TimeCoordinator::process(const owm_resp_onecall_t& apiData,
                                          unsigned long startTimeMillis) {
     TimeDisplayData out = {};
@@ -49,11 +59,17 @@ TimeDisplayData TimeCoordinator::process(const owm_resp_onecall_t& apiData,
     return out;
 }
 
+/// @brief Configure system timezone from POSIX string
+/// @param tzString POSIX timezone string (e.g., "EST5EDT,M3.2.0,M11.1.0")
+/// @details Calls setenv("TZ") and tzset() to configure libc timezone
 void TimeCoordinator::configureTimezoneFromString_(const char* tzString) {
     setenv("TZ", tzString, 1);
     tzset();
 }
 
+/// @brief Configure system timezone from UTC offset
+/// @param offsetSeconds Offset from UTC in seconds (positive=east)
+/// @details Generates POSIX TZ string and configures system timezone
 void TimeCoordinator::configureTimezoneFromOffset_(int offsetSeconds) {
     // Convert seconds offset to POSIX TZ format
     // POSIX sign is inverted: UTC-2 means GMT+2 (east of Greenwich)
@@ -71,7 +87,11 @@ void TimeCoordinator::configureTimezoneFromOffset_(int offsetSeconds) {
     Serial.printf("[TimeCoordinator] TZ set: %s (UTC%+d)\n", tzBuf, offsetSeconds);
 }
 
-void TimeCoordinator::normalize_(const owm_resp_onecall_t& src, 
+/// @brief Normalize API response timestamps
+/// @param src Source API response
+/// @param dst Normalized output structure
+/// @details Copies and converts timestamps to local time as needed
+void TimeCoordinator::normalize_(const owm_resp_onecall_t& src,
                                  NormalizedWeather& dst) {
     dst.apiOffsetSeconds = src.timezone_offset;
     
@@ -95,6 +115,9 @@ void TimeCoordinator::normalize_(const owm_resp_onecall_t& src,
     }
 }
 
+/// @brief Synchronize system RTC with NTP if needed
+/// @param offsetSeconds Local timezone offset for RTC configuration
+/// @details Only syncs once per boot cycle (tracked via rtcSynced_)
 void TimeCoordinator::syncRtcIfNeeded_(int offsetSeconds) {
     if (rtcSynced_) return;
     
@@ -112,6 +135,11 @@ void TimeCoordinator::syncRtcIfNeeded_(int offsetSeconds) {
     }
 }
 
+/// @brief Format all display strings from normalized data
+/// @param apiData Raw API response (for rain lookup)
+/// @param norm Normalized timestamps
+/// @param out Output display data structure
+/// @param startTimeMillis Device startup time
 void TimeCoordinator::formatDisplayData_(const owm_resp_onecall_t& apiData,
                                         const NormalizedWeather& norm,
                                         TimeDisplayData& out,
@@ -191,8 +219,11 @@ void TimeCoordinator::formatDisplayData_(const owm_resp_onecall_t& apiData,
     out.sleepDurationSeconds = calculateSleep_(&tmLocal);
 }
 
-// Break down a timestamp that is already in local time
-// This does NOT apply any timezone conversion - just extracts year/month/day/hour/etc
+/// @brief Calculate deep sleep duration from local time
+/// @param localTime Current local time structure
+/// @return Sleep duration in seconds
+/// @details Implements wake/sleep schedule logic based on BED_TIME/WAKE_TIME.
+/// Does NOT apply timezone conversion - assumes localTime is already localized.
 uint64_t TimeCoordinator::calculateSleep_(const tm* localTime) {
     int curHour = localTime->tm_hour;
     int curMin = localTime->tm_min;

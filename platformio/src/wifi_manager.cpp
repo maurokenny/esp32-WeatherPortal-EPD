@@ -1,19 +1,17 @@
-/* WiFi Manager for esp32-weather-epd.
- * Copyright (C) 2026  Mauro Freitas
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file wifi_manager.cpp
+/// @brief WiFi connection management and configuration portal implementation
+/// @copyright Copyright (C) 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// Implements non-blocking WiFi state machine with:
+/// - Automatic connection with RTC RAM persisted credentials
+/// - Captive portal AP mode for initial configuration
+/// - IP-based geolocation for auto-location detection
+/// - Failure tracking with configurable retry limits
+/// - DNS server for captive portal detection
+///
+/// State transitions logged to serial at 115200 baud.
 
 #include "wifi_manager.h"
 #include <WiFi.h>
@@ -30,13 +28,16 @@
 #include "_locale.h"
 #include "icons/icons_196x196.h"
 
-// Global instances
+/// @brief Current firmware state machine state
 FirmwareState currentState = STATE_BOOT;
+
+/// @brief WiFi manager configuration
 DeviceConfig wifiConfig = {
-    .wifiConnectTimeout = 20,
-    .configTimeout = 300
-    // .configTimeout = 60
+    .wifiConnectTimeout = 20,  ///< WiFi connection attempt timeout (seconds)
+    .configTimeout = 300       ///< AP mode timeout (seconds)
 };
+
+/// @brief Runtime state tracking
 RuntimeState runtime = {
     .apMode = false,
     .wifiConnected = false,
@@ -50,9 +51,9 @@ RuntimeState runtime = {
 static uint32_t mockWifiStartTime = 0;
 #endif
 
-// RTC RAM Variables for connection and location (persist during deep sleep)
-// Buffer sizes follow: Character Limit + 1 for null-terminator
-// Total RTC RAM saved: 43 bytes (from 386 to 343 bytes for these buffers)
+/// @defgroup rtc_ram_vars RTC RAM Persistent Variables
+/// @brief Variables preserved across deep sleep (lost on power loss)
+/// @details Buffer sizes follow: Character Limit + 1 for null-terminator
 RTC_DATA_ATTR char ramSSID[33] = "";       // Wi-Fi SSID: 32 chars + \0 (optimized from 64)
 RTC_DATA_ATTR char ramPassword[64] = "";   // WPA2 password: 63 chars + \0
 RTC_DATA_ATTR char ramCity[64] = "";       // City name: 63 chars + \0
@@ -73,7 +74,10 @@ RTC_DATA_ATTR bool isErrorState = false;         // Permanent error state flag
 AsyncWebServer server(80);
 DNSServer dnsServer;
 
-// WLED style captive portal detection helper
+/// @brief Handle captive portal detection requests
+/// @param request HTTP request
+/// @return true if request was handled (redirected to portal)
+/// @details Implements captive portal detection for iOS, Android, Windows, macOS
 bool handleCaptivePortal(AsyncWebServerRequest *request) {
     String host = request->host();
     if (host != "192.168.4.1" && host != "weather.local") {
@@ -85,6 +89,9 @@ bool handleCaptivePortal(AsyncWebServerRequest *request) {
     return false;
 }
 
+/// @brief Start Access Point configuration mode
+/// @details Creates "weather_eink-AP" network and starts DNS server
+/// for captive portal detection. Serves configuration page on port 80.
 void startAP() {
     Serial.println("Starting Access Point Mode...");
     WiFi.mode(WIFI_AP);
@@ -136,10 +143,14 @@ void startAP() {
     setFirmwareState(STATE_AP_CONFIG_MODE);
 }
 
+/// @brief Initialize WiFi manager
+/// @details Sets hostname for network identification
 void wifiManagerSetup() {
     WiFi.setHostname("weather-eink");
 }
 
+/// @brief Execute WiFi state machine iteration
+/// @details Non-blocking state machine. Call repeatedly from loop().
 void wifiManagerLoop() {
     switch (currentState) {
         case STATE_BOOT:
@@ -276,6 +287,9 @@ void wifiManagerLoop() {
     }
 }
 
+/// @brief Transition to new firmware state
+/// @param newState Target state
+/// @details Logs transition to serial for debugging
 void setFirmwareState(FirmwareState newState) {
     if (currentState != newState) {
         Serial.printf("State Transition: %d -> %d\n", currentState, newState);
@@ -283,6 +297,11 @@ void setFirmwareState(FirmwareState newState) {
     }
 }
 
+/// @brief Perform IP-based geolocation
+/// @return true if location successfully determined
+/// @details Uses ip-api.com to auto-detect city/coordinates.
+/// Results stored in ramCity, ramLat, ramLon, ramCountry.
+/// @warning Requires active WiFi connection
 bool locateByIpAddress() {
     if (WiFi.status() != WL_CONNECTED) return false;
     

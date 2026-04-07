@@ -1,19 +1,16 @@
-/* Client side utilities for esp32-weather-epd.
- * Copyright (C) 2022-2024  Luke Marzen
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file client_utils.cpp
+/// @brief Network utilities: WiFi, NTP, and HTTP client implementation
+/// @copyright Copyright (C) 2022-2024 Luke Marzen
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// Implements network connectivity and time synchronization:
+/// - WiFi connection management with timeout
+/// - NTP time synchronization with SNTP
+/// - Open-Meteo API HTTP/HTTPS requests with retry logic
+/// - Heap diagnostics for debugging
+///
+/// @note All network operations are blocking with configurable timeouts.
 
 // built-in C++ libraries
 #include <cstring>
@@ -42,12 +39,6 @@
 #include "wifi_manager.h"
 #ifndef USE_HTTP
   #include <WiFiClientSecure.h>
-#endif
-
-#ifdef USE_HTTP
-  static const uint16_t OWM_PORT = 80;
-#else
-  static const uint16_t OWM_PORT = 443;
 #endif
 
 /* Power-on and connect WiFi.
@@ -92,18 +83,17 @@ wl_status_t startWiFi(int &wifiRSSI)
   return connection_status;
 } // startWiFi
 
-/* Disconnect and power-off WiFi.
- */
+/// @brief Disconnect and power off WiFi radio
+/// @details Shuts down WiFi to minimize power consumption
 void killWiFi()
 {
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
 } // killWiFi
 
-/* Prints the local time to serial monitor.
- *
- * Returns true if getting local time was a success, otherwise false.
- */
+/// @brief Print current local time to serial
+/// @param timeInfo Output time structure
+/// @return true if local time retrieved successfully
 bool printLocalTime(tm *timeInfo)
 {
   int attempts = 0;
@@ -116,13 +106,11 @@ bool printLocalTime(tm *timeInfo)
   return true;
 } // printLocalTime
 
-/* Waits for NTP server time sync, adjusted for the time zone specified in
- * config.cpp.
- *
- * Returns true if time was set successfully, otherwise false.
- *
- * Note: Must be connected to WiFi to get time from NTP server.
- */
+/// @brief Wait for NTP time synchronization
+/// @param timeInfo Output time structure with local time
+/// @return true if synchronization successful
+/// @details Blocks until SNTP sync complete or NTP_TIMEOUT expires.
+/// @pre WiFi must be connected
 bool waitForSNTPSync(tm *timeInfo)
 {
   // Wait for SNTP synchronization to complete
@@ -143,12 +131,12 @@ bool waitForSNTPSync(tm *timeInfo)
   return printLocalTime(timeInfo);
 } // waitForSNTPSync
 
-/* Perform an HTTP GET request to Open-Meteo Forecast API
- * If data is received, it will be parsed and stored in the global variable
- * owm_onecall.
- *
- * Returns the HTTP Status Code.
- */
+/// @brief Fetch weather forecast from Open-Meteo API
+/// @param client WiFi client (HTTP or HTTPS depending on config)
+/// @param r Output structure to populate
+/// @return HTTP status code (200=OK, negative=error)
+/// @details Performs GET request with 3 retry attempts. Parses JSON response
+/// and populates weather data structure.
 #ifdef USE_HTTP
   int getOpenMeteoForecast(WiFiClient &client, owm_resp_onecall_t &r)
 #else

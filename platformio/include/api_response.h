@@ -1,20 +1,17 @@
-/* API response deserialization declarations for esp32-weather-epd.
- * Copyright (C) 2022-2023  Luke Marzen
- * Copyright (C) 2026  Mauro Freitas
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file api_response.h
+/// @brief Weather API response data structures and deserialization functions
+/// @copyright Copyright (C) 2022-2023 Luke Marzen, 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// Defines data structures compatible with both OpenWeatherMap OneCall API
+/// and Open-Meteo API. All API responses are parsed into these structures
+/// for uniform handling throughout the application.
+///
+/// Memory layout is optimized for ESP32 with limited RAM:
+/// - Fixed-size arrays for hourly/daily data (no heap fragmentation)
+/// - std::vector only for alerts (variable count)
+/// - All timestamps as int64_t Unix epoch
 
 #ifndef __API_RESPONSE_H__
 #define __API_RESPONSE_H__
@@ -26,257 +23,254 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-#define OWM_NUM_MINUTELY       1 // 61
-#define OWM_NUM_HOURLY        48 // 48
-#define OWM_NUM_DAILY          8 // 8
-#define OWM_NUM_ALERTS         8 // OpenWeatherMaps does not specify a limit, but if you need more alerts you are probably doomed.
-#define OWM_NUM_AIR_POLLUTION 24 // Depending on AQI scale, hourly concentrations will need to be averaged over a period of 1h to 24h
+/// @brief Number of minutely forecast data points (currently unused)
+#define OWM_NUM_MINUTELY       1
 
+/// @brief Number of hourly forecast data points (48 hours = 2 days)
+#define OWM_NUM_HOURLY        48
+
+/// @brief Number of daily forecast data points (8 days)
+#define OWM_NUM_DAILY          8
+
+/// @brief Maximum number of weather alerts
+/// @note OpenWeatherMap does not specify a limit; 8 is reasonable for most regions
+#define OWM_NUM_ALERTS         8
+
+/// @brief Number of air quality data points (24 hours)
+#define OWM_NUM_AIR_POLLUTION 24
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// OpenWeatherMap API Data Structures
+/// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief Weather condition information
+/// @details Group, description, and icon ID for display
 typedef struct owm_weather
 {
-  int     id;               // Weather condition id
-  String  main;             // Group of weather parameters (Rain, Snow, Extreme etc.)
-  String  description;      // Weather condition within the group (full list of weather conditions). Get the output in your language
-  String  icon;             // Weather icon id.
+  int     id;               ///< Weather condition ID (OWM code)
+  String  main;             ///< Weather group (Rain, Snow, etc.)
+  String  description;      ///< Detailed description
+  String  icon;             ///< Icon ID (e.g., "01d", "10n")
 } owm_weather_t;
 
-/*
- * Units – default: kelvin, metric: Celsius, imperial: Fahrenheit.
- */
+/// @brief Temperature data for daily forecast
+/// @note Units: Kelvin (default), Celsius (metric), Fahrenheit (imperial)
 typedef struct owm_temp
 {
-  float   morn;             // Morning temperature.
-  float   day;              // Day temperature.
-  float   eve;              // Evening temperature.
-  float   night;            // Night temperature.
-  float   min;              // Min daily temperature.
-  float   max;              // Max daily temperature.
+  float   morn;             ///< Morning temperature
+  float   day;              ///< Day temperature
+  float   eve;              ///< Evening temperature
+  float   night;            ///< Night temperature
+  float   min;              ///< Minimum daily temperature
+  float   max;              ///< Maximum daily temperature
 } owm_temp_t;
 
-/*
- * This accounts for the human perception of weather. Units – default: kelvin, metric: Celsius, imperial: Fahrenheit.
- */
+/// @brief "Feels like" temperature for daily forecast
+/// @details Accounts for human perception of weather
 typedef struct owm_feels_like
 {
-  float   morn;             // Morning temperature.
-  float   day;              // Day temperature.
-  float   eve;              // Evening temperature.
-  float   night;            // Night temperature.
+  float   morn;             ///< Morning feels-like
+  float   day;              ///< Day feels-like
+  float   eve;              ///< Evening feels-like
+  float   night;            ///< Night feels-like
 } owm_owm_feels_like_t;
 
-/*
- * Current weather data API response
- */
+/// @brief Current weather conditions
+/// @details Contains all current observation data from API
 typedef struct owm_current
 {
-  int64_t dt;               // Current time, Unix, UTC
-  int64_t sunrise;          // Sunrise time, Unix, UTC
-  int64_t sunset;           // Sunset time, Unix, UTC
-  float   temp;             // Temperature. Units - default: kelvin, metric: Celsius, imperial: Fahrenheit.
-  float   feels_like;       // Temperature. This temperature parameter accounts for the human perception of weather. Units – default: kelvin, metric: Celsius, imperial: Fahrenheit.
-  int     pressure;         // Atmospheric pressure on the sea level, hPa
-  int     humidity;         // Humidity, %
-  float   dew_point;        // Atmospheric temperature (varying according to pressure and humidity) below which water droplets begin to condense and dew can form. Units – default: kelvin, metric: Celsius, imperial: Fahrenheit.
-  int     clouds;           // Cloudiness, %
-  float   uvi;              // Current UV index
-  int     visibility;       // Average visibility, metres. The maximum value of the visibility is 10km
-  float   wind_speed;       // Wind speed. Wind speed. Units – default: metre/sec, metric: metre/sec, imperial: miles/hour.
-  float   wind_gust;        // (where available) Wind gust. Units – default: metre/sec, metric: metre/sec, imperial: miles/hour.
-  int     wind_deg;         // Wind direction, degrees (meteorological)
-  float   rain_1h;          // (where available) Rain volume for last hour, mm
-  float   snow_1h;          // (where available) Snow volume for last hour, mm
-  owm_weather_t         weather;
+  int64_t dt;               ///< Current time, Unix epoch UTC
+  int64_t sunrise;          ///< Sunrise time, Unix epoch UTC
+  int64_t sunset;           ///< Sunset time, Unix epoch UTC
+  float   temp;             ///< Temperature (Kelvin)
+  float   feels_like;       ///< "Feels like" temperature
+  int     pressure;         ///< Atmospheric pressure at sea level, hPa
+  int     humidity;         ///< Humidity percentage (0-100)
+  float   dew_point;        ///< Dew point temperature (Kelvin)
+  int     clouds;           ///< Cloudiness percentage (0-100)
+  float   uvi;              ///< UV index
+  int     visibility;       ///< Average visibility in meters (max 10km)
+  float   wind_speed;       ///< Wind speed (m/s)
+  float   wind_gust;        ///< Wind gust speed (m/s)
+  int     wind_deg;         ///< Wind direction in degrees (meteorological)
+  float   rain_1h;          ///< Rain volume last hour (mm)
+  float   snow_1h;          ///< Snow volume last hour (mm)
+  owm_weather_t  weather;   ///< Weather condition details
 } owm_current_t;
 
-/*
- * Minute forecast weather data API response
- */
+/// @brief Minutely precipitation forecast
+/// @note Currently unused in application
 typedef struct owm_minutely
 {
-  int64_t dt;               // Time of the forecasted data, unix, UTC
-  float   precipitation;    // Precipitation volume, mm
+  int64_t dt;               ///< Forecast time, Unix epoch UTC
+  float   precipitation;    ///< Precipitation volume (mm)
 } owm_minutely_t;
 
-/*
- * Hourly forecast weather data API response
- */
+/// @brief Hourly forecast data point
 typedef struct owm_hourly
 {
-  int64_t dt;               // Time of the forecasted data, unix, UTC
-  float   temp;             // Temperature. Units - default: kelvin, metric: Celsius, imperial: Fahrenheit.
-  float   feels_like;       // Temperature. This temperature parameter accounts for the human perception of weather. Units – default: kelvin, metric: Celsius, imperial: Fahrenheit.
-  int     pressure;         // Atmospheric pressure on the sea level, hPa
-  int     humidity;         // Humidity, %
-  float   dew_point;        // Atmospheric temperature (varying according to pressure and humidity) below which water droplets begin to condense and dew can form. Units – default: kelvin, metric: Celsius, imperial: Fahrenheit.
-  int     clouds;           // Cloudiness, %
-  float   uvi;              // Current UV index
-  int     visibility;       // Average visibility, metres. The maximum value of the visibility is 10km
-  float   wind_speed;       // Wind speed. Wind speed. Units – default: metre/sec, metric: metre/sec, imperial: miles/hour.
-  float   wind_gust;        // (where available) Wind gust. Units – default: metre/sec, metric: metre/sec, imperial: miles/hour.
-  int     wind_deg;         // Wind direction, degrees (meteorological)
-  float   pop;              // Probability of precipitation. The values of the parameter vary between 0 and 1, where 0 is equal to 0%, 1 is equal to 100%
-  float   rain_1h;          // (where available) Rain volume for last hour, mm
-  float   snow_1h;          // (where available) Snow volume for last hour, mm
-  owm_weather_t         weather;
+  int64_t dt;               ///< Forecast time, Unix epoch UTC
+  float   temp;             ///< Temperature (Kelvin)
+  float   feels_like;       ///< "Feels like" temperature
+  int     pressure;         ///< Pressure (hPa)
+  int     humidity;         ///< Humidity percentage (0-100)
+  float   dew_point;        ///< Dew point (Kelvin)
+  int     clouds;           ///< Cloudiness percentage (0-100)
+  float   uvi;              ///< UV index
+  int     visibility;       ///< Visibility in meters
+  float   wind_speed;       ///< Wind speed (m/s)
+  float   wind_gust;        ///< Wind gust (m/s)
+  int     wind_deg;         ///< Wind direction (degrees)
+  float   pop;              ///< Probability of precipitation (0.0 - 1.0)
+  float   rain_1h;          ///< Rain volume (mm)
+  float   snow_1h;          ///< Snow volume (mm)
+  owm_weather_t  weather;   ///< Weather condition
 } owm_hourly_t;
 
-/*
- * Daily forecast weather data API response
- */
+/// @brief Daily forecast data point
 typedef struct owm_daily
 {
-  int64_t dt;               // Time of the forecasted data, unix, UTC
-  int64_t sunrise;          // Sunrise time, Unix, UTC
-  int64_t sunset;           // Sunset time, Unix, UTC
-  int64_t moonrise;         // The time of when the moon rises for this day, Unix, UTC
-  int64_t moonset;          // The time of when the moon sets for this day, Unix, UTC
-  float   moon_phase;       // Moon phase. 0 and 1 are 'new moon', 0.25 is 'first quarter moon', 0.5 is 'full moon' and 0.75 is 'last quarter moon'. The periods in between are called 'waxing crescent', 'waxing gibous', 'waning gibous', and 'waning crescent', respectively.
-  owm_temp_t            temp;
-  owm_owm_feels_like_t  feels_like;
-  int     pressure;         // Atmospheric pressure on the sea level, hPa
-  int     humidity;         // Humidity, %
-  float   dew_point;        // Atmospheric temperature (varying according to pressure and humidity) below which water droplets begin to condense and dew can form. Units – default: kelvin, metric: Celsius, imperial: Fahrenheit.
-  int     clouds;           // Cloudiness, %
-  float   uvi;              // Current UV index
-  int     visibility;       // Average visibility, metres. The maximum value of the visibility is 10km
-  float   wind_speed;       // Wind speed. Wind speed. Units – default: metre/sec, metric: metre/sec, imperial: miles/hour.
-  float   wind_gust;        // (where available) Wind gust. Units – default: metre/sec, metric: metre/sec, imperial: miles/hour.
-  int     wind_deg;         // Wind direction, degrees (meteorological)
-  float   pop;              // Probability of precipitation. The values of the parameter vary between 0 and 1, where 0 is equal to 0%, 1 is equal to 100%
-  float   rain;             // (where available) Precipitation volume, mm
-  float   snow;             // (where available) Snow volume, mm
-  owm_weather_t         weather;
+  int64_t dt;               ///< Forecast date, Unix epoch UTC
+  int64_t sunrise;          ///< Sunrise time, Unix epoch UTC
+  int64_t sunset;           ///< Sunset time, Unix epoch UTC
+  int64_t moonrise;         ///< Moonrise time, Unix epoch UTC
+  int64_t moonset;          ///< Moonset time, Unix epoch UTC
+  float   moon_phase;       ///< Moon phase (0-1): 0=new, 0.25=first quarter, 0.5=full, 0.75=last quarter
+  owm_temp_t            temp;        ///< Temperature ranges
+  owm_owm_feels_like_t  feels_like;  ///< Feels-like temperatures
+  int     pressure;         ///< Pressure (hPa)
+  int     humidity;         ///< Humidity percentage (0-100)
+  float   dew_point;        ///< Dew point (Kelvin)
+  int     clouds;           ///< Cloudiness (0-100)
+  float   uvi;              ///< UV index
+  int     visibility;       ///< Visibility (meters)
+  float   wind_speed;       ///< Wind speed (m/s)
+  float   wind_gust;        ///< Wind gust (m/s)
+  int     wind_deg;         ///< Wind direction (degrees)
+  float   pop;              ///< Probability of precipitation (0.0 - 1.0)
+  float   rain;             ///< Rain volume (mm)
+  float   snow;             ///< Snow volume (mm)
+  owm_weather_t  weather;   ///< Weather condition
 } owm_daily_t;
 
-/*
- * National weather alerts data from major national weather warning systems
- */
+/// @brief Weather alert from national warning systems
 typedef struct owm_alerts
 {
-  String  sender_name;      // Name of the alert source.
-  String  event;            // Alert event name
-  int64_t start;            // Date and time of the start of the alert, Unix, UTC
-  int64_t end;              // Date and time of the end of the alert, Unix, UTC
-  String  description;      // Description of the alert
-  String  tags;             // Type of severe weather
+  String  sender_name;      ///< Alert source name
+  String  event;            ///< Alert event name
+  int64_t start;            ///< Alert start time, Unix epoch UTC
+  int64_t end;              ///< Alert end time, Unix epoch UTC
+  String  description;      ///< Alert description
+  String  tags;             ///< Alert type/category tags
 } owm_alerts_t;
 
-/*
- * Response from OpenWeatherMap's OneCall API
- *
- * https://openweathermap.org/api/one-call-api
- */
+/// @brief Complete OneCall API response structure
+/// @details Contains all weather data from a single API call
 typedef struct owm_resp_onecall
 {
-  float   lat;              // Geographical coordinates of the location (latitude)
-  float   lon;              // Geographical coordinates of the location (longitude)
-  String  timezone;         // Timezone name for the requested location
-  int     timezone_offset;  // Shift in seconds from UTC
-  owm_current_t   current;
-  // owm_minutely_t  minutely[OWM_NUM_MINUTELY];
-
-  owm_hourly_t    hourly[OWM_NUM_HOURLY];
-  owm_daily_t     daily[OWM_NUM_DAILY];
-  std::vector<owm_alerts_t> alerts;
+  float   lat;                    ///< Geographical latitude
+  float   lon;                    ///< Geographical longitude
+  String  timezone;               ///< Timezone name
+  int     timezone_offset;        ///< Offset from UTC in seconds
+  owm_current_t   current;        ///< Current conditions
+  owm_hourly_t    hourly[OWM_NUM_HOURLY];  ///< Hourly forecasts
+  owm_daily_t     daily[OWM_NUM_DAILY];    ///< Daily forecasts
+  std::vector<owm_alerts_t> alerts;        ///< Weather alerts
 } owm_resp_onecall_t;
 
-/*
- * Coordinates from the specified location (latitude, longitude)
- */
+/// @brief Geographical coordinates
 typedef struct owm_coord
 {
   float   lat;
   float   lon;
 } owm_coord_t;
 
+/// @brief Air pollutant concentrations
+/// @note All values in μg/m³
 typedef struct owm_components
 {
-  float   co[OWM_NUM_AIR_POLLUTION];    // Сoncentration of CO (Carbon monoxide), μg/m^3
-  float   no[OWM_NUM_AIR_POLLUTION];    // Сoncentration of NO (Nitrogen monoxide), μg/m^3
-  float   no2[OWM_NUM_AIR_POLLUTION];   // Сoncentration of NO2 (Nitrogen dioxide), μg/m^3
-  float   o3[OWM_NUM_AIR_POLLUTION];    // Сoncentration of O3 (Ozone), μg/m^3
-  float   so2[OWM_NUM_AIR_POLLUTION];   // Сoncentration of SO2 (Sulphur dioxide), μg/m^3
-  float   pm2_5[OWM_NUM_AIR_POLLUTION]; // Сoncentration of PM2.5 (Fine particles matter), μg/m^3
-  float   pm10[OWM_NUM_AIR_POLLUTION];  // Сoncentration of PM10 (Coarse particulate matter), μg/m^3
-  float   nh3[OWM_NUM_AIR_POLLUTION];   // Сoncentration of NH3 (Ammonia), μg/m^3
+  float   co[OWM_NUM_AIR_POLLUTION];     ///< Carbon monoxide
+  float   no[OWM_NUM_AIR_POLLUTION];     ///< Nitrogen monoxide
+  float   no2[OWM_NUM_AIR_POLLUTION];    ///< Nitrogen dioxide
+  float   o3[OWM_NUM_AIR_POLLUTION];     ///< Ozone
+  float   so2[OWM_NUM_AIR_POLLUTION];    ///< Sulphur dioxide
+  float   pm2_5[OWM_NUM_AIR_POLLUTION];  ///< Fine particulate matter (PM2.5)
+  float   pm10[OWM_NUM_AIR_POLLUTION];   ///< Coarse particulate matter (PM10)
+  float   nh3[OWM_NUM_AIR_POLLUTION];    ///< Ammonia
 } owm_components_t;
 
-/*
- * Response from OpenWeatherMap's Air Pollution API
- */
+/// @brief Air quality API response
+/// @details Hourly pollutant concentrations for AQI calculation
 typedef struct owm_resp_air_pollution
 {
-  owm_coord_t      coord;
-  int              main_aqi[OWM_NUM_AIR_POLLUTION];   // Air Quality Index. Possible values: 1, 2, 3, 4, 5. Where 1 = Good, 2 = Fair, 3 = Moderate, 4 = Poor, 5 = Very Poor.
-  owm_components_t components;
-  int64_t          dt[OWM_NUM_AIR_POLLUTION];         // Date and time, Unix, UTC;
+  owm_coord_t      coord;                           ///< Location coordinates
+  int              main_aqi[OWM_NUM_AIR_POLLUTION]; ///< AQI values (1-5)
+  owm_components_t components;                      ///< Pollutant concentrations
+  int64_t          dt[OWM_NUM_AIR_POLLUTION];       ///< Timestamps
 } owm_resp_air_pollution_t;
 
-DeserializationError deserializeOneCall(WiFiClient &json,
-                                        owm_resp_onecall_t &r);
-DeserializationError deserializeAirQuality(WiFiClient &json,
-                                           owm_resp_air_pollution_t &r);
+/// ═══════════════════════════════════════════════════════════════════════════
+/// OpenWeatherMap API Deserialization (legacy support)
+/// ═══════════════════════════════════════════════════════════════════════════
 
-/*
- * Open-Meteo API support
- */
+/// @brief Deserialize OpenWeatherMap OneCall API response
+/// @param json WiFi client stream containing JSON
+/// @param r Output structure to populate
+/// @return ArduinoJson deserialization error code
+DeserializationError deserializeOneCall(WiFiClient &json, owm_resp_onecall_t &r);
 
-/**
- * Convert WMO Weather Interpretation code to OpenWeatherMap-compatible structure.
- * This allows reusing existing icon mappings designed for OpenWeatherMap codes.
- * @param wmoCode WMO code (0-99)
- * @param isDay true for daytime, false for nighttime (affects icon selection)
- * @param weather output structure to populate with OWM-compatible values
- */
+/// @brief Deserialize OpenWeatherMap Air Pollution API response
+/// @param json WiFi client stream containing JSON
+/// @param r Output structure to populate
+/// @return ArduinoJson deserialization error code
+DeserializationError deserializeAirQuality(WiFiClient &json, owm_resp_air_pollution_t &r);
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Open-Meteo API Support
+/// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief Convert WMO Weather Interpretation code to OpenWeatherMap-compatible
+/// @details Maps WMO codes (0-99) to OWM-style weather descriptions and icons.
+/// Allows reusing existing icon mappings designed for OWM codes.
+/// @param wmoCode WMO code from Open-Meteo (0-99)
+/// @param isDay true for daytime, false for nighttime (affects icon selection)
+/// @param weather Output structure populated with OWM-compatible values
+/// @see https://open-meteo.com/en/docs for WMO codes
+/// @see https://openweathermap.org/weather-conditions for OWM codes
 void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather);
 
-/**
- * Parse ISO 8601 datetime string to Unix timestamp.
- * Format: "2026-03-24T18:15"
- * @param iso8601 ISO 8601 datetime string
- * @param inputIsUtc true when the input string is UTC (timezone=GMT), false when the input string is local time (timezone=auto)
- * @param tzOffsetSeconds local timezone offset in seconds when inputIsUtc is false
- * @return Unix timestamp (seconds since epoch)
- */
+/// @brief Parse ISO 8601 datetime string to Unix timestamp
+/// @details Format: "2026-03-24T18:15". Handles both UTC and local time inputs.
+/// @param iso8601 ISO 8601 datetime string
+/// @param inputIsUtc true if input is UTC (timezone=GMT), false if local time
+/// @param tzOffsetSeconds Local timezone offset in seconds (used when inputIsUtc=false)
+/// @return Unix timestamp (seconds since epoch), or 0 on parse error
 int64_t parseIso8601(const char* iso8601, bool inputIsUtc = true, int tzOffsetSeconds = 0);
 
-/**
- * Deserialize Open-Meteo API response.
- * Converts Open-Meteo format to the existing owm_resp_onecall_t structure
- * for compatibility with the rest of the application.
- * @param json WiFi client stream containing JSON response
- * @param r response structure to populate
- * @return deserialization error code
- */
-DeserializationError deserializeOpenMeteo(WiFiClient &json,
-                                          owm_resp_onecall_t &r);
+/// @brief Deserialize Open-Meteo API response
+/// @details Converts Open-Meteo format to owm_resp_onecall_t for compatibility.
+/// Temperatures are converted from Celsius (Open-Meteo) to Kelvin (OWM format).
+/// @param json WiFi client stream containing JSON
+/// @param r Output structure to populate
+/// @return ArduinoJson deserialization error code
+DeserializationError deserializeOpenMeteo(WiFiClient &json, owm_resp_onecall_t &r);
 
-/**
- * Deserialize Open-Meteo Air Quality API response.
- * @param json WiFi client stream containing JSON response
- * @param r air quality response structure to populate
- * @return deserialization error code
- */
-DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
-                                                    owm_resp_air_pollution_t &r);
+/// @brief Deserialize Open-Meteo Air Quality API response
+/// @param json WiFi client stream containing JSON
+/// @param r Air quality structure to populate
+/// @return ArduinoJson deserialization error code
+DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json, owm_resp_air_pollution_t &r);
 
-/**
- * Load Open-Meteo forecast from saved header file.
- * Only available when LOAD_API_FROM_HEADER is enabled in config.h.
- * This allows offline testing with captured API data.
- * @param r response structure to populate
- * @return deserialization error code
- */
+/// @brief Load weather data from compiled-in header file
+/// @details Only available when USE_SAVED_API_DATA is enabled. Allows offline
+/// testing with captured API responses without network requests.
+/// @param r Output structure to populate
+/// @return Deserialization error code
 DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r);
 
-/**
- * Load Open-Meteo air quality from saved header file.
- * Only available when LOAD_API_FROM_HEADER is enabled in config.h.
- * @param r air quality response structure to populate
- * @return deserialization error code
- */
+/// @brief Load air quality data from compiled-in header file
+/// @param r Air quality structure to populate
+/// @return Deserialization error code
 DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t &r);
 
-
-#endif
-
+#endif // __API_RESPONSE_H__

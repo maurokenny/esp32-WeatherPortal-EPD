@@ -1,20 +1,21 @@
-/* Configuration option declarations for esp32-weather-epd.
- * Copyright (C) 2022-2025  Luke Marzen
- * Copyright (C) 2026  Mauro Freitas
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file config.h
+/// @brief Compile-time configuration and hardware feature selection
+/// @copyright Copyright (C) 2022-2025 Luke Marzen, 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// This header defines all compile-time configuration options for the ESP32
+/// Weather E-Paper Display firmware. Options are organized into categories:
+/// - Hardware (display panel, driver board, sensor)
+/// - Localization and timezone
+/// - Units of measurement
+/// - Network security (HTTP/HTTPS)
+/// - Display options (wind indicators, widget positions)
+/// - Power management (battery monitoring)
+/// - Debug and testing modes
+///
+/// @note All selections are validated at compile time using static assertions.
+/// Invalid configurations will produce descriptive #error messages.
 
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
@@ -22,41 +23,49 @@
 #include <cstdint>
 #include <Arduino.h>
 
-// E-PAPER PANEL
-// This project supports the following E-Paper panels:
-//   DISP_BW_V2     - 7.5in e-Paper (v2)      800x480px  Black/White
-//   DISP_BW_V2_ALT - 7.5in e-Paper (v2)      800x480px  Black/White (Alternative driver for FPC-C001 panels)
-//   DISP_3C_B      - 7.5in e-Paper (B)       800x480px  Red/Black/White
-//   DISP_7C_F      - 7.3in ACeP e-Paper (F)  800x480px  7-Color
-//   DISP_BW_V1     - 7.5in e-Paper (v1)      640x384px  Black/White
-// Uncomment the macro that identifies your physical panel.
-// Use DISP_BW_V2_ALT if your display has FPC-C001 marking and low contrast issues.
+// ═══════════════════════════════════════════════════════════════════════════
+// HARDWARE CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @defgroup display_config Display Panel Selection
+/// @brief E-Paper panel hardware variants (mutually exclusive)
+/// @{
+/// 7.5" Black/White e-Paper v2 (800x480px) - Standard driver
 // #define DISP_BW_V2
+/// 7.5" Black/White e-Paper v2 (800x480px) - Alternative for FPC-C001 panels
 #define DISP_BW_V2_ALT
+/// 7.5" 3-Color e-Paper B (800x480px, Red/Black/White)
 // #define DISP_3C_B
+/// 7.3" 7-Color ACeP e-Paper F (800x480px)
 // #define DISP_7C_F
+/// 7.5" Black/White e-Paper v1 (640x384px) - Legacy
 // #define DISP_BW_V1
+/// @}
 
-// E-PAPER DRIVER BOARD
-// The DESPI-C02 is the only officially supported driver board.
-// Support for the Waveshare rev2.2 and rev2.3 is deprecated.
-// The Waveshare rev2.2 is no longer in production.
-// Users of the Waveshare rev2.3 have reported experiencing low contrast issues.
-// Uncomment the macro that identifies your driver board hardware.
+/// @defgroup driver_config Driver Board Selection
+/// @brief E-Paper driver board hardware (mutually exclusive)
+/// @{
+/// DESPI-C02 driver board (recommended)
 // #define DRIVER_DESPI_C02
+/// Waveshare driver board rev2.2/2.3 (deprecated)
 #define DRIVER_WAVESHARE
+/// @}
 
-// INDOOR ENVIRONMENT SENSOR
-// Uncomment the macro that identifies your sensor.
+/// @defgroup sensor_config Environment Sensor Selection
+/// @brief Indoor sensor hardware (mutually exclusive)
+/// @{
+/// BME280: Temperature, humidity, pressure
 #define SENSOR_BME280
+/// BME680: Temperature, humidity, pressure, VOC
 // #define SENSOR_BME680
+/// @}
 
-// If you encounter issues with the BME280 sensor showing no data, uncomment and
-// add a small delay before reading it's value. 300ms seems to work for most people
+/// @brief Sensor initialization delay in milliseconds
+/// @details Increase if sensor returns invalid data on first read
 // #define SENSOR_INIT_DELAY_MS 300
 
-// 3 COLOR E-INK ACCENT COLOR
-// Defines the 3rd color to be used when a 3+ color display is selected.
+/// @defgroup color_config 3-Color Display Accent Color
+/// @brief Third color for multi-color e-paper displays
 #if defined(DISP_3C_B) || defined(DISP_7C_F)
   // #define ACCENT_COLOR GxEPD_BLACK
   #define ACCENT_COLOR GxEPD_RED
@@ -66,58 +75,50 @@
   // #define ACCENT_COLOR GxEPD_ORANGE
 #endif
 
-// LOCALE
-// If your locale is not here, you can add it by copying and modifying one of
-// the files in src/locales. Please feel free to create a pull request to add
-// official support for your locale.
-//   Language (Territory)            code
-//   German (Germany)                de_DE
-//   English (United Kingdom)        en_GB
-//   English (United States)         en_US
-//   Estonian (Estonia)              et_EE
-//   Finnish (Finland)               fi_FI
-//   French (France)                 fr_FR
-//   Italiano (Italia)               it_IT
-//   Dutch (Belgium)                 nl_BE
-//   Portuguese (Brazil)             pt_BR
-//   Spanish (Spain)                 es_ES
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCALIZATION AND TIMEZONE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief Locale for text strings and formatting
+/// @details Available: de_DE, en_GB, en_US, et_EE, fi_FI, fr_FR, it_IT, nl_BE, pt_BR, es_ES
 #define LOCALE en_US
 
-// Open-Meteo timezone handling mode.
-// If AUTO, requests use timezone=auto and returned timestamps are local time
-// with DST already applied.
-// If MANUAL, requests use timezone=GMT and the ESP32 converts UTC timestamps
-// to local time using TIMEZONE.
+/// @defgroup timezone_mode Timezone Handling Mode
+/// @brief How timezone conversions are handled
+/// @{
+/// AUTO: API returns local times with DST applied
 #define OPENMETEO_TIMEZONE_MODE_AUTO
+/// MANUAL: API returns UTC, ESP32 converts using TIMEZONE string
 // #define OPENMETEO_TIMEZONE_MODE_MANUAL
+/// @}
 
 #if defined(OPENMETEO_TIMEZONE_MODE_AUTO) && defined(OPENMETEO_TIMEZONE_MODE_MANUAL)
   #error "Only one Open-Meteo timezone mode may be enabled"
 #endif
 
-// UNITS
-// Define exactly one macro for each measurement type below.
+// ═══════════════════════════════════════════════════════════════════════════
+// UNITS CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
 
-// UNITS - TEMPERATURE
-//   Metric   : Celsius
-//   Imperial : Fahrenheit
+/// @defgroup temp_units Temperature Units
+/// @{
 // #define UNITS_TEMP_KELVIN
 #define UNITS_TEMP_CELSIUS
 // #define UNITS_TEMP_FAHRENHEIT
+/// @}
 
-// UNITS - WIND SPEED
-//   Metric   : Kilometers per Hour
-//   Imperial : Miles per Hour
+/// @defgroup wind_units Wind Speed Units
+/// @{
 // #define UNITS_SPEED_METERSPERSECOND
 // #define UNITS_SPEED_FEETPERSECOND
 #define UNITS_SPEED_KILOMETERSPERHOUR
 // #define UNITS_SPEED_MILESPERHOUR
 // #define UNITS_SPEED_KNOTS
 // #define UNITS_SPEED_BEAUFORT
+/// @}
 
-// UNITS - PRESSURE
-//   Metric   : Millibars
-//   Imperial : Inches of Mercury
+/// @defgroup pressure_units Pressure Units
+/// @{
 #define UNITS_PRES_HECTOPASCALS
 // #define UNITS_PRES_PASCALS
 // #define UNITS_PRES_MILLIMETERSOFMERCURY
@@ -126,73 +127,59 @@
 // #define UNITS_PRES_ATMOSPHERES
 // #define UNITS_PRES_GRAMSPERSQUARECENTIMETER
 // #define UNITS_PRES_POUNDSPERSQUAREINCH
+/// @}
 
-// UNITS - VISIBILITY DISTANCE
-//   Metric   : Kilometers
-//   Imperial : Miles
+/// @defgroup distance_units Distance Units
+/// @{
 #define UNITS_DIST_KILOMETERS
 // #define UNITS_DIST_MILES
+/// @}
 
-// UNITS - PRECIPITATION (HOURLY)
-// Measure of precipitation.
-// This can either be Probability of Precipitation (PoP) or hourly volume.
-//   Metric   : Millimeters
-//   Imperial : Inches
+/// @defgroup hourly_precip_units Hourly Precipitation Display
+/// @{
+/// Show Probability of Precipitation (PoP)
 #define UNITS_HOURLY_PRECIP_POP
+/// Show precipitation volume
 // #define UNITS_HOURLY_PRECIP_MILLIMETERS
 // #define UNITS_HOURLY_PRECIP_CENTIMETERS
 // #define UNITS_HOURLY_PRECIP_INCHES
+/// @}
 
-// HOURLY PRECIPITATION GRAPH
-// Enable/disable the precipitation graph in the hourly outlook
-// When disabled, only the temperature line is shown
+/// @brief Enable precipitation graph in hourly outlook
 #define ENABLE_HOURLY_PRECIP_GRAPH
 // #define DISABLE_HOURLY_PRECIP_GRAPH
 
-// UNITS - PRECIPITATION (DAILY)
-// Measure of precipitation.
-// This can either be Probability of Precipitation (PoP) or daily volume.
-//   Metric   : Millimeters
-//   Imperial : Inches
+/// @defgroup daily_precip_units Daily Precipitation Display
+/// @{
 #define UNITS_DAILY_PRECIP_POP
 // #define UNITS_DAILY_PRECIP_MILLIMETERS
 // #define UNITS_DAILY_PRECIP_CENTIMETERS
 // #define UNITS_DAILY_PRECIP_INCHES
+/// @}
 
-// Hypertext Transfer Protocol (HTTP)
-// HTTP
-//   HTTP does not provide encryption or any security measures, making it highly
-//   vulnerable to eavesdropping and data tampering. Has the advantage of using
-//   less power.
-// HTTPS_NO_CERT_VERIF
-//   HTTPS without X.509 certificate verification provides encryption but lacks
-//   authentication and is susceptible to man-in-the-middle attacks.
-// HTTPS_WITH_CERT_VERIF
-//   HTTPS with X.509 certificate verification offers the highest level of
-//   security by providing encryption and verifying the identity of the server.
-//
-//   HTTPS with X.509 certificate verification comes with the draw back that
-//   eventually the certificates on the esp32 will expire, requiring you to
-//   update the certificates in cert.h and reflash this software.
-//   Running cert.py will generate an updated cert.h file.
-//   The current certificate for api.open-meteo.com is valid until
-//   2026-04-10 23:59:59+00:00
-// (uncomment exactly one)
+// ═══════════════════════════════════════════════════════════════════════════
+// NETWORK SECURITY
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @defgroup http_mode HTTP/HTTPS Mode
+/// @brief Network security level (mutually exclusive)
+/// @details
+/// - USE_HTTP: No encryption, lower power consumption
+/// - USE_HTTPS_NO_CERT_VERIF: Encryption without authentication (vulnerable to MITM)
+/// - USE_HTTPS_WITH_CERT_VERIF: Full encryption + certificate verification
+/// @{
 // #define USE_HTTP
-// #define USE_HTTPS_NO_CERT_VERIF
-#define USE_HTTPS_NO_CERT_VERIF // REQUIRES MANUAL UPDATE WHEN CERT EXPIRES
-// #define USE_HTTPS_WITH_CERT_VERIF // REQUIRES MANUAL UPDATE WHEN CERT EXPIRES
+#define USE_HTTPS_NO_CERT_VERIF
+/// Current certificate valid until: 2026-04-10 23:59:59+00:00
+// #define USE_HTTPS_WITH_CERT_VERIF
+/// @}
 
-// WIND DIRECTION INDICATOR
-// Choose whether the wind direction indicator should be an arrow, number, or
-// expressed in Compass Point Notation (CPN).
-// The arrow indicator can be combined with NUMBER or CPN.
-//
-//   PRECISION                  #     ERROR   EXAMPLE
-//   Cardinal                   4  ±45.000°   E
-//   Intercardinal (Ordinal)    8  ±22.500°   NE
-//   Secondary Intercardinal   16  ±11.250°   NNE
-//   Tertiary Intercardinal    32   ±5.625°   NbE
+// ═══════════════════════════════════════════════════════════════════════════
+// WIND DIRECTION DISPLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @defgroup wind_indicator Wind Direction Indicator Style
+/// @{
 #define WIND_INDICATOR_ARROW
 // #define WIND_INDICATOR_NUMBER
 // #define WIND_INDICATOR_CPN_CARDINAL
@@ -200,37 +187,31 @@
 // #define WIND_INDICATOR_CPN_SECONDARY_INTERCARDINAL
 // #define WIND_INDICATOR_CPN_TERTIARY_INTERCARDINAL
 // #define WIND_INDICATOR_NONE
+/// @}
 
-// WIND DIRECTION ICON PRECISION
-// The wind direction icon shown to the left of the wind speed can indicate wind
-// direction with a minimum error of ±0.5°. This uses more flash storage because
-// 360 24x24 wind direction icons must be stored, totaling ~25kB. For either
-// preference or in case flash space becomes a concern there are a handful of
-// selectable options listed below. 360 points seems excessive, but the option
-// is there.
-//
-//   PRECISION                  #     ERROR  STORAGE
-//   Cardinal                   4  ±45.000°     288B  E
-//   Intercardinal (Ordinal)    8  ±22.500°     576B  NE
-//   Secondary Intercardinal   16  ±11.250°   1,152B  NNE
-//   Tertiary Intercardinal    32   ±5.625°   2,304B  NbE
-//   (360)                    360   ±0.500°  25,920B  1°
-// Uncomment your preferred wind level direction precision.
+/// @defgroup wind_precision Wind Direction Icon Precision
+/// @brief Number of discrete wind direction icons (affects flash usage)
+/// @details
+/// - CARDINAL: 4 icons, 288B, ±45° error
+/// - INTERCARDINAL: 8 icons, 576B, ±22.5° error
+/// - SECONDARY_INTERCARDINAL: 16 icons, 1152B, ±11.25° error
+/// - TERTIARY_INTERCARDINAL: 32 icons, 2304B, ±5.625° error
+/// - 360: 360 icons, ~26KB, ±0.5° error
+/// @{
 // #define WIND_ICONS_CARDINAL
 // #define WIND_ICONS_INTERCARDINAL
 #define WIND_ICONS_SECONDARY_INTERCARDINAL
 // #define WIND_ICONS_TERTIARY_INTERCARDINAL
 // #define WIND_ICONS_360
+/// @}
 
-// WIDGET POSITIONS
-// Set the order of current condition you want to display
-// in the following order
-//  0   1
-//  2   3
-//  4   5
-//  6   7
-//  8   9
-// if DISP_BW_V1 is used, 6,7,8,9 are not available
+// ═══════════════════════════════════════════════════════════════════════════
+// WIDGET POSITIONS (0-9 grid: 2 columns x 5 rows)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief Widget position mapping for current conditions display
+/// @details Layout: [0,1] / [2,3] / [4,5] / [6,7] / [8,9]
+/// Positions 6-9 unavailable on DISP_BW_V1 (640x384)
 #define POS_SUNRISE     0
 #define POS_SUNSET      1
 #define POS_WIND        2
@@ -241,352 +222,238 @@
 #define POS_VISIBILITY  7
 #define POS_INTEMP      8
 #define POS_INHUMIDITY  9
-// #define POS_MOONRISE    2
-// #define POS_MOONSET     3
-// #define POS_MOONPHASE   4
-// #define POS_DEWPOINT    5
 
-
-// Choose the style of moon phase icon you like
-//   Primary     : dark color means where the moon is
-//   Alternative : dark color means where the shadow is
-// Uncomment your preferred moon phase style.
+/// @defgroup moon_style Moon Phase Icon Style
+/// @{
+/// Primary: dark color indicates moon surface
 // #define MOONPHASE_PRIMARY
+/// Alternative: dark color indicates shadow
 #define MOONPHASE_ALTERNATIVE
+/// @}
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FONT AND DISPLAY OPTIONS
+// ═══════════════════════════════════════════════════════════════════════════
 
-// FONTS
-// A handful of popular Open Source typefaces have been included with this
-// project for your convenience. Change the font by selecting its corresponding
-// header file.
-//
-//   FONT           HEADER FILE              FAMILY          LICENSE
-//   FreeMono       FreeMono.h               GNU FreeFont    GNU GPL v3.0
-//   FreeSans       FreeSans.h               GNU FreeFont    GNU GPL v3.0
-//   FreeSerif      FreeSerif.h              GNU FreeFont    GNU GPL v3.0
-//   Lato           Lato_Regular.h           Lato            SIL OFL v1.1
-//   Montserrat     Montserrat_Regular.h     Montserrat      SIL OFL v1.1
-//   Open Sans      OpenSans_Regular.h       Open Sans       SIL OFL v1.1
-//   Poppins        Poppins_Regular.h        Poppins         SIL OFL v1.1
-//   Quicksand      Quicksand_Regular.h      Quicksand       SIL OFL v1.1
-//   Raleway        Raleway_Regular.h        Raleway         SIL OFL v1.1
-//   Roboto         Roboto_Regular.h         Roboto          Apache v2.0
-//   Roboto Mono    RobotoMono_Regular.h     Roboto Mono     Apache v2.0
-//   Roboto Slab    RobotoSlab_Regular.h     Roboto Slab     Apache v2.0
-//   Ubuntu         Ubuntu_R.h               Ubuntu font     UFL v1.0
-//   Ubuntu Mono    UbuntuMono_R.h           Ubuntu font     UFL v1.0
-//
-// Adding new fonts is relatively straightforward, see fonts/README.
-//
-// Note:
-//   The layout of the display was designed around spacing and size of the GNU
-//   FreeSans font, but this project supports the ability to modularly swap
-//   fonts. Using a font other than FreeSans may result in undesired spacing or
-//   other artifacts.
+/// @brief Font header file path
+/// @details Project designed around FreeSans spacing; other fonts may need layout adjustments
 #define FONT_HEADER "fonts/FreeSans.h"
 
-// FORECAST TEMPERATURE ORDER
-// The order of temperture Hi|Lo can optionally be configured using
-// the following options.
-//   HL   : High | Low
-//   LH   : Low | High
-//
+/// @defgroup temp_order Temperature Display Order
+/// @{
+/// High | Low
 #define TEMP_ORDER_HL
 // #define TEMP_ORDER_LH
+/// @}
 
-// DAILY PRECIPITATION
-// Daily precipitation indicated under Hi|Lo can optionally be configured using
-// the following options.
-//   0 : Disable (hide always)
-//   1 : Enable (show always)
-//   2 : Smart (show only when precipitation is forecasted)
+/// @brief Daily precipitation display mode
+/// @details 0=Disable, 1=Always show, 2=Smart (only when precipitation forecasted)
 #define DISPLAY_DAILY_PRECIP 2
 
-// HOURLY WEATHER ICONS
-// Weather icons to be displayed on the temperature and precipitation chart.
-// They are drawn at the the x-axis tick marks just above the temperature line
-//   0 : Disable
-//   1 : Enable
+/// @brief Show weather icons on hourly temperature graph
+/// @details 0=Disable, 1=Enable
 #define DISPLAY_HOURLY_ICONS 1
 
-// ALERTS
-//   The handling of alerts is complex. Each country has a unique national alert
-//   system that receives alerts from many different government agencies. This
-//   results is huge variance in the formatting of alerts. OpenWeatherMap
-//   provides alerts in English only. Any combination of these factors may make
-//   it undesirable to display alerts in some regions.
-//   Disable alerts by changing the DISPLAY_ALERTS macro to 0.
+/// @brief Enable weather alert display
 #define DISPLAY_ALERTS 1
 
-// STATUS BAR EXTRAS
-//   Extra information that can be displayed on the status bar. Set to 1 to
-//   enable.
+// ═══════════════════════════════════════════════════════════════════════════
+// STATUS BAR OPTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief Show battery percentage in status bar
 #define STATUS_BAR_EXTRAS_BAT_PERCENTAGE 1
+/// @brief Show battery voltage in status bar
 #define STATUS_BAR_EXTRAS_BAT_VOLTAGE    1
+/// @brief Show WiFi signal strength indicator in status bar
 #define STATUS_BAR_EXTRAS_WIFI_STRENGTH  1
+/// @brief Show WiFi RSSI value in status bar
 #define STATUS_BAR_EXTRAS_WIFI_RSSI      1
 
-// ============================================================
-// BATTERY CONFIGURATION (SINGLE FLAG)
-// ============================================================
-//   0 = USB/Power Supply - No battery monitoring or protection
-//   1 = Battery Powered - Full monitoring + NVS persistence + protection
+// ═══════════════════════════════════════════════════════════════════════════
+// POWER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief Battery monitoring enable flag
+/// @details 0=USB/PSU mode (no monitoring), 1=Battery mode (full protection)
 #define BATTERY_MONITORING 0
 
-// ============================================================
-// RETRY POLICY (TOLERÂNCIA AMPLIADA)
-// ============================================================
-//   0 = Infinite retries (never enters STATE_ERROR)
-//   N = Max failures before entering STATE_ERROR (permanent sleep)
-#define MAX_WIFI_FAIL_CYCLES  10
-#define MAX_NTP_FAIL_CYCLES   10
-#define MAX_API_FAIL_CYCLES   10
+/// @defgroup retry_policy Retry Policy Configuration
+/// @brief Maximum consecutive failures before entering permanent error state
+/// @details Set to 0 for infinite retries (device never enters STATE_ERROR)
+/// @{
+#define MAX_WIFI_FAIL_CYCLES  10  ///< WiFi connection failures
+#define MAX_NTP_FAIL_CYCLES   10  ///< NTP synchronization failures
+#define MAX_API_FAIL_CYCLES   10  ///< API request failures
+/// @}
 
-// ============================================================
-// SILENT MODE
-// ============================================================
-//   true = Hide loading/status screens, show only critical errors
-//   false = Show everything
+/// @brief Silent mode - hide loading/status screens
+/// @details true=Show only critical errors, false=Show all status screens
 #define SILENT_STATUS true
 
+// ═══════════════════════════════════════════════════════════════════════════
 // DATA SOURCE SELECTION (mutually exclusive)
-//   Choose ONE of the following data sources:
-//
-//   USE_MOCKUP_DATA - Use synthetic/fake weather data generated in code.
-//                     Useful for testing display layouts. Device still connects
-//                     to WiFi for NTP time sync but skips the HTTP API call.
-//                     Configure the scenario with MOCKUP_CURRENT_WEATHER below.
-//
-//   USE_SAVED_API_DATA - Load real API response from include/saved_api_response.h
-//                        Device connects to WiFi for NTP but skips HTTP API call.
-//                        Useful for: avoiding API rate limits, faster testing,
-//                        or using consistent weather data.
-//                        Generate header: python json_to_header.py api_response.json
-//
-//   Default (both 0) - Fetch live data from Open-Meteo API (requires WiFi)
+// ═══════════════════════════════════════════════════════════════════════════
 
-#define USE_MOCKUP_DATA 0
-#define USE_SAVED_API_DATA 0
+/// @defgroup data_source Data Source Selection
+/// @brief Choose ONE data source for weather information
+/// @{
+#define USE_MOCKUP_DATA 0      ///< Synthetic data for testing (no WiFi)
+#define USE_SAVED_API_DATA 0   ///< Load from saved_api_response.h header
+/// Default (both 0): Fetch live data from Open-Meteo API
+/// @}
 
-// Validation: cannot use both mockup and saved API data at the same time
 #if USE_MOCKUP_DATA && USE_SAVED_API_DATA
   #error "Cannot enable both USE_MOCKUP_DATA and USE_SAVED_API_DATA. Choose one."
 #endif
 
-// MOCKUP WEATHER TYPE
-//   Select the weather scenario for mockup data
-//   Using enum with switch/case (preprocessor #if cannot use enum values)
+/// @brief Mockup weather scenario selection
+/// @details Used when USE_MOCKUP_DATA is enabled
 typedef enum {
-  MOCKUP_WEATHER_SUNNY,   // 0 - Clear sky, warm (25°C), sunny icon
-  MOCKUP_WEATHER_RAINY,   // 1 - Moderate rain (15°C), rain icon, 85% humidity
-  MOCKUP_WEATHER_SNOWY,   // 2 - Light snow (0°C), snow icon, 80% humidity
-  MOCKUP_WEATHER_CLOUDY,  // 3 - Overcast clouds, mild (18°C)
-  MOCKUP_WEATHER_THUNDER  // 4 - Thunderstorm, warm (20°C), storm icon
+  MOCKUP_WEATHER_SUNNY,   ///< 0: Clear sky, 25°C
+  MOCKUP_WEATHER_RAINY,   ///< 1: Moderate rain, 15°C, 85% humidity
+  MOCKUP_WEATHER_SNOWY,   ///< 2: Light snow, 0°C, 80% humidity
+  MOCKUP_WEATHER_CLOUDY,  ///< 3: Overcast, 18°C
+  MOCKUP_WEATHER_THUNDER  ///< 4: Thunderstorm, 20°C
 } mockup_weather_type_t;
 
-// Select your mockup weather scenario here:
+/// @brief Selected mockup weather scenario
 #define MOCKUP_CURRENT_WEATHER MOCKUP_WEATHER_RAINY
 
-// Mockup Rain Widget states for testing umbrella widget display
-// Controls what message appears below the umbrella icon
+/// @brief Rain widget test state for mockup mode
 typedef enum {
-  MOCKUP_RAIN_NO_RAIN,      // 0 - "No rain (X%)" - POP < 30%, shows X over icon
-  MOCKUP_RAIN_COMPACT,      // 1 - "Compact (X%)" or "Rain in Ymin" - POP 30-70%
-  MOCKUP_RAIN_TAKE,         // 2 - "Take (X%)" or "Rain in Ymin" - POP >= 70%
-  MOCKUP_RAIN_GRAPH_TEST    // 3 - Varied POP for graph testing (0% -> 120%)
+  MOCKUP_RAIN_NO_RAIN,      ///< POP < 30%, X over icon
+  MOCKUP_RAIN_COMPACT,      ///< POP 30-70%, shows timing
+  MOCKUP_RAIN_TAKE,         ///< POP >= 70%, take umbrella
+  MOCKUP_RAIN_GRAPH_TEST    ///< POP ramp 0-100% for graph testing
 } mockup_rain_widget_state_t;
 
-// Select rain widget state for mockup mode:
-// NO_RAIN: Shows X over umbrella, "No rain (10%)"
-// COMPACT: Shows "Compact (50%)" or "Rain in 45min (50%)"
-// TAKE: Shows "Take (80%)" or "Rain in 45min (80%)"
-// GRAPH_TEST: POP varies from 0% to 120% across hours to test graph scaling
+/// @brief Selected rain widget test state
 #define MOCKUP_RAIN_WIDGET_STATE MOCKUP_RAIN_GRAPH_TEST
 
-// NON-VOLATILE STORAGE (NVS) NAMESPACE
+/// @brief NVS namespace for persistent storage
 #define NVS_NAMESPACE "weather_epd"
 
-// DEBUG
-//   If defined, enables increase verbosity over the serial port.
-//   level 0: basic status information, assists troubleshooting (default)
-//   level 1: increased verbosity for debugging
-//   level 2: print api responses to serial monitor
+// ═══════════════════════════════════════════════════════════════════════════
+// DEBUG CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
 
+/// @brief Debug verbosity level
+/// @details 0=Basic status, 1=Increased verbosity + heap usage, 2=Full API responses
 #define DEBUG_LEVEL 0
 
-/** * Build System Macros
- * These values MUST be injected by the PlatformIO python script.
- * The script reads from .env or uses its own internal constants.
- * If these are missing, the build will fail to prevent inconsistent configurations.
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// BUILD SYSTEM INJECTION (do not modify)
+// ═══════════════════════════════════════════════════════════════════════════
+
 #ifndef WIFI_SSID_VALUE
-  #error "WIFI_SSID_VALUE is missing! Ensure your .env file exists or the python script is active in platformio.ini."
+  #error "WIFI_SSID_VALUE is missing! Ensure your .env file exists."
 #endif
 
 #ifndef WIFI_PASSWORD_VALUE
   #error "WIFI_PASSWORD_VALUE is missing! Check your build system configuration."
 #endif
 
-// Set the below constants in "config.cpp"
-extern const uint8_t PIN_BAT_ADC;
-extern const uint8_t PIN_EPD_BUSY;
-extern const uint8_t PIN_EPD_CS;
-extern const uint8_t PIN_EPD_RST;
-extern const uint8_t PIN_EPD_DC;
-extern const uint8_t PIN_EPD_SCK;
-extern const uint8_t PIN_EPD_MISO;
-extern const uint8_t PIN_EPD_MOSI;
-extern const uint8_t PIN_EPD_PWR;
-extern const uint8_t PIN_BME_SDA;
-extern const uint8_t PIN_BME_SCL;
-extern const uint8_t PIN_BME_PWR;
-extern const uint8_t BME_ADDRESS;
-extern const char *WIFI_SSID;
-extern const char *WIFI_PASSWORD;
-extern const unsigned long WIFI_TIMEOUT;
-extern const unsigned HTTP_CLIENT_TCP_TIMEOUT;
-// Open-Meteo API endpoints (no API key required)
-extern const String OPENMETEO_ENDPOINT;
-extern const uint16_t OPENMETEO_PORT;
-extern const String OPENMETEO_AIRQUALITY_ENDPOINT;
-extern const String LAT;
-extern const String LON;
-extern const String CITY_STRING;
-extern const String COUNTRY_STRING;
-extern const String GEOLOCATION_ENDPOINT;
-extern const char *TIMEZONE;
-extern const char *TIME_FORMAT;
-extern const char *HOUR_FORMAT;
-extern const char *DATE_FORMAT;
-extern const char *REFRESH_TIME_FORMAT;
-extern const char *NTP_SERVER_1;
-extern const char *NTP_SERVER_2;
-extern const unsigned long NTP_TIMEOUT;
-extern const int SLEEP_DURATION;
-extern const int BED_TIME;
-extern const int WAKE_TIME;
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTERNAL CONFIGURATION (defined in config.cpp)
+// ═══════════════════════════════════════════════════════════════════════════
 
-// State Machine Configuration
-// Maximum consecutive WiFi connection failures before entering ERROR_CONNECTION state.
-// Set to 0 for infinite retries (device will never enter ERROR_CONNECTION due to WiFi failures).
-#define MAX_FAIL_CYCLES  10   // 0 = infinite retries, >0 = max failures before permanent sleep
-extern const int HOURLY_GRAPH_MAX;
+extern const uint8_t PIN_BAT_ADC;      ///< Battery ADC input pin
+extern const uint8_t PIN_EPD_BUSY;     ///< E-paper busy pin
+extern const uint8_t PIN_EPD_CS;       ///< SPI chip select
+extern const uint8_t PIN_EPD_RST;      ///< Display reset
+extern const uint8_t PIN_EPD_DC;       ///< Data/command select
+extern const uint8_t PIN_EPD_SCK;      ///< SPI clock
+extern const uint8_t PIN_EPD_MISO;     ///< SPI MISO (unused)
+extern const uint8_t PIN_EPD_MOSI;     ///< SPI MOSI
+extern const uint8_t PIN_EPD_PWR;      ///< Display power control
+extern const uint8_t PIN_BME_SDA;      ///< I2C SDA for BME sensor
+extern const uint8_t PIN_BME_SCL;      ///< I2C SCL for BME sensor
+extern const uint8_t PIN_BME_PWR;      ///< Sensor power control
+extern const uint8_t BME_ADDRESS;      ///< I2C address (0x76 or 0x77)
+
+extern const char *WIFI_SSID;          ///< WiFi network name
+extern const char *WIFI_PASSWORD;      ///< WiFi password
+extern const unsigned long WIFI_TIMEOUT;           ///< WiFi connection timeout (ms)
+extern const unsigned HTTP_CLIENT_TCP_TIMEOUT;     ///< HTTP TCP timeout (ms)
+
+extern const String OPENMETEO_ENDPOINT;            ///< API hostname
+extern const uint16_t OPENMETEO_PORT;              ///< API port (80 or 443)
+extern const String OPENMETEO_AIRQUALITY_ENDPOINT; ///< Air quality API hostname
+extern const String LAT;                           ///< Default latitude
+extern const String LON;                           ///< Default longitude
+extern const String CITY_STRING;                   ///< Default city name
+extern const String COUNTRY_STRING;                ///< Default country name
+extern const String GEOLOCATION_ENDPOINT;          ///< IP geolocation service
+extern const char *TIMEZONE;                       ///< POSIX timezone string
+extern const char *TIME_FORMAT;                    ///< Time format string
+extern const char *HOUR_FORMAT;                    ///< Hour format string
+extern const char *DATE_FORMAT;                    ///< Date format string
+extern const char *REFRESH_TIME_FORMAT;            ///< Status bar time format
+extern const char *NTP_SERVER_1;                   ///< Primary NTP server
+extern const char *NTP_SERVER_2;                   ///< Secondary NTP server
+extern const unsigned long NTP_TIMEOUT;            ///< NTP sync timeout (ms)
+extern const int SLEEP_DURATION;                   ///< Normal sleep interval (min)
+extern const int BED_TIME;                         ///< Sleep mode start hour
+extern const int WAKE_TIME;                        ///< Sleep mode end hour
+extern const int HOURLY_GRAPH_MAX;                 ///< Max hours in hourly graph
+
+// Battery voltage thresholds (mV)
 extern const uint32_t WARN_BATTERY_VOLTAGE;
 extern const uint32_t LOW_BATTERY_VOLTAGE;
 extern const uint32_t VERY_LOW_BATTERY_VOLTAGE;
 extern const uint32_t CRIT_LOW_BATTERY_VOLTAGE;
-extern const unsigned long LOW_BATTERY_SLEEP_INTERVAL;
-extern const unsigned long VERY_LOW_BATTERY_SLEEP_INTERVAL;
 extern const uint32_t MAX_BATTERY_VOLTAGE;
 extern const uint32_t MIN_BATTERY_VOLTAGE;
 
-// CONFIG VALIDATION - DO NOT MODIFY
-#if !(  defined(DISP_BW_V2)     \
-      ^ defined(DISP_BW_V2_ALT) \
-      ^ defined(DISP_3C_B)      \
-      ^ defined(DISP_7C_F)      \
-      ^ defined(DISP_BW_V1))
-  #error Invalid configuration. Exactly one display panel must be selected.
+extern const unsigned long LOW_BATTERY_SLEEP_INTERVAL;      ///< Sleep duration when low battery
+extern const unsigned long VERY_LOW_BATTERY_SLEEP_INTERVAL; ///< Sleep duration when very low
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPILE-TIME VALIDATION (do not modify)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#if !(defined(DISP_BW_V2) ^ defined(DISP_BW_V2_ALT) ^ defined(DISP_3C_B) ^ defined(DISP_7C_F) ^ defined(DISP_BW_V1))
+  #error "Invalid configuration. Exactly one display panel must be selected."
 #endif
-#if !(  defined(DRIVER_WAVESHARE) \
-      ^ defined(DRIVER_DESPI_C02))
-  #error Invalid configuration. Exactly one driver board must be selected.
+#if !(defined(DRIVER_WAVESHARE) ^ defined(DRIVER_DESPI_C02))
+  #error "Invalid configuration. Exactly one driver board must be selected."
 #endif
-#if !(  defined(SENSOR_BME280) \
-      ^ defined(SENSOR_BME680))
-  #error Invalid configuration. Exactly one sensor must be selected.
+#if !(defined(SENSOR_BME280) ^ defined(SENSOR_BME680))
+  #error "Invalid configuration. Exactly one sensor must be selected."
 #endif
 #if !(defined(LOCALE))
-  #error Invalid configuration. Locale not selected.
+  #error "Invalid configuration. Locale not selected."
 #endif
-#if !(  defined(UNITS_TEMP_KELVIN)      \
-      ^ defined(UNITS_TEMP_CELSIUS)     \
-      ^ defined(UNITS_TEMP_FAHRENHEIT))
-  #error Invalid configuration. Exactly one temperature unit must be selected.
+#if !(defined(UNITS_TEMP_KELVIN) ^ defined(UNITS_TEMP_CELSIUS) ^ defined(UNITS_TEMP_FAHRENHEIT))
+  #error "Invalid configuration. Exactly one temperature unit must be selected."
 #endif
-#if !(  defined(UNITS_SPEED_METERSPERSECOND)   \
-      ^ defined(UNITS_SPEED_FEETPERSECOND)     \
-      ^ defined(UNITS_SPEED_KILOMETERSPERHOUR) \
-      ^ defined(UNITS_SPEED_MILESPERHOUR)      \
-      ^ defined(UNITS_SPEED_KNOTS)             \
-      ^ defined(UNITS_SPEED_BEAUFORT))
-  #error Invalid configuration. Exactly one wind speed unit must be selected.
+#if !(defined(UNITS_SPEED_METERSPERSECOND) ^ defined(UNITS_SPEED_FEETPERSECOND) ^ defined(UNITS_SPEED_KILOMETERSPERHOUR) ^ defined(UNITS_SPEED_MILESPERHOUR) ^ defined(UNITS_SPEED_KNOTS) ^ defined(UNITS_SPEED_BEAUFORT))
+  #error "Invalid configuration. Exactly one wind speed unit must be selected."
 #endif
-#if !(  defined(UNITS_PRES_HECTOPASCALS)             \
-      ^ defined(UNITS_PRES_PASCALS)                  \
-      ^ defined(UNITS_PRES_MILLIMETERSOFMERCURY)     \
-      ^ defined(UNITS_PRES_INCHESOFMERCURY)          \
-      ^ defined(UNITS_PRES_MILLIBARS)                \
-      ^ defined(UNITS_PRES_ATMOSPHERES)              \
-      ^ defined(UNITS_PRES_GRAMSPERSQUARECENTIMETER) \
-      ^ defined(UNITS_PRES_POUNDSPERSQUAREINCH))
-  #error Invalid configuration. Exactly one pressure unit must be selected.
+#if !(defined(UNITS_PRES_HECTOPASCALS) ^ defined(UNITS_PRES_PASCALS) ^ defined(UNITS_PRES_MILLIMETERSOFMERCURY) ^ defined(UNITS_PRES_INCHESOFMERCURY) ^ defined(UNITS_PRES_MILLIBARS) ^ defined(UNITS_PRES_ATMOSPHERES) ^ defined(UNITS_PRES_GRAMSPERSQUARECENTIMETER) ^ defined(UNITS_PRES_POUNDSPERSQUAREINCH))
+  #error "Invalid configuration. Exactly one pressure unit must be selected."
 #endif
-#if !(  defined(UNITS_DIST_KILOMETERS) \
-      ^ defined(UNITS_DIST_MILES))
-  #error Invalid configuration. Exactly one distance unit must be selected.
+#if !(defined(UNITS_DIST_KILOMETERS) ^ defined(UNITS_DIST_MILES))
+  #error "Invalid configuration. Exactly one distance unit must be selected."
 #endif
-#if !(  defined(UNITS_HOURLY_PRECIP_POP)         \
-      ^ defined(UNITS_HOURLY_PRECIP_MILLIMETERS) \
-      ^ defined(UNITS_HOURLY_PRECIP_CENTIMETERS) \
-      ^ defined(UNITS_HOURLY_PRECIP_INCHES))
-  #error Invalid configuration. Exactly one houly precipitation measurement must be selected.
+#if !(defined(USE_HTTP) ^ defined(USE_HTTPS_NO_CERT_VERIF) ^ defined(USE_HTTPS_WITH_CERT_VERIF))
+  #error "Invalid configuration. Exactly one HTTP mode must be selected."
 #endif
-#if !(  defined(TEMP_ORDER_HL)      \
-      ^ defined(TEMP_ORDER_LH))
-  #error Invalid configuration. Exactly one temperature order must be selected.
+#if !(defined(MOONPHASE_PRIMARY) ^ defined(MOONPHASE_ALTERNATIVE))
+  #error "Invalid configuration. Exactly one moon phase style must be selected."
 #endif
-#if !(  defined(UNITS_DAILY_PRECIP_POP)         \
-      ^ defined(UNITS_DAILY_PRECIP_MILLIMETERS) \
-      ^ defined(UNITS_DAILY_PRECIP_CENTIMETERS) \
-      ^ defined(UNITS_DAILY_PRECIP_INCHES))
-  #error Invalid configuration. Exactly one daily precipitation measurement must be selected.
+#if !(defined(TEMP_ORDER_HL) ^ defined(TEMP_ORDER_LH))
+  #error "Invalid configuration. Exactly one temperature order must be selected."
 #endif
-#if !(  defined(USE_HTTP)                   \
-      ^ defined(USE_HTTPS_NO_CERT_VERIF)    \
-      ^ defined(USE_HTTPS_WITH_CERT_VERIF))
-  #error Invalid configuration. Exactly one HTTP mode must be selected.
+#if !(defined(UNITS_HOURLY_PRECIP_POP) ^ defined(UNITS_HOURLY_PRECIP_MILLIMETERS) ^ defined(UNITS_HOURLY_PRECIP_CENTIMETERS) ^ defined(UNITS_HOURLY_PRECIP_INCHES))
+  #error "Invalid configuration. Exactly one hourly precipitation unit must be selected."
 #endif
-#if !(  defined(WIND_INDICATOR_ARROW)                         \
-      || (                                                    \
-          defined(WIND_INDICATOR_NUMBER)                      \
-        ^ defined(WIND_INDICATOR_CPN_CARDINAL)                \
-        ^ defined(WIND_INDICATOR_CPN_INTERCARDINAL)           \
-        ^ defined(WIND_INDICATOR_CPN_SECONDARY_INTERCARDINAL) \
-        ^ defined(WIND_INDICATOR_CPN_TERTIARY_INTERCARDINAL)  \
-      )                                                       \
-      ^ defined(WIND_INDICATOR_NONE))
-  #error Invalid configuration. Illegal selction of wind indicator(s).
+#if !(defined(UNITS_DAILY_PRECIP_POP) ^ defined(UNITS_DAILY_PRECIP_MILLIMETERS) ^ defined(UNITS_DAILY_PRECIP_CENTIMETERS) ^ defined(UNITS_DAILY_PRECIP_INCHES))
+  #error "Invalid configuration. Exactly one daily precipitation unit must be selected."
 #endif
-#if defined(WIND_INDICATOR_ARROW)                   \
- && !(  defined(WIND_ICONS_CARDINAL)                \
-      ^ defined(WIND_ICONS_INTERCARDINAL)           \
-      ^ defined(WIND_ICONS_SECONDARY_INTERCARDINAL) \
-      ^ defined(WIND_ICONS_TERTIARY_INTERCARDINAL)  \
-      ^ defined(WIND_ICONS_360))
-  #error Invalid configuration. Exactly one wind direction icon precision level must be selected.
-#endif
-#if !(defined(FONT_HEADER))
-  #error Invalid configuration. Font not selected.
-#endif
-#if !(defined(DISPLAY_DAILY_PRECIP))
-  #error Invalid configuration. DISPLAY_DAILY_PRECIP not defined.
-#endif
-#if !(defined(DISPLAY_HOURLY_ICONS))
-  #error Invalid configuration. DISPLAY_HOURLY_ICONS not defined.
-#endif
-#if !(defined(DISPLAY_ALERTS))
-  #error Invalid configuration. DISPLAY_ALERTS not defined.
-#endif
-#if !(defined(BATTERY_MONITORING))
-  #error Invalid configuration. BATTERY_MONITORING not defined.
-#endif
-#if !(defined(DEBUG_LEVEL))
-  #error Invalid configuration. DEBUG_LEVEL not defined.
-#endif
-#if !(  defined(MOONPHASE_PRIMARY)  \
-      ^ defined(MOONPHASE_ALTERNATIVE))
-  #error Invalid configuration. Exactly one moon phase style must be selected.
+#if defined(WIND_INDICATOR_ARROW) && !(defined(WIND_ICONS_CARDINAL) ^ defined(WIND_ICONS_INTERCARDINAL) ^ defined(WIND_ICONS_SECONDARY_INTERCARDINAL) ^ defined(WIND_ICONS_TERTIARY_INTERCARDINAL) ^ defined(WIND_ICONS_360))
+  #error "Invalid configuration. Exactly one wind direction icon precision must be selected."
 #endif
 
-#endif
+#endif // __CONFIG_H__

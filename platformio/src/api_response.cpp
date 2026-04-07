@@ -1,20 +1,18 @@
-/* API response deserialization for esp32-weather-epd.
- * Copyright (C) 2022-2024  Luke Marzen
- * Copyright (C) 2026  Mauro Freitas
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file api_response.cpp
+/// @brief JSON deserialization for OpenWeatherMap and Open-Meteo APIs
+/// @copyright Copyright (C) 2022-2024 Luke Marzen, 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// Implements JSON parsing for weather API responses:
+/// - OpenWeatherMap OneCall API (legacy support)
+/// - Open-Meteo Forecast API (primary)
+/// - Open-Meteo Air Quality API
+///
+/// WMO to OWM code conversion for icon compatibility.
+/// Handles chunked HTTP transfer encoding.
+///
+/// @note Temperatures converted from Celsius (Open-Meteo) to Kelvin (internal format)
 
 #include <vector>
 #include <cstring>
@@ -24,6 +22,10 @@
 #include "config.h"
 #include "wifi_manager.h"
 
+/// @brief Deserialize OpenWeatherMap OneCall API response
+/// @param json WiFi client stream
+/// @param r Output structure to populate
+/// @return ArduinoJson deserialization error
 DeserializationError deserializeOneCall(WiFiClient &json,
                                         owm_resp_onecall_t &r)
 {
@@ -207,6 +209,10 @@ DeserializationError deserializeOneCall(WiFiClient &json,
   return error;
 } // end deserializeOneCall
 
+/// @brief Deserialize OpenWeatherMap Air Pollution API response
+/// @param json WiFi client stream
+/// @param r Output structure to populate
+/// @return ArduinoJson deserialization error
 DeserializationError deserializeAirQuality(WiFiClient &json,
                                            owm_resp_air_pollution_t &r)
 {
@@ -263,14 +269,14 @@ DeserializationError deserializeAirQuality(WiFiClient &json,
   return error;
 } // end deserializeAirQuality
 
-/*
- * Open-Meteo API support
- */
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Open-Meteo API Support
+/// ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Convert struct tm interpreted as UTC to epoch seconds.
- * This is a compatibility helper for environments without timegm().
- */
+/// @brief Convert UTC time structure to Unix epoch
+/// @param timeinfo Time structure (assumed UTC)
+/// @return Unix timestamp in seconds
+/// @details Compatibility function for environments without timegm()
 static int64_t timegm_compat(struct tm *timeinfo)
 {
   char *oldTz = nullptr;
@@ -338,11 +344,14 @@ int64_t parseIso8601(const char* iso8601, bool inputIsUtc, int tzOffsetSeconds)
   return mktime(&timeinfo);
 }
 
-/**
- * Convert WMO Weather Interpretation code to OpenWeatherMap-compatible structure.
- * WMO codes: https://open-meteo.com/en/docs
- * OWM codes: https://openweathermap.org/weather-conditions
- */
+/// @brief Convert WMO code to OpenWeatherMap-compatible structure
+/// @param wmoCode WMO Weather Interpretation code (0-99)
+/// @param isDay true for daytime icon selection
+/// @param weather Output structure to populate
+/// @details Maps WMO codes to OWM-compatible descriptions and icon IDs.
+/// Allows reusing existing icon assets designed for OWM codes.
+/// @see https://open-meteo.com/en/docs
+/// @see https://openweathermap.org/weather-conditions
 void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
 {
   // Map WMO code to OWM-compatible values
@@ -514,10 +523,12 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
   }
 }
 
-/**
- * Deserialize Open-Meteo API response.
- * Converts Open-Meteo format to the existing owm_resp_onecall_t structure.
- */
+/// @brief Deserialize Open-Meteo Forecast API response
+/// @param json WiFi client stream
+/// @param r Output structure to populate
+/// @return ArduinoJson deserialization error
+/// @details Handles chunked transfer encoding, parses ISO 8601 timestamps.
+/// Temperatures converted from Celsius to Kelvin for internal consistency.
 DeserializationError deserializeOpenMeteo(WiFiClient &json,
                                           owm_resp_onecall_t &r)
 {
@@ -810,9 +821,10 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   return error;
 } // end deserializeOpenMeteo
 
-/**
- * Deserialize Open-Meteo Air Quality API response.
- */
+/// @brief Deserialize Open-Meteo Air Quality API response
+/// @param json WiFi client stream
+/// @param r Output structure to populate
+/// @return ArduinoJson deserialization error
 DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
                                                     owm_resp_air_pollution_t &r)
 {

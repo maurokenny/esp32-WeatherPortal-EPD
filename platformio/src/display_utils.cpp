@@ -1,20 +1,15 @@
-/* Display helper utilities for esp32-weather-epd.
- * Copyright (C) 2022-2025  Luke Marzen
- * Copyright (C) 2026  Mauro Freitas
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file display_utils.cpp
+/// @brief Display helper utilities and bitmap selection implementation
+/// @copyright Copyright (C) 2022-2025 Luke Marzen, 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// Provides utility functions for the e-paper display:
+/// - Battery voltage reading via ADC with calibration
+/// - Bitmap selection based on weather conditions
+/// - Alert categorization and filtering
+/// - WiFi signal strength indicators
+/// - String formatting and timezone handling
 
 #include <cmath>
 #include <vector>
@@ -41,8 +36,9 @@
 #include "fonts/FreeSans/FreeSans_12pt8b.h"
 #include "fonts/FreeSans/FreeSans_18pt8b.h"
 
-/* Returns battery voltage in millivolts (mv).
- */
+/// @brief Read battery voltage from ADC
+/// @return Battery voltage in millivolts (mV)
+/// @details Uses ESP32 ADC with eFuse calibration. Assumes 1M+1M voltage divider.
 uint32_t readBatteryVoltage()
 {
   esp_adc_cal_characteristics_t adc_chars;
@@ -82,18 +78,13 @@ uint32_t readBatteryVoltage()
   return batteryVoltage;
 } // end readBatteryVoltage
 
-/* Returns battery percentage, rounded to the nearest integer.
- * Takes a voltage in millivolts and uses a sigmoidal approximation to find an
- * approximation of the battery life percentage remaining.
- *
- * This function contains LGPLv3 code from
- * <https://github.com/rlogiacco/BatterySense>.
- *
- * Symmetric sigmoidal approximation
- * <https://www.desmos.com/calculator/7m9lu26vpy>
- *
- * c - c / (1 + k*x/v)^3
- */
+/// @brief Calculate battery percentage using sigmoidal approximation
+/// @param v Current voltage (mV)
+/// @param minv Minimum voltage (empty, mV)
+/// @param maxv Maximum voltage (full, mV)
+/// @return Battery percentage (0-100)
+/// @details Curve-fitted sigmoid approximates LiPo discharge curve.
+/// Based on BatterySense library (LGPLv3).
 uint32_t calcBatPercent(uint32_t v, uint32_t minv, uint32_t maxv)
 {
   // slow
@@ -107,8 +98,9 @@ uint32_t calcBatPercent(uint32_t v, uint32_t minv, uint32_t maxv)
   return p >= 100 ? 100 : p;
 } // end calcBatPercent
 
-/* Returns 24x24 bitmap incidcating battery status.
- */
+/// @brief Get battery level icon bitmap
+/// @param batPercent Battery percentage (0-100)
+/// @return Pointer to 24x24 bitmap
 const uint8_t *getBatBitmap24(uint32_t batPercent)
 {
   if (batPercent >= 93)
@@ -145,9 +137,10 @@ const uint8_t *getBatBitmap24(uint32_t batPercent)
   }
 } // end getBatBitmap24
 
-/* Helper: apply timezone offset to a tm struct and normalize fields.
- * This avoids dependency on the ESP32's configured timezone.
- */
+/// @brief Apply timezone offset to time structure
+/// @param timeInfo Time structure to modify
+/// @param tzOffsetSeconds Offset in seconds (positive=east)
+/// @details Manually adjusts time fields without using system timezone
 static void applyTzOffsetToTm(tm *timeInfo, int tzOffsetSeconds)
 {
   if (tzOffsetSeconds == 0) {
@@ -461,16 +454,21 @@ const uint8_t *getWiFiBitmap16(int rssi)
   }
 } // end getWiFiBitmap24
 
-/* Returns true if icon is a daytime icon, false otherwise.
- */
+/// @brief Check if icon represents daytime
+/// @param icon OWM icon ID (e.g., "01d", "02n")
+/// @return true if daytime icon (ends with 'd')
 bool isDay(String icon)
 {
   // OpenWeatherMap indicates sun is up with d otherwise n for night
   return icon.endsWith("d");
 }
 
-/* Returns true if the moon is currently in the sky above, false otherwise.
- */
+/// @brief Check if moon is currently visible
+/// @param current_dt Current timestamp
+/// @param moonrise_dt Moonrise timestamp
+/// @param moonset_dt Moonset timestamp
+/// @param moon_phase Moon phase (0-1)
+/// @return true if moon is above horizon and not new moon
 bool isMoonInSky(int64_t current_dt, int64_t moonrise_dt, int64_t moonset_dt,
                  float moon_phase)
 {

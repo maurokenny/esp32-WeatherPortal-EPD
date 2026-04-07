@@ -1,20 +1,17 @@
-/* Renderer for esp32-weather-epd.
- * Copyright (C) 2022-2025  Luke Marzen
- * Copyright (C) 2026  Mauro Freitas
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+/// @file renderer.cpp
+/// @brief E-paper display rendering implementation
+/// @copyright Copyright (C) 2022-2025 Luke Marzen, 2026 Mauro Freitas
+/// @license GNU General Public License v3.0
+///
+/// @details
+/// Implements high-level rendering functions for the weather display:
+/// - Display initialization and power management
+/// - Text rendering with alignment and multi-line support
+/// - Weather widget drawing (current conditions, forecast, graphs)
+/// - Status bar, alerts, and error screens
+///
+/// Uses GxEPD2 library for e-paper hardware abstraction.
+/// Rendering uses paged mode to minimize RAM usage.
 
 #include "_locale.h"
 #include "_strftime.h"
@@ -25,7 +22,8 @@
 #include "display_utils.h"
 #include "umbrella_parser.h"
 
-/* Data validation utilities for API values - returns true if valid */
+/// @brief API data validation utilities
+/// @details Inline validators for weather data sanity checking
 namespace {
   inline bool isValidWindSpeed(float windSpeed) {
     return !std::isnan(windSpeed) && windSpeed >= 0.0f;
@@ -103,8 +101,9 @@ namespace {
   #define ACCENT_COLOR GxEPD_BLACK
 #endif
 
-/* Returns the string width in pixels
- */
+/// @brief Calculate string width in pixels
+/// @param text String to measure
+/// @return Width in pixels for current font
 uint16_t getStringWidth(const String &text)
 {
   int16_t x1, y1;
@@ -113,8 +112,9 @@ uint16_t getStringWidth(const String &text)
   return w;
 }
 
-/* Returns the string height in pixels
- */
+/// @brief Calculate string height in pixels
+/// @param text String to measure
+/// @return Height in pixels for current font
 uint16_t getStringHeight(const String &text)
 {
   int16_t x1, y1;
@@ -123,8 +123,12 @@ uint16_t getStringHeight(const String &text)
   return h;
 }
 
-/* Draws a string with alignment
- */
+/// @brief Draw string with specified alignment
+/// @param x Horizontal anchor position
+/// @param y Vertical anchor position (baseline)
+/// @param text String to draw
+/// @param alignment Alignment relative to anchor
+/// @param color Text color
 void drawString(int16_t x, int16_t y, const String &text, alignment_t alignment,
                 uint16_t color)
 {
@@ -249,8 +253,9 @@ void drawMultiLnString(int16_t x, int16_t y, const String &text,
   return;
 } // end drawMultiLnString
 
-/* Initialize e-paper display
- */
+/// @brief Initialize e-paper display
+/// @details Powers on, initializes SPI, sets rotation and fonts.
+/// @warning Must call powerOffDisplay() before deep sleep.
 void initDisplay()
 {
   pinMode(PIN_EPD_PWR, OUTPUT);
@@ -278,8 +283,8 @@ void initDisplay()
   return;
 } // end initDisplay
 
-/* Power-off e-paper display
- */
+/// @brief Power off e-paper display
+/// @details Hibernates controller and cuts power for minimum consumption.
 void powerOffDisplay()
 {
   display.hibernate(); // turns powerOff() and sets controller to deep sleep for
@@ -289,9 +294,9 @@ void powerOffDisplay()
 } // end initDisplay
 
 
-/* These functions are responsible for drawing the current conditions and
- * associated icons on the left panel.
- */
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Current Conditions Widgets
+/// ═══════════════════════════════════════════════════════════════════════════
 
 // drawCurrentSunrise
 #ifdef POS_SUNRISE
