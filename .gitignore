@@ -19,6 +19,7 @@ logs/
 platformio/.pio/
 platformio/.env
 platformio/include/wifi_credentials.h
+platformio/include/web_ui_data.h
 platformio/logs/
 
 # Environment Variables (contains sensitive WiFi credentials)
