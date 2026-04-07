@@ -742,10 +742,14 @@ void setup()
   // Load defaults into RTC RAM variables only if not already initialized (e.g. cold boot)
   // All strncpy calls use sizeof(dest) - 1 to ensure null-termination
   
-  // Sanity check: if rtcInitialized is true but credentials are empty,
-  // RTC memory was likely corrupted (e.g., watchdog reset). Force reload.
-  if (rtcInitialized && strlen(ramSSID) == 0) {
-    Serial.println("[WARNING] RTC initialized but credentials corrupted. Reloading defaults.");
+  // Check for RTC memory corruption: rtcInitialized is true but credentials are empty.
+  // This happens after watchdog resets or power glitches during deep sleep.
+  bool rtcCorrupted = (rtcInitialized && strlen(ramSSID) == 0);
+  if (rtcCorrupted) {
+    Serial.println("[ERROR] RTC memory corrupted! WiFi credentials lost.");
+    Serial.println("[INFO] Please reconfigure WiFi via the setup portal.");
+    // Clear rtcInitialized so defaults are loaded as fallback,
+    // but we will force AP mode afterward to ensure user knows reconfiguration is needed.
     rtcInitialized = false;
   }
   
@@ -780,6 +784,14 @@ void setup()
   if (strlen(ramCountry) == 0 && COUNTRY_STRING.length() > 0) {
     strncpy(ramCountry, COUNTRY_STRING.c_str(), sizeof(ramCountry) - 1);
     ramCountry[sizeof(ramCountry) - 1] = '\0';
+  }
+  
+  // If RTC was corrupted, force AP mode so user can reconfigure
+  // (don't silently use defaults - they may be wrong/outdated)
+  if (rtcCorrupted) {
+    // Clear the credentials we just loaded to force AP mode
+    ramSSID[0] = '\0';
+    ramPassword[0] = '\0';
   }
 
   // ============================================================
