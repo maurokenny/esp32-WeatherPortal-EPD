@@ -51,7 +51,6 @@ void test_wifi_success_goes_to_normal_mode(void) {
     
     TEST_ASSERT_EQUAL(STATE_NORMAL_MODE, output.nextState);
     TEST_ASSERT_TRUE(output.resetWifiFail);
-    TEST_ASSERT_TRUE(output.updateFirstBoot); // isFirstBoot becomes false
 }
 
 void test_first_boot_wifi_timeout_goes_to_ap_mode(void) {
@@ -179,16 +178,6 @@ void test_max_is_one_immediate_error_on_second_attempt(void) {
     
     TEST_ASSERT_EQUAL(STATE_ERROR, output.nextState);
     TEST_ASSERT_TRUE(output.incWifiFail);
-}
-
-void test_is_first_boot_reset_only_once(void) {
-    DecisionInput input = {};
-    input.wifiConnected = true;
-    input.isFirstBoot = false; // Already second boot
-    
-    DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
-    TEST_ASSERT_FALSE(output.updateFirstBoot); // Should not update if already false
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -335,7 +324,6 @@ int main(int argc, char **argv) {
     
     // Edge cases
     RUN_TEST(test_max_is_one_immediate_error_on_second_attempt);
-    RUN_TEST(test_is_first_boot_reset_only_once);
 
     // Sleep duration
     RUN_TEST(test_sleep_duration_daytime);

@@ -207,9 +207,13 @@ void wifiManagerLoop() {
 
             case STATE_NORMAL_MODE:
                 runtime.wifiConnected = true;
+                // Clear first boot flag immediately on successful connection
+                isFirstBoot = false;
+                // Show status on first boot or if not silent
                 if (isFirstBoot || !SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
+
                 break;
 
             case STATE_AP_CONFIG_MODE:
@@ -240,7 +244,6 @@ void wifiManagerLoop() {
         }
 
         // Apply state variables
-        if (output.updateFirstBoot) { isFirstBoot = false; }
         if (output.resetWifiFail) { connectionFailCycles = 0; }
         if (output.incWifiFail) { connectionFailCycles++; }
         

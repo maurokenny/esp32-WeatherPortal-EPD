@@ -43,7 +43,6 @@ struct DecisionOutput {
     State nextState;
     
     // Commands to be executed by the caller
-    bool updateFirstBoot;      // Set isFirstBoot = false
     bool resetWifiFail;        // Set connectionFailCycles = 0
     bool incWifiFail;          // Increment connectionFailCycles
     bool resetNtpFail;         // Set ntpFailCycles = 0

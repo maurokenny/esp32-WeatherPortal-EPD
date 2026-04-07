@@ -12,7 +12,6 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
     output.nextState = current; // Default stay in current state
     
     // Clear side effects by default
-    output.updateFirstBoot = false;
     output.resetWifiFail = false;
     output.incWifiFail = false;
     output.resetNtpFail = false;
@@ -34,9 +33,6 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
             if (input.wifiConnected) {
                 output.nextState = STATE_NORMAL_MODE;
                 output.resetWifiFail = true;
-                if (input.isFirstBoot) {
-                    output.updateFirstBoot = true;
-                }
             } else if (input.wifiTimeout) {
                 if (input.isFirstBoot) {
                     output.nextState = STATE_AP_CONFIG_MODE;
