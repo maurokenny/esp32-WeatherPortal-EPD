@@ -164,7 +164,7 @@ public:
     /**
      * Get the drawn humidity value (0 if not found)
      */
-    int getDrawnHumidity() const;
+    float getDrawnHumidity() const;
     
     /**
      * Get the drawn wind speed value (0 if not found)

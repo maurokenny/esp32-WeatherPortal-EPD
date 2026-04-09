@@ -91,25 +91,6 @@ float OpenMeteoResponse::getCurrentVisibility() const {
     return hourly.getCurrentVisibility();
 }
 
-// ============================================================================
-// RenderEvent Implementation
-// ============================================================================
 
-std::string RenderEvent::toJson() const {
-    std::ostringstream json;
-    json << "{";
-    json << "\"event_type\":\"" << event_type << "\",";
-    json << "\"icon_name\":\"" << icon_name << "\",";
-    json << "\"x\":" << x << ",";
-    json << "\"y\":" << y << ",";
-    json << "\"weather_code\":" << weather_code << ",";
-    json << "\"pop\":" << pop << ",";
-    json << "\"precipitation\":" << std::fixed << std::setprecision(1) << precipitation;
-    if (!timestamp.empty()) {
-        json << ",\"timestamp\":\"" << timestamp << "\"";
-    }
-    json << "}";
-    return json.str();
-}
 
 } // namespace blackbox
