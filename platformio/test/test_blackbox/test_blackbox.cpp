@@ -29,24 +29,112 @@
 #include <cmath>
 #ifndef _WIN32
     #include <unistd.h>  // For usleep
+#endif
 
-// Unit conversion helpers for tests
+// =============================================================================
+// Unit-Aware Test Expectations
+// =============================================================================
+// These macros convert base values (Celsius, km/h, hPa) to the configured units
+
+// Temperature expectations (base: Celsius)
 #ifdef UNITS_TEMP_FAHRENHEIT
-    #define TEST_EXPECTED_TEMP_SUNNY 71.6f  // 22°C in Fahrenheit
-    #define TEST_EXPECTED_TEMP_SNOWY 32.0f   // 0°C in Fahrenheit
+    #define TEST_TEMP(BASE) ((BASE) * 9.0f / 5.0f + 32.0f)
+    #define TEST_TEMP_UNIT "F"
+#elif defined(UNITS_TEMP_KELVIN)
+    #define TEST_TEMP(BASE) ((BASE) + 273.15f)
+    #define TEST_TEMP_UNIT "K"
 #else
-    #define TEST_EXPECTED_TEMP_SUNNY 22.0f  // Celsius (default)
-    #define TEST_EXPECTED_TEMP_SNOWY 0.0f   // Celsius (default)
+    #define TEST_TEMP(BASE) (BASE)
+    #define TEST_TEMP_UNIT "C"
 #endif
 
+// Wind speed expectations (base: km/h)
 #ifdef UNITS_SPEED_MILESPERHOUR
-    #define TEST_WIND_THRESHOLD_SUNNY 6.2f   // <10 km/h in mph
-    #define TEST_WIND_THRESHOLD_STORM 12.4f   // >20 km/h in mph
+    #define TEST_WIND(MS) ((MS) / 1.60934f)
+    #define TEST_WIND_UNIT "mph"
 #else
-    #define TEST_WIND_THRESHOLD_SUNNY 10.0f   // km/h (default)
-    #define TEST_WIND_THRESHOLD_STORM 20.0f    // km/h (default)
+    #define TEST_WIND(MS) (MS)
+    #define TEST_WIND_UNIT "km/h"
 #endif
+
+// Pressure expectations (base: hPa)
+#ifdef UNITS_PRES_MILLIMETERSOFMERCURY
+    #define TEST_PRES(HP) ((HP) * 0.750062f)
+    #define TEST_PRES_UNIT "mmHg"
+#elif defined(UNITS_PRES_INCHESOFMERCURY)
+    #define TEST_PRES(HP) ((HP) * 0.02953f)
+    #define TEST_PRES_UNIT "inHg"
+#elif defined(UNITS_PRES_POUNDSPERSQUAREINCH)
+    #define TEST_PRES(HP) ((HP) * 0.014504f)
+    #define TEST_PRES_UNIT "psi"
+#else
+    #define TEST_PRES(HP) (HP)
+    #define TEST_PRES_UNIT "hPa"
 #endif
+
+// Distance expectations (base: km)
+#ifdef UNITS_DIST_MILES
+    #define TEST_DIST(KM) ((KM) * 0.621371f)
+    #define TEST_DIST_UNIT "mi"
+#else
+    #define TEST_DIST(KM) (KM)
+    #define TEST_DIST_UNIT "km"
+#endif
+
+// Precipitation expectations (base: mm)
+#ifdef UNITS_HOURLY_PRECIP_CENTIMETERS
+    #define TEST_PRECIP(MM) ((MM) * 0.1f)
+    #define TEST_PRECIP_UNIT "cm"
+#elif defined(UNITS_HOURLY_PRECIP_INCHES)
+    #define TEST_PRECIP(MM) ((MM) * 0.0393701f)
+    #define TEST_PRECIP_UNIT "in"
+#else
+    #define TEST_PRECIP(MM) (MM)
+    #define TEST_PRECIP_UNIT "mm"
+#endif
+
+// =============================================================================
+// Scenario Expectations (with unit conversion)
+// =============================================================================
+// Sunny: 22°C, 45% humidity, 5 km/h wind, 1015 hPa, 10 km visibility
+#define TEST_EXP_SUNNY_TEMP     TEST_TEMP(22.0f)
+#define TEST_EXP_SUNNY_HUM      45
+#define TEST_EXP_SUNNY_WIND     TEST_WIND(5.0f)
+#define TEST_EXP_SUNNY_PRES     TEST_PRES(1015.0f)
+#define TEST_EXP_SUNNY_DIST     TEST_DIST(10.0f)
+
+// Light rain: 18°C, 75% humidity, 8 km/h wind, 1005 hPa, 5 km visibility
+#define TEST_EXP_RAIN_TEMP      TEST_TEMP(18.0f)
+#define TEST_EXP_RAIN_HUM       75
+#define TEST_EXP_RAIN_WIND      TEST_WIND(8.0f)
+#define TEST_EXP_RAIN_PRES      TEST_PRES(1005.0f)
+#define TEST_EXP_RAIN_DIST      TEST_DIST(5.0f)
+
+// Heavy storm: 16°C, 90% humidity, 25 km/h wind, 995 hPa, 2 km visibility
+#define TEST_EXP_STORM_TEMP     TEST_TEMP(16.0f)
+#define TEST_EXP_STORM_HUM      90
+#define TEST_EXP_STORM_WIND     TEST_WIND(25.0f)
+#define TEST_EXP_STORM_PRES     TEST_PRES(995.0f)
+#define TEST_EXP_STORM_DIST     TEST_DIST(2.0f)
+
+// High precip prob: 20°C, 70% humidity, 10 km/h wind, 1010 hPa, 8 km visibility
+#define TEST_EXP_HPOP_TEMP      TEST_TEMP(20.0f)
+#define TEST_EXP_HPOP_HUM       70
+#define TEST_EXP_HPOP_WIND      TEST_WIND(10.0f)
+#define TEST_EXP_HPOP_PRES      TEST_PRES(1010.0f)
+
+// Low precip prob: 21°C, 50% humidity, 5 km/h wind, 1018 hPa, 10 km visibility
+#define TEST_EXP_LPOP_TEMP      TEST_TEMP(21.0f)
+#define TEST_EXP_LPOP_HUM       50
+#define TEST_EXP_LPOP_WIND      TEST_WIND(5.0f)
+#define TEST_EXP_LPOP_PRES      TEST_PRES(1018.0f)
+
+// Snowy: 0°C, 85% humidity, 10 km/h wind, 1020 hPa, 3 km visibility
+#define TEST_EXP_SNOW_TEMP      TEST_TEMP(0.0f)
+#define TEST_EXP_SNOW_HUM       85
+#define TEST_EXP_SNOW_WIND      TEST_WIND(10.0f)
+#define TEST_EXP_SNOW_PRES      TEST_PRES(1020.0f)
+#define TEST_EXP_SNOW_DIST      TEST_DIST(3.0f)
 
 #include "api_response.h"
 #include "parse_openmeteo.h"
@@ -218,12 +306,12 @@ void test_sunny(void) {
         "Umbrella should NOT be drawn for sunny weather");
     
     // Verify weather values were rendered
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(22.0f, 2.0f),
-        "Temperature should be rendered (~22°C for sunny)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(45, 5),
-        "Humidity should be rendered (~45% for sunny)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(5.0f, 2.0f),
-        "Wind speed should be rendered (~5 km/h for sunny)");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_SUNNY_TEMP, 2.0f),
+        "Temperature should be rendered for sunny");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_SUNNY_HUM, 5),
+        "Humidity should be rendered for sunny");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_SUNNY_WIND, 2.0f),
+        "Wind speed should be rendered for sunny");
     
     // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
@@ -277,12 +365,12 @@ void test_light_rain(void) {
         "Umbrella SHOULD be drawn for light rain");
     
     // Verify weather values were rendered
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(18.0f, 2.0f),
-        "Temperature should be rendered (~18°C for light rain)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(75, 5),
-        "Humidity should be rendered (~75% for light rain)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(8.0f, 2.0f),
-        "Wind speed should be rendered (~8 km/h for light rain)");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_RAIN_TEMP, 2.0f),
+        "Temperature should be rendered for light rain");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_RAIN_HUM, 5),
+        "Humidity should be rendered for light rain");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_RAIN_WIND, 2.0f),
+        "Wind speed should be rendered for light rain");
     
     // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
@@ -333,12 +421,12 @@ void test_heavy_storm(void) {
         "Umbrella SHOULD be drawn for heavy storm");
     
     // Verify weather values - especially high wind speed
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(16.0f, 2.0f),
-        "Temperature should be rendered (~16°C for storm)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(90, 5),
-        "Humidity should be rendered (~90% for storm)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(25.0f, 10.0f),
-        "High wind speed should be rendered (~25+ km/h for storm)");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_STORM_TEMP, 2.0f),
+        "Temperature should be rendered for storm");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_STORM_HUM, 5),
+        "Humidity should be rendered for storm");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_STORM_WIND, 10.0f),
+        "High wind speed should be rendered for storm");
     
     // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
@@ -388,10 +476,10 @@ void test_high_precipitation_prob(void) {
         "Umbrella MUST be drawn when POP crosses threshold");
     
     // Verify weather values
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(20.0f, 2.0f),
-        "Temperature should be rendered (~20°C)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(70, 10),
-        "Humidity should be rendered (~70%)");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_HPOP_TEMP, 2.0f),
+        "Temperature should be rendered");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_HPOP_HUM, 10),
+        "Humidity should be rendered");
     
     // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
@@ -442,12 +530,12 @@ void test_no_precip_low_prob(void) {
         "Umbrella should NOT be drawn for low probability");
     
     // Verify weather values
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(21.0f, 2.0f),
-        "Temperature should be rendered (~21°C for cloudy)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(50, 5),
-        "Humidity should be rendered (~50% for cloudy)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(5.0f, 2.0f),
-        "Wind speed should be rendered (~5 km/h for cloudy)");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_LPOP_TEMP, 2.0f),
+        "Temperature should be rendered for cloudy");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_LPOP_HUM, 5),
+        "Humidity should be rendered for cloudy");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_LPOP_WIND, 2.0f),
+        "Wind speed should be rendered for cloudy");
     
     // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
@@ -500,12 +588,12 @@ void test_snowy(void) {
         "Umbrella should be drawn for snow");
     
     // Verify freezing temperature rendered
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(0.0f, 2.0f),
-        "Freezing temperature should be rendered (~0°C for snow)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(85, 5),
-        "High humidity should be rendered (~85% for snow)");
-    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(10.0f, 3.0f),
-        "Wind speed should be rendered (~10 km/h for snow)");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_SNOW_TEMP, 2.0f),
+        "Freezing temperature should be rendered for snow");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_SNOW_HUM, 5),
+        "High humidity should be rendered for snow");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_SNOW_WIND, 3.0f),
+        "Wind speed should be rendered for snow");
     
     // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
@@ -554,7 +642,7 @@ void test_temperature_accuracy(void) {
     float drawnTemp = g_orchestrator->getRenderMock().getDrawnTemperature();
     TEST_ASSERT_FALSE_MESSAGE(std::isnan(drawnTemp),
         "Sunny: Temperature should be rendered");
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXPECTED_TEMP_SUNNY, drawnTemp,
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXP_SUNNY_TEMP, drawnTemp,
         "Sunny: Rendered temperature should match configured units");
     
     // Test snowy - freezing (store value before changing scenario)
