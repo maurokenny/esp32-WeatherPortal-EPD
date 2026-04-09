@@ -35,7 +35,7 @@ FirmwareState currentState = STATE_BOOT;
 /// @brief WiFi manager configuration
 DeviceConfig wifiConfig = {
     .wifiConnectTimeout = 20,  ///< WiFi connection attempt timeout (seconds)
-    .configTimeout = 300      ///< AP mode timeout (seconds) - 5 minutes
+    .configTimeout = 300     ///< AP mode timeout (seconds) - 5 minutes
 };
 
 /// @brief Runtime state tracking
