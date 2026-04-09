@@ -210,6 +210,14 @@ void wifiManagerLoop() {
                 if (isFirstBoot || !SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
+                // Reset isFirstBoot as soon as WiFi connects successfully.
+                // This prevents entering AP mode on subsequent WiFi timeouts.
+                // Previously, isFirstBoot was only reset at the end of updateWeather(),
+                // which meant NTP/API failures could leave it true indefinitely.
+                if (isFirstBoot) {
+                    isFirstBoot = false;
+                    Serial.println("[WiFi] First boot flag reset on successful connection");
+                }
                 break;
 
             case STATE_AP_CONFIG_MODE:
