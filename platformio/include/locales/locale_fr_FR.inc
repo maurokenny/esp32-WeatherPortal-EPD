@@ -155,6 +155,8 @@ const char *TXT_TIME_SYNCHRONIZATION_FAILED = "\311chec de la Synchronisation Ho
 const char *TXT_WIFI_CONNECTION_FAILED = "\311chec de la Connexion WiFi";
 const char *TXT_AP_TIMEOUT_LINE1 = "D\351lai d\351pass\351";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manuel n\351cessaire";
+const char *TXT_ERROR_GENERIC = "Quelque chose s'est mal passé";
+const char *TXT_ERROR_CONNECT_TIMEOUT = "L'appareil a mis trop de temps à se connecter";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

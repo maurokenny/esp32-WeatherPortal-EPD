@@ -155,6 +155,8 @@ const char *TXT_TIME_SYNCHRONIZATION_FAILED = "Time Synchronization Failed";
 const char *TXT_WIFI_CONNECTION_FAILED = "WiFi Connection Failed";
 const char *TXT_AP_TIMEOUT_LINE1 = "Setup Timeout";
 const char *TXT_AP_TIMEOUT_LINE2 = "Manual reset required to recover";
+const char *TXT_ERROR_GENERIC = "Etwas ist schief gelaufen";
+const char *TXT_ERROR_CONNECT_TIMEOUT = "Das Gerät hat zu lange zum Verbinden gebraucht";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

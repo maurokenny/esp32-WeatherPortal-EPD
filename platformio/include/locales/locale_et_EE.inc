@@ -154,6 +154,8 @@ const char *TXT_TIME_SYNCHRONIZATION_FAILED = "Aja k\xFCsimine eba\xF5nnestus";
 const char *TXT_WIFI_CONNECTION_FAILED = "WiFi \xFChendus puudub";
 const char *TXT_AP_TIMEOUT_LINE1 = "Seadistuse aegub";
 const char *TXT_AP_TIMEOUT_LINE2 = "K\365sitsi reset vajalik taastamiseks";
+const char *TXT_ERROR_GENERIC = "Midagi läks valesti";
+const char *TXT_ERROR_CONNECT_TIMEOUT = "Seadmel võttis ühendumiseks liiga kaua aega";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

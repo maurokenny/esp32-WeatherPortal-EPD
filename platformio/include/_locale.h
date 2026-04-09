@@ -160,6 +160,8 @@ extern const char *TXT_TIME_SYNCHRONIZATION_FAILED;     ///< "Time Sync Failed"
 extern const char *TXT_WIFI_CONNECTION_FAILED;          ///< "WiFi Connection Failed"
 extern const char *TXT_AP_TIMEOUT_LINE1;                ///< "Setup Timeout"
 extern const char *TXT_AP_TIMEOUT_LINE2;                 ///< "Manual reset required to recover"
+extern const char *TXT_ERROR_GENERIC;                    ///< "Something went wrong"
+extern const char *TXT_ERROR_CONNECT_TIMEOUT;            ///< "The device took too long to connect"
 
 // First Word Capitalized
 extern const char *TXT_ATTEMPTING_HTTP_REQ;             ///< "Attempting HTTP Request"

@@ -155,6 +155,8 @@ const char *TXT_TIME_SYNCHRONIZATION_FAILED = "Falha na Sincroniza\347\343o do T
 const char *TXT_WIFI_CONNECTION_FAILED = "Falha na Conex\343o WiFi";
 const char *TXT_AP_TIMEOUT_LINE1 = "Tempo Esgotado";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manual necess\341rio para recuperar";
+const char *TXT_ERROR_GENERIC = "Algo deu errado";
+const char *TXT_ERROR_CONNECT_TIMEOUT = "O dispositivo demorou muito para conectar";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Tentando Requisi\347\343o HTTP";
 const char *TXT_AWAKE_FOR = "Acordado por";

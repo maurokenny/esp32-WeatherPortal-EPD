@@ -1856,10 +1856,6 @@ void drawErrorScreen(const char* title, const char* message, const char* action)
       drawString(DISP_WIDTH / 2, 350, action, CENTER);
     }
     
-    // Bottom note
-    display.setFont(&FreeSans_9pt8b);
-    drawString(DISP_WIDTH / 2, 430, "Manual reset required to recover", CENTER);
-    
   } while (display.nextPage());
   powerOffDisplay();
 }

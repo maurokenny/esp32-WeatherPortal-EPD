@@ -871,8 +871,8 @@ void loop()
       
       // Always show error screen for STATE_ERROR, even in silent mode
       // This is a terminal state - user needs to know device needs reset
-      drawErrorScreen("System Error", "Connection failed permanently", "Manual reset required");
-      
+      drawErrorScreen(TXT_ERROR_GENERIC, TXT_ERROR_CONNECT_TIMEOUT, TXT_AP_TIMEOUT_LINE2);
+
       // Wait for e-paper to complete physical refresh before sleeping.
       delay(2000);  // 2 seconds for display to stabilize
       
