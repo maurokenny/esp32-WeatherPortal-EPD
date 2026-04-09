@@ -1,0 +1,53 @@
+name: Blackbox Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  PLATFORMIO_CORE_DIR: ~/.platformio
+  MOCK_SERVER_URL: http://mock-server:8080
+
+jobs:
+  blackbox-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Python, PlatformIO
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-pip curl
+          python3 -m pip install --upgrade platformio
+
+      - name: Run Blackbox Tests with Docker Compose
+        working-directory: platformio/test
+        run: |
+          # Start mock server and wait for health
+          docker compose up --build -d mock-server
+          
+          echo "Waiting for mock server..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✓ Mock server ready after ${i}s"
+              curl -s http://localhost:8080/
+              break
+            fi
+            sleep 1
+          done
+          
+          # Run tests (native, not in container, to use local pio)
+          cd ..
+          pio test -e blackbox --verbose
+          
+          # Cleanup
+          docker compose down
+
+      - name: Cleanup
+        if: always()
+        working-directory: platformio/test
+        run: docker compose down || true

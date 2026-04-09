@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  mock-server:
+    build: ./mock_server
+    image: weather-epd-mock:latest
+    container_name: mock-server
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
+    networks:
+      - test-network
+
+  blackbox-test:
+    image: ubuntu:22.04
+    container_name: blackbox-test
+    depends_on:
+      mock-server:
+        condition: service_healthy
+    environment:
+      - MOCK_SERVER_URL=http://mock-server:8080
+      - PLATFORMIO_CORE_DIR=/root/.platformio
+    volumes:
+      - ../:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace
+    command: >
+      bash -c "
+        apt-get update &&
+        apt-get install -y python3 python3-pip curl git &&
+        pip3 install -U platformio &&
+        cd platformio &&
+        pio test -e blackbox --verbose --build-flag=\"-DMOCK_SERVER_URL=\\\"http://mock-server:8080\\\"\"
+      "
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
