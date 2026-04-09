@@ -1899,12 +1899,15 @@ void handleFailure(FailureType type, const String& line1, const String& line2)
     }
     
     // Calculate criticality
+    // Critical if: battery error, AP timeout (no retry), or max retry cycles reached
     bool isCritical = (type == FAILURE_BATTERY) || 
+                      (type == FAILURE_AP_TIMEOUT) ||
                       (cfg.maxCycles > 0 && cfg.counter && 
                        *cfg.counter >= cfg.maxCycles);
     
-    // Decide whether to show screen (battery always shows)
-    bool shouldShow = isCritical || !SILENT_STATUS || (type == FAILURE_BATTERY);
+    // Decide whether to show screen
+    // Always show for critical errors (terminal state), otherwise respect SILENT_STATUS
+    bool shouldShow = isCritical || !SILENT_STATUS;
     
     if (shouldShow) {
         Serial.println("[FAILURE] Showing error screen");
