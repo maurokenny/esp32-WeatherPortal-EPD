@@ -33,6 +33,7 @@ struct OpenMeteoHourly {
     std::vector<int> weather_code;           // WMO weather code
     std::vector<float> wind_speed_10m;       // Wind speed at 10m (km/h)
     std::vector<float> surface_pressure;     // Atmospheric pressure (hPa)
+    std::vector<float> visibility;           // Visibility (km)
     
     // Get max values for the forecast period
     int getMaxPop() const;
@@ -41,6 +42,7 @@ struct OpenMeteoHourly {
     float getMaxShowers() const;
     int getDominantWeatherCode() const;
     float getCurrentPressure() const;
+    float getCurrentVisibility() const;
 };
 
 /**
@@ -71,6 +73,7 @@ struct OpenMeteoResponse {
     int getCurrentPop() const;
     float getCurrentPrecipitation() const;
     float getCurrentPressure() const;
+    float getCurrentVisibility() const;
 };
 
 /**

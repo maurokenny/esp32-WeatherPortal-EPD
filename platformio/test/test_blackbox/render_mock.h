@@ -91,6 +91,16 @@ public:
     void drawPressure(float pressure, int x, int y);
     
     /**
+     * Draw visibility/distance
+     */
+    void drawVisibility(float distance, int x, int y);
+    
+    /**
+     * Draw precipitation amount
+     */
+    void drawPrecipitation(float amount, int x, int y);
+    
+    /**
      * Render complete weather scene based on Open-Meteo data
      * This is the high-level method that orchestrates all drawing
      */
@@ -165,6 +175,16 @@ public:
      * Get the drawn pressure value (0 if not found)
      */
     float getDrawnPressure() const;
+    
+    /**
+     * Get the drawn visibility value (0 if not found)
+     */
+    float getDrawnVisibility() const;
+    
+    /**
+     * Get the drawn precipitation value (0 if not found)
+     */
+    float getDrawnPrecipitation() const;
     
     // -------------------------------------------------------------------------
     // Configuration

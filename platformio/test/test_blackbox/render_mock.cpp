@@ -31,6 +31,24 @@
     #define RENDER_UNIT_PRES_HPA 0
 #endif
 
+// Distance unit detection
+#ifdef UNITS_DIST_MILES
+    #define RENDER_UNIT_DIST_MILES 1
+#else
+    #define RENDER_UNIT_DIST_MILES 0
+#endif
+
+// Precipitation unit detection (default: mm)
+#if defined(UNITS_HOURLY_PRECIP_MILLIMETERS) || defined(UNITS_DAILY_PRECIP_MILLIMETERS)
+    #define RENDER_UNIT_PRECIP_MM 1
+#elif defined(UNITS_HOURLY_PRECIP_CENTIMETERS) || defined(UNITS_DAILY_PRECIP_CENTIMETERS)
+    #define RENDER_UNIT_PRECIP_CM 1
+#elif defined(UNITS_HOURLY_PRECIP_INCHES) || defined(UNITS_DAILY_PRECIP_INCHES)
+    #define RENDER_UNIT_PRECIP_INCHES 1
+#else
+    #define RENDER_UNIT_PRECIP_MM 1  // Default
+#endif
+
 // Platform-specific networking
 #ifdef _WIN32
     #include <winsock2.h>
@@ -102,6 +120,33 @@ static inline const char* pres_unit_str() { return "atm"; }
 #else  // Default: hPa or mbar (1:1)
 static inline float convert_pressure(float pres) { return pres; }
 static inline const char* pres_unit_str() { return "hPa"; }
+#endif
+
+// Distance conversion (base unit is km)
+#if RENDER_UNIT_DIST_MILES
+static inline float convert_distance(float km) {
+    return km * 0.621371f;  // km to miles
+}
+static inline const char* dist_unit_str() { return "mi"; }
+#else  // Default: kilometers
+static inline float convert_distance(float dist) { return dist; }
+static inline const char* dist_unit_str() { return "km"; }
+#endif
+
+// Precipitation conversion (base unit is mm)
+#if RENDER_UNIT_PRECIP_CM
+static inline float convert_precipitation(float mm) {
+    return mm * 0.1f;  // mm to cm
+}
+static inline const char* precip_unit_str() { return "cm"; }
+#elif RENDER_UNIT_PRECIP_INCHES
+static inline float convert_precipitation(float mm) {
+    return mm * 0.0393701f;  // mm to inches
+}
+static inline const char* precip_unit_str() { return "in"; }
+#else  // Default: mm
+static inline float convert_precipitation(float mm) { return mm; }
+static inline const char* precip_unit_str() { return "mm"; }
 #endif
 
 // ============================================================================
@@ -199,6 +244,30 @@ void RenderMock::drawPressure(float pressure, int x, int y) {
     addEvent(event);
 }
 
+void RenderMock::drawVisibility(float distance, int x, int y) {
+    RenderEvent event;
+    event.event_type = "visibility_drawn";
+    float displayDist = convert_distance(distance);
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << displayDist << " " << dist_unit_str();
+    event.icon_name = oss.str();
+    event.x = x;
+    event.y = y;
+    addEvent(event);
+}
+
+void RenderMock::drawPrecipitation(float amount, int x, int y) {
+    RenderEvent event;
+    event.event_type = "precipitation_drawn";
+    float displayPrecip = convert_precipitation(amount);
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << displayPrecip << " " << precip_unit_str();
+    event.icon_name = oss.str();
+    event.x = x;
+    event.y = y;
+    addEvent(event);
+}
+
 void RenderMock::renderWeatherScene(const OpenMeteoResponse& data) {
     clearEvents();
     
@@ -231,6 +300,22 @@ void RenderMock::renderWeatherScene(const OpenMeteoResponse& data) {
     // Draw pressure (first hour/current)
     if (!data.hourly.surface_pressure.empty()) {
         drawPressure(data.hourly.surface_pressure[0], 250, 200);
+    }
+    
+    // Draw visibility (first hour/current)
+    if (!data.hourly.visibility.empty()) {
+        drawVisibility(data.hourly.visibility[0], 350, 200);
+    }
+    
+    // Draw precipitation (max value)
+    if (!data.hourly.precipitation.empty()) {
+        float maxPrecip = 0.0f;
+        for (auto p : data.hourly.precipitation) {
+            if (p > maxPrecip) maxPrecip = p;
+        }
+        if (maxPrecip > 0.0f) {
+            drawPrecipitation(maxPrecip, 350, 250);
+        }
     }
     
     // Draw umbrella if needed (firmware logic)
@@ -348,6 +433,38 @@ float RenderMock::getDrawnPressure() const {
     for (const auto& e : events_) {
         if (e.event_type == "pressure_drawn") {
             // Find the first space and parse the number before it
+            size_t pos = e.icon_name.find(" ");
+            if (pos != std::string::npos && pos > 0) {
+                try {
+                    return std::stof(e.icon_name.substr(0, pos));
+                } catch (...) {
+                    return std::numeric_limits<float>::quiet_NaN();
+                }
+            }
+        }
+    }
+    return std::numeric_limits<float>::quiet_NaN();
+}
+
+float RenderMock::getDrawnVisibility() const {
+    for (const auto& e : events_) {
+        if (e.event_type == "visibility_drawn") {
+            size_t pos = e.icon_name.find(" ");
+            if (pos != std::string::npos && pos > 0) {
+                try {
+                    return std::stof(e.icon_name.substr(0, pos));
+                } catch (...) {
+                    return std::numeric_limits<float>::quiet_NaN();
+                }
+            }
+        }
+    }
+    return std::numeric_limits<float>::quiet_NaN();
+}
+
+float RenderMock::getDrawnPrecipitation() const {
+    for (const auto& e : events_) {
+        if (e.event_type == "precipitation_drawn") {
             size_t pos = e.icon_name.find(" ");
             if (pos != std::string::npos && pos > 0) {
                 try {

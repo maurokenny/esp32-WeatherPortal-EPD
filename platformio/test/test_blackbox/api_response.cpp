@@ -49,6 +49,12 @@ float OpenMeteoHourly::getCurrentPressure() const {
     return surface_pressure[0];
 }
 
+float OpenMeteoHourly::getCurrentVisibility() const {
+    if (visibility.empty()) return 0.0f;
+    // Return first hour's visibility as current
+    return visibility[0];
+}
+
 // ============================================================================
 // OpenMeteoResponse Implementation
 // ============================================================================
@@ -79,6 +85,10 @@ float OpenMeteoResponse::getCurrentPrecipitation() const {
 
 float OpenMeteoResponse::getCurrentPressure() const {
     return hourly.getCurrentPressure();
+}
+
+float OpenMeteoResponse::getCurrentVisibility() const {
+    return hourly.getCurrentVisibility();
 }
 
 // ============================================================================

@@ -103,6 +103,7 @@ class ScenarioStore:
                     "weather_code": [1, 1, 1],
                     "wind_speed_10m": [5.0, 6.0, 5.5],
                     "surface_pressure": [1015.0, 1016.0, 1017.0],
+                    "visibility": [10.0, 10.0, 10.0],
                 },
                 "daily": {
                     "time": ["2025-01-15", "2025-01-16"],
@@ -135,6 +136,7 @@ class ScenarioStore:
                     "weather_code": [61, 61, 63],
                     "wind_speed_10m": [8.0, 9.0, 10.0],
                     "surface_pressure": [1005.0, 1003.0, 1002.0],
+                    "visibility": [5.0, 4.0, 3.0],
                 },
                 "daily": {
                     "time": ["2025-01-15", "2025-01-16"],
@@ -174,6 +176,7 @@ class ScenarioStore:
                     "weather_code": [95, 95, 96],
                     "wind_speed_10m": [25.0, 35.0, 40.0],
                     "surface_pressure": [995.0, 990.0, 988.0],
+                    "visibility": [2.0, 1.0, 1.0],
                 },
                 "daily": {
                     "time": ["2025-01-15", "2025-01-16"],
@@ -206,6 +209,7 @@ class ScenarioStore:
                     "weather_code": [3, 3, 61],
                     "wind_speed_10m": [10.0, 12.0, 15.0],
                     "surface_pressure": [1010.0, 1008.0, 1006.0],
+                    "visibility": [8.0, 7.0, 5.0],
                 },
                 "daily": {
                     "time": ["2025-01-15", "2025-01-16"],
@@ -238,6 +242,7 @@ class ScenarioStore:
                     "weather_code": [2, 2, 2],
                     "wind_speed_10m": [5.0, 6.0, 5.0],
                     "surface_pressure": [1018.0, 1019.0, 1020.0],
+                    "visibility": [10.0, 10.0, 10.0],
                 },
                 "daily": {
                     "time": ["2025-01-15", "2025-01-16"],
@@ -271,6 +276,7 @@ class ScenarioStore:
                     "weather_code": [71, 73, 75],
                     "wind_speed_10m": [10.0, 12.0, 15.0],
                     "surface_pressure": [1020.0, 1022.0, 1024.0],
+                    "visibility": [3.0, 2.0, 2.0],
                 },
                 "daily": {
                     "time": ["2025-01-15", "2025-01-16"],
