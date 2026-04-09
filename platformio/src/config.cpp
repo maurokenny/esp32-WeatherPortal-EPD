@@ -51,6 +51,11 @@ const char *WIFI_SSID     = WIFI_SSID_VALUE;
 const char *WIFI_PASSWORD = WIFI_PASSWORD_VALUE;
 const unsigned long WIFI_TIMEOUT = 20000; // ms, WiFi connection timeout (20 seconds)
 
+// ACCESS POINT
+const char *AP_SSID = "weather_eink-AP";
+const char *AP_IP_ADDRESS = "192.168.4.1";
+const char *AP_URL_LOCAL = "weather.local";
+
 // HTTP
 // The following errors are likely the result of insuffient http client tcp 
 // timeout:

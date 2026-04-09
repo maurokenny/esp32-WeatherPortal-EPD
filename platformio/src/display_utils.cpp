@@ -1810,9 +1810,11 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
     
     stepY += lineSpace;
     display.setFont(&FONT_16pt8b);
-    drawString(txtX + 25, stepY, TXT_AP_MODE_URL_LOCAL, LEFT);
+    String urlLocal = String("http://") + AP_URL_LOCAL;
+    drawString(txtX + 25, stepY, urlLocal.c_str(), LEFT);
     stepY += 35;
-    drawString(txtX + 25, stepY, TXT_AP_MODE_URL_IP, LEFT);
+    String urlIp = String("or ") + AP_IP_ADDRESS;
+    drawString(txtX + 25, stepY, urlIp.c_str(), LEFT);
 
     // Footer: Timeout countdown
     char timeoutMsg[64];

@@ -81,7 +81,7 @@ DNSServer dnsServer;
 /// @details Implements captive portal detection for iOS, Android, Windows, macOS
 bool handleCaptivePortal(AsyncWebServerRequest *request) {
     String host = request->host();
-    if (host != "192.168.4.1" && host != "weather.local") {
+    if (host != AP_IP_ADDRESS && host != AP_URL_LOCAL) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/html", index_html_gz, index_html_gz_len);
         response->addHeader("Content-Encoding", "gzip");
         request->send(response);
@@ -91,15 +91,19 @@ bool handleCaptivePortal(AsyncWebServerRequest *request) {
 }
 
 /// @brief Start Access Point configuration mode
-/// @details Creates "weather_eink-AP" network and starts DNS server
+/// @details Creates AP network and starts DNS server
 /// for captive portal detection. Serves configuration page on port 80.
 void startAP() {
     Serial.println("Starting Access Point Mode...");
     WiFi.mode(WIFI_AP);
-    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
-    WiFi.softAP("weather_eink-AP", NULL, 6);
+    IPAddress apIp, apGateway, apMask;
+    apIp.fromString(AP_IP_ADDRESS);
+    apGateway.fromString(AP_IP_ADDRESS);
+    apMask.fromString("255.255.255.0");
+    WiFi.softAPConfig(apIp, apGateway, apMask);
+    WiFi.softAP(AP_SSID, NULL, 6);
     
-    dnsServer.start(53, "*", IPAddress(192, 168, 4, 1));
+    dnsServer.start(53, "*", apIp);
     
     // Main setup page
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -140,7 +144,7 @@ void startAP() {
     runtime.portalActive = true;
     runtime.portalStartTime = millis();
     
-    drawAPModeScreen("weather_eink-AP", wifiConfig.configTimeout / 60);
+    drawAPModeScreen(AP_SSID, wifiConfig.configTimeout / 60);
     setFirmwareState(STATE_AP_CONFIG_MODE);
 }
 
