@@ -43,6 +43,12 @@ int OpenMeteoHourly::getDominantWeatherCode() const {
     return weather_code[0];
 }
 
+float OpenMeteoHourly::getCurrentPressure() const {
+    if (surface_pressure.empty()) return 0.0f;
+    // Return first hour's pressure as current
+    return surface_pressure[0];
+}
+
 // ============================================================================
 // OpenMeteoResponse Implementation
 // ============================================================================
@@ -69,6 +75,10 @@ int OpenMeteoResponse::getCurrentPop() const {
 
 float OpenMeteoResponse::getCurrentPrecipitation() const {
     return hourly.getMaxPrecipitation();
+}
+
+float OpenMeteoResponse::getCurrentPressure() const {
+    return hourly.getCurrentPressure();
 }
 
 // ============================================================================

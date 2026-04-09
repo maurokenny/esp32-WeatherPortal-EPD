@@ -86,6 +86,11 @@ public:
     void drawWindSpeed(float windSpeed, int x, int y);
     
     /**
+     * Draw atmospheric pressure
+     */
+    void drawPressure(float pressure, int x, int y);
+    
+    /**
      * Render complete weather scene based on Open-Meteo data
      * This is the high-level method that orchestrates all drawing
      */
@@ -155,6 +160,11 @@ public:
      * Get the drawn wind speed value (0 if not found)
      */
     float getDrawnWindSpeed() const;
+    
+    /**
+     * Get the drawn pressure value (0 if not found)
+     */
+    float getDrawnPressure() const;
     
     // -------------------------------------------------------------------------
     // Configuration

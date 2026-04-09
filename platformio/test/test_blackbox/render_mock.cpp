@@ -24,6 +24,13 @@
     #define RENDER_UNIT_SPEED_MPH 0
 #endif
 
+// Pressure unit detection
+#if defined(UNITS_PRES_HECTOPASCALS) || defined(UNITS_PRES_MILLIBARS) || defined(UNITS_PRES_ATMOSPHERES)
+    #define RENDER_UNIT_PRES_HPA 1
+#else
+    #define RENDER_UNIT_PRES_HPA 0
+#endif
+
 // Platform-specific networking
 #ifdef _WIN32
     #include <winsock2.h>
@@ -64,6 +71,37 @@ static inline const char* wind_unit_str() { return "mph"; }
 #else
 static inline float convert_wind_speed(float speed) { return speed; }
 static inline const char* wind_unit_str() { return "km/h"; }
+#endif
+
+// Pressure conversion (base unit is hPa)
+#if defined(UNITS_PRES_MILLIMETERSOFMERCURY)
+static inline float convert_pressure(float hpa) {
+    return hpa * 0.750062f;  // hPa to mmHg
+}
+static inline const char* pres_unit_str() { return "mmHg"; }
+#elif defined(UNITS_PRES_INCHESOFMERCURY)
+static inline float convert_pressure(float hpa) {
+    return hpa * 0.02953f;  // hPa to inHg
+}
+static inline const char* pres_unit_str() { return "inHg"; }
+#elif defined(UNITS_PRES_PASCALS)
+static inline float convert_pressure(float hpa) {
+    return hpa * 100.0f;  // hPa to Pa
+}
+static inline const char* pres_unit_str() { return "Pa"; }
+#elif defined(UNITS_PRES_POUNDSPERSQUAREINCH)
+static inline float convert_pressure(float hpa) {
+    return hpa * 0.014504f;  // hPa to psi
+}
+static inline const char* pres_unit_str() { return "psi"; }
+#elif defined(UNITS_PRES_ATMOSPHERES)
+static inline float convert_pressure(float hpa) {
+    return hpa * 0.000986923f;  // hPa to atm
+}
+static inline const char* pres_unit_str() { return "atm"; }
+#else  // Default: hPa or mbar (1:1)
+static inline float convert_pressure(float pres) { return pres; }
+static inline const char* pres_unit_str() { return "hPa"; }
 #endif
 
 // ============================================================================
@@ -149,6 +187,18 @@ void RenderMock::drawWindSpeed(float windSpeed, int x, int y) {
     addEvent(event);
 }
 
+void RenderMock::drawPressure(float pressure, int x, int y) {
+    RenderEvent event;
+    event.event_type = "pressure_drawn";
+    float displayPres = convert_pressure(pressure);
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(0) << displayPres << " " << pres_unit_str();
+    event.icon_name = oss.str();
+    event.x = x;
+    event.y = y;
+    addEvent(event);
+}
+
 void RenderMock::renderWeatherScene(const OpenMeteoResponse& data) {
     clearEvents();
     
@@ -176,6 +226,11 @@ void RenderMock::renderWeatherScene(const OpenMeteoResponse& data) {
     // Draw wind speed (first hour/current)
     if (!data.hourly.wind_speed_10m.empty()) {
         drawWindSpeed(data.hourly.wind_speed_10m[0], 150, 200);
+    }
+    
+    // Draw pressure (first hour/current)
+    if (!data.hourly.surface_pressure.empty()) {
+        drawPressure(data.hourly.surface_pressure[0], 250, 200);
     }
     
     // Draw umbrella if needed (firmware logic)
@@ -277,6 +332,23 @@ float RenderMock::getDrawnWindSpeed() const {
             size_t posKmh = e.icon_name.find("km/h");
             size_t posMph = e.icon_name.find("mph");
             size_t pos = (posKmh != std::string::npos) ? posKmh : posMph;
+            if (pos != std::string::npos && pos > 0) {
+                try {
+                    return std::stof(e.icon_name.substr(0, pos));
+                } catch (...) {
+                    return std::numeric_limits<float>::quiet_NaN();
+                }
+            }
+        }
+    }
+    return std::numeric_limits<float>::quiet_NaN();
+}
+
+float RenderMock::getDrawnPressure() const {
+    for (const auto& e : events_) {
+        if (e.event_type == "pressure_drawn") {
+            // Find the first space and parse the number before it
+            size_t pos = e.icon_name.find(" ");
             if (pos != std::string::npos && pos > 0) {
                 try {
                     return std::stof(e.icon_name.substr(0, pos));

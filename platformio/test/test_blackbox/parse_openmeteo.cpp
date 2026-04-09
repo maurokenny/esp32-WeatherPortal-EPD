@@ -174,6 +174,7 @@ OpenMeteoHourly parseHourlyData(const std::string& jsonSection) {
     hourly.snowfall = parseFloatArray(extractJsonValue(jsonSection, "snowfall"));
     hourly.weather_code = parseIntArray(extractJsonValue(jsonSection, "weather_code"));
     hourly.wind_speed_10m = parseFloatArray(extractJsonValue(jsonSection, "wind_speed_10m"));
+    hourly.surface_pressure = parseFloatArray(extractJsonValue(jsonSection, "surface_pressure"));
     
     return hourly;
 }
