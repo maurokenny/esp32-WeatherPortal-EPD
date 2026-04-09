@@ -9,6 +9,20 @@
 #include <iomanip>
 #include <limits>
 #include <cmath>
+#include <cstdlib>
+
+// Unit detection based on config defines (must be before namespace)
+#ifdef UNITS_TEMP_FAHRENHEIT
+    #define RENDER_UNIT_TEMP_FAHRENHEIT 1
+#else
+    #define RENDER_UNIT_TEMP_FAHRENHEIT 0
+#endif
+
+#ifdef UNITS_SPEED_MILESPERHOUR
+    #define RENDER_UNIT_SPEED_MPH 1
+#else
+    #define RENDER_UNIT_SPEED_MPH 0
+#endif
 
 // Platform-specific networking
 #ifdef _WIN32
@@ -27,6 +41,30 @@
 #endif
 
 namespace blackbox {
+
+// ============================================================================
+// Unit Conversion Helpers
+// ============================================================================
+
+#if RENDER_UNIT_TEMP_FAHRENHEIT
+static inline float convert_temperature(float celsius) {
+    return celsius * 9.0f / 5.0f + 32.0f;
+}
+static inline const char* temp_unit_str() { return "F"; }
+#else
+static inline float convert_temperature(float temp) { return temp; }
+static inline const char* temp_unit_str() { return "C"; }
+#endif
+
+#if RENDER_UNIT_SPEED_MPH
+static inline float convert_wind_speed(float kmh) {
+    return kmh / 1.60934f;
+}
+static inline const char* wind_unit_str() { return "mph"; }
+#else
+static inline float convert_wind_speed(float speed) { return speed; }
+static inline const char* wind_unit_str() { return "km/h"; }
+#endif
 
 // ============================================================================
 // RenderMock Implementation
@@ -67,8 +105,9 @@ void RenderMock::drawText(const char* text, int x, int y) {
 void RenderMock::drawTemperature(float temp, int x, int y) {
     RenderEvent event;
     event.event_type = "text_drawn";
+    float displayTemp = convert_temperature(temp);
     std::ostringstream oss;
-    oss << temp << "C";
+    oss << std::fixed << std::setprecision(1) << displayTemp << temp_unit_str();
     event.icon_name = oss.str();
     event.x = x;
     event.y = y;
@@ -101,8 +140,9 @@ void RenderMock::drawHumidity(int humidity, int x, int y) {
 void RenderMock::drawWindSpeed(float windSpeed, int x, int y) {
     RenderEvent event;
     event.event_type = "wind_drawn";
+    float displaySpeed = convert_wind_speed(windSpeed);
     std::ostringstream oss;
-    oss << std::fixed << std::setprecision(1) << windSpeed << "km/h";
+    oss << std::fixed << std::setprecision(1) << displaySpeed << wind_unit_str();
     event.icon_name = oss.str();
     event.x = x;
     event.y = y;
@@ -196,10 +236,12 @@ bool RenderMock::wasWindSpeedDrawn(float expectedWindSpeed, float tolerance) con
 
 float RenderMock::getDrawnTemperature() const {
     for (const auto& e : events_) {
-        if (e.event_type == "text_drawn" && e.icon_name.find("C") != std::string::npos) {
-            // Parse temperature from string like "22.5C"
-            size_t pos = e.icon_name.find("C");
-            if (pos != std::string::npos) {
+        if (e.event_type == "text_drawn") {
+            // Check for C or F suffix
+            size_t posC = e.icon_name.find("C");
+            size_t posF = e.icon_name.find("F");
+            size_t pos = (posC != std::string::npos) ? posC : posF;
+            if (pos != std::string::npos && pos > 0) {
                 try {
                     return std::stof(e.icon_name.substr(0, pos));
                 } catch (...) {
@@ -231,9 +273,11 @@ int RenderMock::getDrawnHumidity() const {
 float RenderMock::getDrawnWindSpeed() const {
     for (const auto& e : events_) {
         if (e.event_type == "wind_drawn") {
-            // Parse wind speed from string like "5.5km/h"
-            size_t pos = e.icon_name.find("km/h");
-            if (pos != std::string::npos) {
+            // Check for km/h or mph suffix
+            size_t posKmh = e.icon_name.find("km/h");
+            size_t posMph = e.icon_name.find("mph");
+            size_t pos = (posKmh != std::string::npos) ? posKmh : posMph;
+            if (pos != std::string::npos && pos > 0) {
                 try {
                     return std::stof(e.icon_name.substr(0, pos));
                 } catch (...) {

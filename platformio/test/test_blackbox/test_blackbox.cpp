@@ -26,8 +26,26 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
 #ifndef _WIN32
     #include <unistd.h>  // For usleep
+
+// Unit conversion helpers for tests
+#ifdef UNITS_TEMP_FAHRENHEIT
+    #define TEST_EXPECTED_TEMP_SUNNY 71.6f  // 22°C in Fahrenheit
+    #define TEST_EXPECTED_TEMP_SNOWY 32.0f   // 0°C in Fahrenheit
+#else
+    #define TEST_EXPECTED_TEMP_SUNNY 22.0f  // Celsius (default)
+    #define TEST_EXPECTED_TEMP_SNOWY 0.0f   // Celsius (default)
+#endif
+
+#ifdef UNITS_SPEED_MILESPERHOUR
+    #define TEST_WIND_THRESHOLD_SUNNY 6.2f   // <10 km/h in mph
+    #define TEST_WIND_THRESHOLD_STORM 12.4f   // >20 km/h in mph
+#else
+    #define TEST_WIND_THRESHOLD_SUNNY 10.0f   // km/h (default)
+    #define TEST_WIND_THRESHOLD_STORM 20.0f    // km/h (default)
+#endif
 #endif
 
 #include "api_response.h"
@@ -517,6 +535,7 @@ void test_report_generation(void) {
 /**
  * Test: Temperature accuracy across scenarios
  * Validates that temperature values are correctly parsed and rendered
+ * Handles both Celsius and Fahrenheit based on UNITS_* defines
  */
 void test_temperature_accuracy(void) {
     float sunnyTemp, snowyTemp;
@@ -527,10 +546,16 @@ void test_temperature_accuracy(void) {
     g_orchestrator->parseAndRender(json);
     sunnyTemp = g_orchestrator->getWeatherData().hourly.temperature_2m[0];
     
+    // Compare raw value (API returns Celsius) with expected Celsius
     TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, 22.0f, sunnyTemp,
-        "Sunny: Temperature should be ~22°C");
-    TEST_ASSERT_TRUE_MESSAGE(!std::isnan(g_orchestrator->getRenderMock().getDrawnTemperature()),
+        "Sunny: Raw temperature should be ~22°C");
+    
+    // Compare rendered value with expected in display units
+    float drawnTemp = g_orchestrator->getRenderMock().getDrawnTemperature();
+    TEST_ASSERT_FALSE_MESSAGE(std::isnan(drawnTemp),
         "Sunny: Temperature should be rendered");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXPECTED_TEMP_SUNNY, drawnTemp,
+        "Sunny: Rendered temperature should match configured units");
     
     // Test snowy - freezing (store value before changing scenario)
     g_orchestrator->setScenario("snowy");
@@ -539,7 +564,7 @@ void test_temperature_accuracy(void) {
     snowyTemp = g_orchestrator->getWeatherData().hourly.temperature_2m[0];
     
     TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, 0.0f, snowyTemp,
-        "Snowy: Temperature should be ~0°C");
+        "Snowy: Raw temperature should be ~0°C");
     
     // Verify temperature range difference (using stored values)
     float tempDiff = sunnyTemp - snowyTemp;
@@ -581,6 +606,7 @@ void test_humidity_levels(void) {
 /**
  * Test: Wind speed variations across scenarios
  * Validates that wind speed values are correctly parsed and rendered
+ * Handles both km/h and mph based on UNITS_* defines
  */
 void test_wind_speed_variations(void) {
     float sunnyWind, stormWind;
@@ -591,6 +617,7 @@ void test_wind_speed_variations(void) {
     g_orchestrator->parseAndRender(json);
     sunnyWind = g_orchestrator->getWeatherData().hourly.wind_speed_10m[0];
     
+    // Raw values (API returns km/h) - test threshold in original units
     TEST_ASSERT_TRUE_MESSAGE(sunnyWind < 10.0f,
         "Sunny: Wind speed should be <10 km/h (calm)");
     
