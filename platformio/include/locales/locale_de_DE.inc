@@ -158,6 +158,14 @@ const char *TXT_AP_TIMEOUT_LINE1 = "Setup Timeout";
 const char *TXT_AP_TIMEOUT_LINE2 = "Manual reset required to recover";
 const char *TXT_ERROR_GENERIC = "Etwas ist schief gelaufen";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "Das Gerät hat zu lange zum Verbinden gebraucht";
+const char *TXT_AP_MODE_HEADER = "Ger\344te-Setup-Modus";
+const char *TXT_AP_MODE_STEP1 = "1. Scannen f\374r WLAN-Verbindung";
+const char *TXT_AP_MODE_STEP2 = "2. Ger\344teportal \366ffnen";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "oder 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "Portal schlie\223t in %u Minuten";
+const char *TXT_AP_TIMEOUT_SCREEN = "Setup Zeit abgelaufen";
+const char *TXT_AP_TIMEOUT_SLEEP = "Ger\344t geht in Deep Sleep";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

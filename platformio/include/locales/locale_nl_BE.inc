@@ -157,6 +157,14 @@ const char *TXT_AP_TIMEOUT_LINE1 = "Setup Timeout";
 const char *TXT_AP_TIMEOUT_LINE2 = "Manual reset required to recover";
 const char *TXT_ERROR_GENERIC = "Er is iets misgegaan";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "Het duurde te lang om verbinding te maken";
+const char *TXT_AP_MODE_HEADER = "Apparaat Setup Modus";
+const char *TXT_AP_MODE_STEP1 = "1. Scannen om met Wi-Fi te verbinden";
+const char *TXT_AP_MODE_STEP2 = "2. Open Apparaat Portal";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "of 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "Portal sluit over %u minuten";
+const char *TXT_AP_TIMEOUT_SCREEN = "Setup Time-out";
+const char *TXT_AP_TIMEOUT_SLEEP = "Apparaat gaat in diepe slaap";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

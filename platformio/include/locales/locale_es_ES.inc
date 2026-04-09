@@ -150,6 +150,14 @@ const char *TXT_AP_TIMEOUT_LINE1 = "Tiempo Agotado";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manual necesario para recuperar";
 const char *TXT_ERROR_GENERIC = "Algo salió mal";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "El dispositivo tardó demasiado en conectar";
+const char *TXT_AP_MODE_HEADER = "Modo de Configuraci\363n del Dispositivo";
+const char *TXT_AP_MODE_STEP1 = "1. Escanear para Unirse al Wi-Fi";
+const char *TXT_AP_MODE_STEP2 = "2. Abrir Portal del Dispositivo";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "o 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "El portal se cierra en %u minutos";
+const char *TXT_AP_TIMEOUT_SCREEN = "Configuraci\363n Expirada";
+const char *TXT_AP_TIMEOUT_SLEEP = "El dispositivo entra en suspensi\363n profunda";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Intentando petici\363n HTTP";
 const char *TXT_AWAKE_FOR = "Despierto durante";

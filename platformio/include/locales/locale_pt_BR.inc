@@ -158,6 +158,14 @@ const char *TXT_AP_TIMEOUT_LINE1 = "Tempo Esgotado";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manual necess\341rio para recuperar";
 const char *TXT_ERROR_GENERIC = "Algo deu errado";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "O dispositivo demorou muito para conectar";
+const char *TXT_AP_MODE_HEADER = "Modo de Configura\347\343o do Dispositivo";
+const char *TXT_AP_MODE_STEP1 = "1. Escaneie para Conectar ao Wi-Fi";
+const char *TXT_AP_MODE_STEP2 = "2. Abra o Portal do Dispositivo";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "ou 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "Portal fecha em %u minutos";
+const char *TXT_AP_TIMEOUT_SCREEN = "Configura\347\343o Expirada";
+const char *TXT_AP_TIMEOUT_SLEEP = "Dispositivo entrando em hiberna\347\343o";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Tentando Requisi\347\343o HTTP";
 const char *TXT_AWAKE_FOR = "Acordado por";

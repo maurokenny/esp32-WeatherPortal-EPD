@@ -157,6 +157,14 @@ const char *TXT_AP_TIMEOUT_LINE1 = "Seadistuse aegub";
 const char *TXT_AP_TIMEOUT_LINE2 = "K\365sitsi reset vajalik taastamiseks";
 const char *TXT_ERROR_GENERIC = "Midagi läks valesti";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "Seadmel võttis ühendumiseks liiga kaua aega";
+const char *TXT_AP_MODE_HEADER = "Seadistuse reziim";
+const char *TXT_AP_MODE_STEP1 = "1. Skanni Wi-Fi-ga liitumiseks";
+const char *TXT_AP_MODE_STEP2 = "2. Ava seadme portaal";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "v\365i 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "Portaal sulgeb %u minuti p\344rast";
+const char *TXT_AP_TIMEOUT_SCREEN = "Seadistuse aegumisaeg";
+const char *TXT_AP_TIMEOUT_SLEEP = "Seade l\374heb s\374gesse unere\u201Dimi";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

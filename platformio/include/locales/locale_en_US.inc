@@ -148,6 +148,14 @@ const char *TXT_WIFI_CONNECTION_FAILED = "WiFi Connection Failed";
 const char *TXT_API_ERROR = "Weather API Error";
 const char *TXT_AP_TIMEOUT_LINE1 = "Setup Timeout";
 const char *TXT_AP_TIMEOUT_LINE2 = "Manual reset required to recover";
+const char *TXT_AP_MODE_HEADER = "Device Setup Mode";
+const char *TXT_AP_MODE_STEP1 = "1. Scan to Join Wi-Fi";
+const char *TXT_AP_MODE_STEP2 = "2. Open Device Portal";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "or 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "Portal closes in %u minutes";
+const char *TXT_AP_TIMEOUT_SCREEN = "Setup Timed Out";
+const char *TXT_AP_TIMEOUT_SLEEP = "Device is entering deep sleep";
 const char *TXT_ERROR_GENERIC = "Something went wrong";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "The device took too long to connect";
 // First Word Capitalized

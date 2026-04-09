@@ -158,6 +158,14 @@ const char *TXT_AP_TIMEOUT_LINE1 = "Setup Timeout";
 const char *TXT_AP_TIMEOUT_LINE2 = "Manual reset required to recover";
 const char *TXT_ERROR_GENERIC = "Jotain meni vikaan";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "Laitteen yhteyden muodostaminen kesti liian kauan";
+const char *TXT_AP_MODE_HEADER = "Laitteen Asetustila";
+const char *TXT_AP_MODE_STEP1 = "1. Skannaa liitty\344ksesi Wi-Fi-verkkoon";
+const char *TXT_AP_MODE_STEP2 = "2. Ava laitteen portaali";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "tai 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "Portaali sulkeutuu %u minuutin kuluttua";
+const char *TXT_AP_TIMEOUT_SCREEN = "Asetus aikakatkaisi";
+const char *TXT_AP_TIMEOUT_SLEEP = "Laite siirtyy syv\344lepoon";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

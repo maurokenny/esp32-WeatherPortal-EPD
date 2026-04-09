@@ -1766,7 +1766,7 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 
     // --- Header ---
     display.setFont(&FONT_26pt8b);
-    drawString(DISP_WIDTH / 2, 55, "Device Setup Mode", CENTER);
+    drawString(DISP_WIDTH / 2, 55, TXT_AP_MODE_HEADER, CENTER);
     display.drawFastHLine(40, 75, DISP_WIDTH - 80, GxEPD_BLACK);
 
     // --- Left side: larger QR (Version 3 * scale 8 = 232px) ---
@@ -1796,7 +1796,7 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 
     // Step 1: Wi-Fi
     display.setFont(&FONT_18pt8b);
-    drawString(txtX, stepY, "1. Scan to Join Wi-Fi", LEFT);
+    drawString(txtX, stepY, TXT_AP_MODE_STEP1, LEFT);
     
     stepY += lineSpace;
     display.setFont(&FONT_16pt8b);
@@ -1806,17 +1806,17 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
     // Step 2: Portal
     stepY += lineSpace * 1.8;
     display.setFont(&FONT_18pt8b);
-    drawString(txtX, stepY, "2. Open Device Portal", LEFT);
+    drawString(txtX, stepY, TXT_AP_MODE_STEP2, LEFT);
     
     stepY += lineSpace;
     display.setFont(&FONT_16pt8b);
-    drawString(txtX + 25, stepY, "http://weather.local", LEFT);
+    drawString(txtX + 25, stepY, TXT_AP_MODE_URL_LOCAL, LEFT);
     stepY += 35;
-    drawString(txtX + 25, stepY, "or 192.168.4.1", LEFT);
+    drawString(txtX + 25, stepY, TXT_AP_MODE_URL_IP, LEFT);
 
     // Footer: Timeout countdown
     char timeoutMsg[64];
-    snprintf(timeoutMsg, sizeof(timeoutMsg), "Portal closes in %u minutes", timeoutMinutes);
+    snprintf(timeoutMsg, sizeof(timeoutMsg), TXT_AP_MODE_TIMEOUT, timeoutMinutes);
     display.setFont(&FONT_12pt8b);
     drawString(DISP_WIDTH - 40, DISP_HEIGHT - 30, timeoutMsg, RIGHT);
 
@@ -1826,7 +1826,7 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 
 void drawTimeoutScreen()
 {
-  drawLoading(warning_icon_196x196, "Setup Timed Out", "Device is entering deep sleep");
+  drawLoading(warning_icon_196x196, TXT_AP_TIMEOUT_SCREEN, TXT_AP_TIMEOUT_SLEEP);
 }
 
 void drawErrorScreen(const char* title, const char* message, const char* action)

@@ -158,6 +158,14 @@ const char *TXT_AP_TIMEOUT_LINE1 = "D\351lai d\351pass\351";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manuel n\351cessaire";
 const char *TXT_ERROR_GENERIC = "Quelque chose s'est mal passé";
 const char *TXT_ERROR_CONNECT_TIMEOUT = "L'appareil a mis trop de temps à se connecter";
+const char *TXT_AP_MODE_HEADER = "Mode de Configuration";
+const char *TXT_AP_MODE_STEP1 = "1. Scanner pour se connecter au Wi-Fi";
+const char *TXT_AP_MODE_STEP2 = "2. Ouvrir le Portail Appareil";
+const char *TXT_AP_MODE_URL_LOCAL = "http://weather.local";
+const char *TXT_AP_MODE_URL_IP = "ou 192.168.4.1";
+const char *TXT_AP_MODE_TIMEOUT = "Le portail ferme dans %u minutes";
+const char *TXT_AP_TIMEOUT_SCREEN = "D\351lai de Configuration Expir\351";
+const char *TXT_AP_TIMEOUT_SLEEP = "L'appareil entre en veille profonde";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";
