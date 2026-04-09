@@ -153,6 +153,8 @@ const char *TXT_LOW_BATTERY = "Batterie Faible";
 const char *TXT_NETWORK_NOT_AVAILABLE = "R\351seau Non Disponible";
 const char *TXT_TIME_SYNCHRONIZATION_FAILED = "\311chec de la Synchronisation Horaire";
 const char *TXT_WIFI_CONNECTION_FAILED = "\311chec de la Connexion WiFi";
+const char *TXT_AP_TIMEOUT_LINE1 = "D\351lai d\351pass\351";
+const char *TXT_AP_TIMEOUT_LINE2 = "Reset manuel n\351cessaire";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";

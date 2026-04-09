@@ -226,10 +226,11 @@ void wifiManagerLoop() {
 
             case STATE_ERROR:
                 if (output.setErrorFlag) {
-                    // Logic from original handleFailure / startAP timeout
                     if (currentState == STATE_WIFI_CONNECTING) {
                         String detail = "Attempt " + String(connectionFailCycles + 1) + "/" + String(MAX_WIFI_FAIL_CYCLES);
                         handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail);
+                    } else if (currentState == STATE_AP_CONFIG_MODE) {
+                        handleFailure(FAILURE_AP_TIMEOUT, TXT_AP_TIMEOUT_LINE1, TXT_AP_TIMEOUT_LINE2);
                     } else {
                         handleFailure(FAILURE_BATTERY, "System Error", "Timeout");
                     }

@@ -158,6 +158,8 @@ extern const char *TXT_LOW_BATTERY;                     ///< "Low Battery"
 extern const char *TXT_NETWORK_NOT_AVAILABLE;           ///< "Network Not Available"
 extern const char *TXT_TIME_SYNCHRONIZATION_FAILED;     ///< "Time Sync Failed"
 extern const char *TXT_WIFI_CONNECTION_FAILED;          ///< "WiFi Connection Failed"
+extern const char *TXT_AP_TIMEOUT_LINE1;                ///< "Setup Timeout"
+extern const char *TXT_AP_TIMEOUT_LINE2;                 ///< "Manual reset required to recover"
 
 // First Word Capitalized
 extern const char *TXT_ATTEMPTING_HTTP_REQ;             ///< "Attempting HTTP Request"

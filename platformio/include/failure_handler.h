@@ -23,7 +23,8 @@ enum FailureType {
   FAILURE_WIFI,     ///< WiFi connection failure
   FAILURE_NTP,      ///< NTP time synchronization failure
   FAILURE_API,      ///< Weather API request failure
-  FAILURE_BATTERY   ///< Battery voltage critical
+  FAILURE_BATTERY,  ///< Battery voltage critical
+  FAILURE_AP_TIMEOUT ///< Configuration portal timeout
 };
 
 /// @brief WiFi connection failure counter

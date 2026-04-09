@@ -145,6 +145,8 @@ const char *TXT_LOW_BATTERY = "Low Battery";
 const char *TXT_NETWORK_NOT_AVAILABLE = "Network Not Available";
 const char *TXT_TIME_SYNCHRONIZATION_FAILED = "Time Synchronization Failed";
 const char *TXT_WIFI_CONNECTION_FAILED = "WiFi Connection Failed";
+const char *TXT_AP_TIMEOUT_LINE1 = "Setup Timeout";
+const char *TXT_AP_TIMEOUT_LINE2 = "Manual reset required to recover";
 // First Word Capitalized
 const char *TXT_ATTEMPTING_HTTP_REQ = "Attempting HTTP request";
 const char *TXT_AWAKE_FOR = "Awake for";
