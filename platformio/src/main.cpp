@@ -869,8 +869,9 @@ void loop()
       Serial.println("ERROR_CONNECTION: Entering indefinite deep sleep.");
       Serial.println("Manual reset required to recover.");
       
-      // Note: Error screen should have been displayed by wifi_manager.cpp
-      // before transitioning to this state. If not, show generic error.
+      // Note: Error screen was displayed by wifi_manager.cpp before transitioning.
+      // Wait for e-paper to complete physical refresh before sleeping.
+      delay(2000);  // 2 seconds for display to stabilize
       
       // Sleep indefinitely - disable ALL wakeup sources
       // Only EXT0/EXT1 (GPIO) or manual reset can wake the device now
