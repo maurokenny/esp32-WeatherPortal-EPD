@@ -1908,8 +1908,7 @@ void handleFailure(FailureType type, const String& line1, const String& line2)
     
     if (shouldShow) {
         Serial.println("[FAILURE] Showing error screen");
-        // Use drawErrorScreen for standalone error display (initializes display + refresh)
-        drawErrorScreen(line1.c_str(), line2.c_str(), nullptr);
+        drawError(cfg.icon, line1, line2);
     } else {
         Serial.println("[FAILURE] Silent mode, skipping screen");
     }
