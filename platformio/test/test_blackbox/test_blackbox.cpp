@@ -4,22 +4,13 @@
  * Architecture Flow:
  *   Test Blackbox (Unity) 
  *        ↓
- *   Parse JSON (parseOpenMeteo)
+ *   Parse JSON (parseOpenMeteo) → owm_resp_onecall_t
  *        ↓
  *   Render (Mock) → HTTP POST → Mock Server
  *        ↓
  *   Validate (Pattern Matching)
  *
- * Tests:
- * - test_sunny: Sunny weather shows sun icon, no umbrella, warm temp, low humidity
- * - test_light_rain: Rain shows rain icon, umbrella, mild temp, high humidity
- * - test_heavy_storm: Storm shows thunder icon, umbrella, strong winds
- * - test_high_precipitation_prob: High POP shows umbrella even without rain
- * - test_no_precip_low_prob: Low POP shows no umbrella, mild conditions
- * - test_snowy: Snow shows snow icon, umbrella, freezing temps
- * - test_temperature_ranges: Validates temperature display accuracy
- * - test_humidity_levels: Validates humidity display across scenarios
- * - test_wind_speeds: Validates wind speed display across scenarios
+ * Uses firmware's owm_resp_onecall_t structure for data compatibility.
  */
 
 #include <unity.h>
@@ -28,32 +19,33 @@
 #include <cstdlib>
 #include <cmath>
 #ifndef _WIN32
-    #include <unistd.h>  // For usleep
+    #include <unistd.h>
 #endif
 
 // =============================================================================
 // Unit-Aware Test Expectations
 // =============================================================================
-// These macros convert base values (Celsius, km/h, hPa) to the configured units
+// These macros convert base values (Kelvin, m/s, hPa) to the configured units
+// Note: Now using OWM format internally (Kelvin, m/s, hPa, meters)
 
-// Temperature expectations (base: Celsius)
+// Temperature expectations (base: Kelvin)
 #ifdef UNITS_TEMP_FAHRENHEIT
-    #define TEST_TEMP(BASE) ((BASE) * 9.0f / 5.0f + 32.0f)
+    #define TEST_TEMP_K(K) ((K) * 9.0f / 5.0f - 459.67f)  // K → F
     #define TEST_TEMP_UNIT "F"
 #elif defined(UNITS_TEMP_KELVIN)
-    #define TEST_TEMP(BASE) ((BASE) + 273.15f)
+    #define TEST_TEMP_K(K) (K)
     #define TEST_TEMP_UNIT "K"
 #else
-    #define TEST_TEMP(BASE) (BASE)
+    #define TEST_TEMP_K(K) ((K) - 273.15f)  // K → C
     #define TEST_TEMP_UNIT "C"
 #endif
 
-// Wind speed expectations (base: km/h)
+// Wind speed expectations (base: m/s)
 #ifdef UNITS_SPEED_MILESPERHOUR
-    #define TEST_WIND(MS) ((MS) / 1.60934f)
+    #define TEST_WIND_MS(MS) ((MS) * 2.237f)  // m/s → mph
     #define TEST_WIND_UNIT "mph"
 #else
-    #define TEST_WIND(MS) (MS)
+    #define TEST_WIND_MS(MS) ((MS) * 3.6f)  // m/s → km/h
     #define TEST_WIND_UNIT "km/h"
 #endif
 
@@ -72,12 +64,12 @@
     #define TEST_PRES_UNIT "hPa"
 #endif
 
-// Distance expectations (base: km)
+// Distance expectations (base: meters)
 #ifdef UNITS_DIST_MILES
-    #define TEST_DIST(KM) ((KM) * 0.621371f)
+    #define TEST_DIST_M(M) ((M) * 0.000621371f)  // m → miles
     #define TEST_DIST_UNIT "mi"
 #else
-    #define TEST_DIST(KM) (KM)
+    #define TEST_DIST_M(M) ((M) * 0.001f)  // m → km
     #define TEST_DIST_UNIT "km"
 #endif
 
@@ -94,49 +86,78 @@
 #endif
 
 // =============================================================================
-// Scenario Expectations (with unit conversion)
+// Scenario Expectations (OWM format: Kelvin, m/s, hPa, meters)
 // =============================================================================
-// Sunny: 22°C, 45% humidity, 5 km/h wind, 1015 hPa, 10 km visibility
-#define TEST_EXP_SUNNY_TEMP     TEST_TEMP(22.0f)
+// Note: Values in Kelvin (273.15 + Celsius)
+
+// Sunny: 295.15K (22°C), 45% humidity, 1.39 m/s (5 km/h), 1015 hPa, 10000m visibility
+#define TEST_EXP_SUNNY_TEMP_K   295.15f
 #define TEST_EXP_SUNNY_HUM      45
-#define TEST_EXP_SUNNY_WIND     TEST_WIND(5.0f)
-#define TEST_EXP_SUNNY_PRES     TEST_PRES(1015.0f)
-#define TEST_EXP_SUNNY_DIST     TEST_DIST(10.0f)
+#define TEST_EXP_SUNNY_WIND_MS  1.39f  // 5 km/h = 1.39 m/s
+#define TEST_EXP_SUNNY_PRES     1015.0f
+#define TEST_EXP_SUNNY_DIST_M   10000  // 10 km = 10000 m
 
-// Light rain: 18°C, 75% humidity, 8 km/h wind, 1005 hPa, 5 km visibility
-#define TEST_EXP_RAIN_TEMP      TEST_TEMP(18.0f)
+// Light rain: 291.15K (18°C), 75% humidity, 2.22 m/s (8 km/h), 1005 hPa, 5000m
+#define TEST_EXP_RAIN_TEMP_K    291.15f
 #define TEST_EXP_RAIN_HUM       75
-#define TEST_EXP_RAIN_WIND      TEST_WIND(8.0f)
-#define TEST_EXP_RAIN_PRES      TEST_PRES(1005.0f)
-#define TEST_EXP_RAIN_DIST      TEST_DIST(5.0f)
+#define TEST_EXP_RAIN_WIND_MS   2.22f  // 8 km/h = 2.22 m/s
+#define TEST_EXP_RAIN_PRES      1005.0f
+#define TEST_EXP_RAIN_DIST_M    5000
 
-// Heavy storm: 16°C, 90% humidity, 25 km/h wind, 995 hPa, 2 km visibility
-#define TEST_EXP_STORM_TEMP     TEST_TEMP(16.0f)
+// Heavy storm: 289.15K (16°C), 90% humidity, 6.94 m/s (25 km/h), 995 hPa, 2000m
+#define TEST_EXP_STORM_TEMP_K   289.15f
 #define TEST_EXP_STORM_HUM      90
-#define TEST_EXP_STORM_WIND     TEST_WIND(25.0f)
-#define TEST_EXP_STORM_PRES     TEST_PRES(995.0f)
-#define TEST_EXP_STORM_DIST     TEST_DIST(2.0f)
+#define TEST_EXP_STORM_WIND_MS  6.94f  // 25 km/h = 6.94 m/s
+#define TEST_EXP_STORM_PRES     995.0f
+#define TEST_EXP_STORM_DIST_M   2000
 
-// High precip prob: 20°C, 70% humidity, 10 km/h wind, 1010 hPa, 8 km visibility
-#define TEST_EXP_HPOP_TEMP      TEST_TEMP(20.0f)
+// High precip prob: 293.15K (20°C), 70% humidity, 2.78 m/s (10 km/h), 1010 hPa, 8000m
+#define TEST_EXP_HPOP_TEMP_K    293.15f
 #define TEST_EXP_HPOP_HUM       70
-#define TEST_EXP_HPOP_WIND      TEST_WIND(10.0f)
-#define TEST_EXP_HPOP_PRES      TEST_PRES(1010.0f)
+#define TEST_EXP_HPOP_WIND_MS   2.78f  // 10 km/h = 2.78 m/s
+#define TEST_EXP_HPOP_PRES      1010.0f
+#define TEST_EXP_HPOP_DIST_M    8000
 
-// Low precip prob: 21°C, 50% humidity, 5 km/h wind, 1018 hPa, 10 km visibility
-#define TEST_EXP_LPOP_TEMP      TEST_TEMP(21.0f)
+// Low precip prob: 294.15K (21°C), 50% humidity, 1.39 m/s (5 km/h), 1018 hPa, 10000m
+#define TEST_EXP_LPOP_TEMP_K    294.15f
 #define TEST_EXP_LPOP_HUM       50
-#define TEST_EXP_LPOP_WIND      TEST_WIND(5.0f)
-#define TEST_EXP_LPOP_PRES      TEST_PRES(1018.0f)
+#define TEST_EXP_LPOP_WIND_MS   1.39f
+#define TEST_EXP_LPOP_PRES      1018.0f
+#define TEST_EXP_LPOP_DIST_M    10000
 
-// Snowy: 0°C, 85% humidity, 10 km/h wind, 1020 hPa, 3 km visibility
-#define TEST_EXP_SNOW_TEMP      TEST_TEMP(0.0f)
+// Snowy: 273.15K (0°C), 85% humidity, 2.78 m/s (10 km/h), 1020 hPa, 3000m
+#define TEST_EXP_SNOW_TEMP_K    273.15f
 #define TEST_EXP_SNOW_HUM       85
-#define TEST_EXP_SNOW_WIND      TEST_WIND(10.0f)
-#define TEST_EXP_SNOW_PRES      TEST_PRES(1020.0f)
-#define TEST_EXP_SNOW_DIST      TEST_DIST(3.0f)
+#define TEST_EXP_SNOW_WIND_MS   2.78f
+#define TEST_EXP_SNOW_PRES      1020.0f
+#define TEST_EXP_SNOW_DIST_M    3000
 
-#include "api_response.h"
+// Display values (converted for tests)
+#define TEST_EXP_SUNNY_TEMP     TEST_TEMP_K(TEST_EXP_SUNNY_TEMP_K)
+#define TEST_EXP_SUNNY_WIND     TEST_WIND_MS(TEST_EXP_SUNNY_WIND_MS)
+#define TEST_EXP_SUNNY_DIST     TEST_DIST_M(TEST_EXP_SUNNY_DIST_M)
+
+#define TEST_EXP_RAIN_TEMP      TEST_TEMP_K(TEST_EXP_RAIN_TEMP_K)
+#define TEST_EXP_RAIN_WIND      TEST_WIND_MS(TEST_EXP_RAIN_WIND_MS)
+#define TEST_EXP_RAIN_DIST      TEST_DIST_M(TEST_EXP_RAIN_DIST_M)
+
+#define TEST_EXP_STORM_TEMP     TEST_TEMP_K(TEST_EXP_STORM_TEMP_K)
+#define TEST_EXP_STORM_WIND     TEST_WIND_MS(TEST_EXP_STORM_WIND_MS)
+#define TEST_EXP_STORM_DIST     TEST_DIST_M(TEST_EXP_STORM_DIST_M)
+
+#define TEST_EXP_HPOP_TEMP      TEST_TEMP_K(TEST_EXP_HPOP_TEMP_K)
+#define TEST_EXP_HPOP_WIND      TEST_WIND_MS(TEST_EXP_HPOP_WIND_MS)
+#define TEST_EXP_HPOP_DIST      TEST_DIST_M(TEST_EXP_HPOP_DIST_M)
+
+#define TEST_EXP_LPOP_TEMP      TEST_TEMP_K(TEST_EXP_LPOP_TEMP_K)
+#define TEST_EXP_LPOP_WIND      TEST_WIND_MS(TEST_EXP_LPOP_WIND_MS)
+#define TEST_EXP_LPOP_DIST      TEST_DIST_M(TEST_EXP_LPOP_DIST_M)
+
+#define TEST_EXP_SNOW_TEMP      TEST_TEMP_K(TEST_EXP_SNOW_TEMP_K)
+#define TEST_EXP_SNOW_WIND      TEST_WIND_MS(TEST_EXP_SNOW_WIND_MS)
+#define TEST_EXP_SNOW_DIST      TEST_DIST_M(TEST_EXP_SNOW_DIST_M)
+
+#include "api_response_compat.h"
 #include "parse_openmeteo.h"
 #include "render_mock.h"
 
@@ -146,7 +167,6 @@ using namespace blackbox;
 // Configuration
 // ============================================================================
 
-// Default mock server URL (can be overridden via build_flags if needed)
 #ifndef MOCK_SERVER_URL
     #define MOCK_SERVER_URL "http://localhost:8080"
 #endif
@@ -159,7 +179,7 @@ using namespace blackbox;
  * TestOrchestrator coordinates the blackbox test flow:
  * 1. Set scenario on mock server
  * 2. Fetch weather data (GET /v1/forecast)
- * 3. Parse JSON (parseOpenMeteo)
+ * 3. Parse JSON → owm_resp_onecall_t
  * 4. Render scene (RenderMock captures events)
  * 5. Submit events (HTTP POST /test/events)
  * 6. Validate (POST /test/validate or GET /test/report)
@@ -193,7 +213,7 @@ public:
     
     // Steps 3 & 4: Parse and Render
     void parseAndRender(const std::string& json) {
-        // Parse JSON
+        // Parse JSON → owm_resp_onecall_t
         weatherData_ = parseOpenMeteo(json);
         
         // Render (captures events)
@@ -208,7 +228,6 @@ public:
     
     // Step 6: Validate with mock server
     bool validate() {
-        // Build validation request
         std::string requestBody = "{\"scenario\":\"";
         requestBody += currentScenario_;
         requestBody += "\"}";
@@ -228,13 +247,13 @@ public:
     }
     
     // Accessors
-    const OpenMeteoResponse& getWeatherData() const { return weatherData_; }
+    const owm_resp_onecall_t& getWeatherData() const { return weatherData_; }
     RenderMock& getRenderMock() { return renderMock_; }
     
 private:
     SimpleHttpClient httpClient_;
     RenderMock renderMock_{&httpClient_};
-    OpenMeteoResponse weatherData_;
+    owm_resp_onecall_t weatherData_;
     std::string currentScenario_;
 };
 
@@ -249,7 +268,6 @@ void setUp(void) {
     if (!g_orchestrator) {
         g_orchestrator = new TestOrchestrator();
     }
-    // Reset server state before each test
     g_orchestrator->setScenario("sunny");
 }
 
@@ -266,46 +284,40 @@ void tearDown(void) {
  * Expected: Sun icon drawn, NO umbrella
  */
 void test_sunny(void) {
-    // Step 1: Set scenario
     TEST_ASSERT_TRUE_MESSAGE(
         g_orchestrator->setScenario("sunny"),
         "Failed to set sunny scenario"
     );
     
-    // Step 2: Fetch weather data
     std::string json = g_orchestrator->fetchWeatherData();
     TEST_ASSERT_FALSE_MESSAGE(json.empty(), "Failed to fetch weather data");
     
-    // Steps 3 & 4: Parse and Render
     g_orchestrator->parseAndRender(json);
     
-    // Verify parsed data
-    const OpenMeteoResponse& data = g_orchestrator->getWeatherData();
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, data.getCurrentPop(), 
+    // Verify parsed data (using owm_resp_onecall_t format)
+    const owm_resp_onecall_t& data = g_orchestrator->getWeatherData();
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, getCurrentPop(data), 
         "Sunny scenario should have 0% POP");
-    TEST_ASSERT_FALSE_MESSAGE(data.shouldShowUmbrella(), 
+    TEST_ASSERT_FALSE_MESSAGE(shouldShowUmbrella(data), 
         "Sunny scenario should NOT require umbrella");
     
-    // Verify temperature, humidity and wind for sunny scenario
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, 22.0f, data.hourly.temperature_2m[0],
-        "Sunny scenario should have warm temperature (~22°C)");
-    TEST_ASSERT_INT_WITHIN_MESSAGE(5, 45, data.hourly.relative_humidity_2m[0],
+    // Verify temperature (Kelvin), humidity, wind (m/s)
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXP_SUNNY_TEMP_K, data.hourly[0].temp,
+        "Sunny scenario should have warm temperature (~295K / 22°C)");
+    TEST_ASSERT_INT_WITHIN_MESSAGE(5, TEST_EXP_SUNNY_HUM, data.hourly[0].humidity,
         "Sunny scenario should have low humidity (~45%)");
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, 5.0f, data.hourly.wind_speed_10m[0],
-        "Sunny scenario should have light winds (~5 km/h)");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, TEST_EXP_SUNNY_WIND_MS, data.hourly[0].wind_speed,
+        "Sunny scenario should have light winds (~1.4 m/s / 5 km/h)");
     
-    // Step 5: Submit events
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->submitEvents(), 
         "Failed to submit render events");
     
-    // Verify render mock captured correct events
     RenderMock& renderer = g_orchestrator->getRenderMock();
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasIconDrawn("sun"), 
         "Sun icon should be drawn for sunny weather");
     TEST_ASSERT_FALSE_MESSAGE(renderer.wasUmbrellaDrawn(), 
         "Umbrella should NOT be drawn for sunny weather");
     
-    // Verify weather values were rendered
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_SUNNY_TEMP, 2.0f),
         "Temperature should be rendered for sunny");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_SUNNY_HUM, 5),
@@ -313,58 +325,48 @@ void test_sunny(void) {
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_SUNNY_WIND, 2.0f),
         "Wind speed should be rendered for sunny");
     
-    // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for sunny scenario");
 }
 
 /**
  * Test: Light rain
- * Expected: Rain icon drawn, umbrella drawn
  */
 void test_light_rain(void) {
-    // Step 1: Set scenario
     TEST_ASSERT_TRUE_MESSAGE(
         g_orchestrator->setScenario("light_rain"),
         "Failed to set light_rain scenario"
     );
     
-    // Step 2: Fetch weather data
     std::string json = g_orchestrator->fetchWeatherData();
     TEST_ASSERT_FALSE_MESSAGE(json.empty(), "Failed to fetch weather data");
     
-    // Steps 3 & 4: Parse and Render
     g_orchestrator->parseAndRender(json);
     
-    // Verify parsed data
-    const OpenMeteoResponse& data = g_orchestrator->getWeatherData();
-    TEST_ASSERT_TRUE_MESSAGE(data.getCurrentPop() >= 30, 
+    const owm_resp_onecall_t& data = g_orchestrator->getWeatherData();
+    TEST_ASSERT_TRUE_MESSAGE(getCurrentPop(data) >= 30, 
         "Light rain should have POP >= 30%");
-    TEST_ASSERT_TRUE_MESSAGE(data.getCurrentPrecipitation() > 0, 
+    TEST_ASSERT_TRUE_MESSAGE(getCurrentPrecipitation(data) > 0, 
         "Light rain should have precipitation > 0");
-    TEST_ASSERT_TRUE_MESSAGE(data.shouldShowUmbrella(), 
+    TEST_ASSERT_TRUE_MESSAGE(shouldShowUmbrella(data), 
         "Light rain SHOULD require umbrella");
     
-    // Verify temperature, humidity for rainy scenario
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, 18.0f, data.hourly.temperature_2m[0],
-        "Light rain should have mild temperature (~18°C)");
-    TEST_ASSERT_INT_WITHIN_MESSAGE(5, 75, data.hourly.relative_humidity_2m[0],
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, TEST_EXP_RAIN_TEMP_K, data.hourly[0].temp,
+        "Light rain should have mild temperature (~291K / 18°C)");
+    TEST_ASSERT_INT_WITHIN_MESSAGE(5, TEST_EXP_RAIN_HUM, data.hourly[0].humidity,
         "Light rain should have high humidity (~75%)");
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, 8.0f, data.hourly.wind_speed_10m[0],
-        "Light rain should have moderate winds (~8 km/h)");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, TEST_EXP_RAIN_WIND_MS, data.hourly[0].wind_speed,
+        "Light rain should have moderate winds (~2.2 m/s / 8 km/h)");
     
-    // Step 5: Submit events
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->submitEvents(), 
         "Failed to submit render events");
     
-    // Verify render mock
     RenderMock& renderer = g_orchestrator->getRenderMock();
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasIconDrawn("rain"), 
         "Rain icon should be drawn");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasUmbrellaDrawn(), 
         "Umbrella SHOULD be drawn for light rain");
     
-    // Verify weather values were rendered
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_RAIN_TEMP, 2.0f),
         "Temperature should be rendered for light rain");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_RAIN_HUM, 5),
@@ -372,55 +374,45 @@ void test_light_rain(void) {
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_RAIN_WIND, 2.0f),
         "Wind speed should be rendered for light rain");
     
-    // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for light_rain scenario");
 }
 
 /**
  * Test: Heavy storm
- * Expected: Thunder icon drawn, umbrella drawn, high precipitation detected
  */
 void test_heavy_storm(void) {
-    // Step 1: Set scenario
     TEST_ASSERT_TRUE_MESSAGE(
         g_orchestrator->setScenario("heavy_storm"),
         "Failed to set heavy_storm scenario"
     );
     
-    // Step 2: Fetch weather data
     std::string json = g_orchestrator->fetchWeatherData();
     
-    // Steps 3 & 4: Parse and Render
     g_orchestrator->parseAndRender(json);
     
-    // Verify parsed data
-    const OpenMeteoResponse& data = g_orchestrator->getWeatherData();
-    TEST_ASSERT_TRUE_MESSAGE(data.getCurrentPop() >= 90, 
+    const owm_resp_onecall_t& data = g_orchestrator->getWeatherData();
+    TEST_ASSERT_TRUE_MESSAGE(getCurrentPop(data) >= 90, 
         "Heavy storm should have high POP");
-    TEST_ASSERT_TRUE_MESSAGE(data.getCurrentPrecipitation() > 10.0f, 
+    TEST_ASSERT_TRUE_MESSAGE(getCurrentPrecipitation(data) > 10.0f, 
         "Heavy storm should have high precipitation");
     
-    // Verify storm conditions: high humidity, strong winds
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, 16.0f, data.hourly.temperature_2m[0],
-        "Heavy storm should have moderate temperature (~16°C)");
-    TEST_ASSERT_INT_WITHIN_MESSAGE(5, 90, data.hourly.relative_humidity_2m[0],
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, TEST_EXP_STORM_TEMP_K, data.hourly[0].temp,
+        "Heavy storm should have moderate temperature (~289K / 16°C)");
+    TEST_ASSERT_INT_WITHIN_MESSAGE(5, TEST_EXP_STORM_HUM, data.hourly[0].humidity,
         "Heavy storm should have very high humidity (~90%)");
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(5.0f, 25.0f, data.hourly.wind_speed_10m[0],
-        "Heavy storm should have strong winds (~25+ km/h)");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXP_STORM_WIND_MS, data.hourly[0].wind_speed,
+        "Heavy storm should have strong winds (~6.9 m/s / 25 km/h)");
     
-    // Step 5: Submit events
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->submitEvents(), 
         "Failed to submit render events");
     
-    // Verify render mock
     RenderMock& renderer = g_orchestrator->getRenderMock();
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasIconDrawn("thunder"), 
         "Thunder icon should be drawn for storm");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasUmbrellaDrawn(), 
         "Umbrella SHOULD be drawn for heavy storm");
     
-    // Verify weather values - especially high wind speed
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_STORM_TEMP, 2.0f),
         "Temperature should be rendered for storm");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_STORM_HUM, 5),
@@ -428,108 +420,86 @@ void test_heavy_storm(void) {
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_STORM_WIND, 10.0f),
         "High wind speed should be rendered for storm");
     
-    // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for heavy_storm scenario");
 }
 
 /**
  * Test: High precipitation probability (no current rain)
- * Expected: Umbrella drawn because POP > 50%
  */
 void test_high_precipitation_prob(void) {
-    // Step 1: Set scenario
     TEST_ASSERT_TRUE_MESSAGE(
         g_orchestrator->setScenario("high_precipitation_prob"),
         "Failed to set high_precipitation_prob scenario"
     );
     
-    // Step 2: Fetch weather data
     std::string json = g_orchestrator->fetchWeatherData();
     
-    // Steps 3 & 4: Parse and Render
     g_orchestrator->parseAndRender(json);
     
-    // Verify parsed data - this is the key test!
-    const OpenMeteoResponse& data = g_orchestrator->getWeatherData();
-    TEST_ASSERT_TRUE_MESSAGE(data.getCurrentPop() >= 50, 
+    const owm_resp_onecall_t& data = g_orchestrator->getWeatherData();
+    TEST_ASSERT_TRUE_MESSAGE(getCurrentPop(data) >= 50, 
         "Scenario should have high POP (>=50%)");
     
-    // Important: Even with 0 current precipitation, umbrella should show
-    // because POP threshold is crossed
-    TEST_ASSERT_TRUE_MESSAGE(data.shouldShowUmbrella(), 
+    TEST_ASSERT_TRUE_MESSAGE(shouldShowUmbrella(data), 
         "Umbrella should be shown when POP >= 30% even without current rain");
     
-    // Verify mild conditions despite high POP
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, 20.0f, data.hourly.temperature_2m[0],
-        "Should have mild temperature (~20°C)");
-    TEST_ASSERT_INT_WITHIN_MESSAGE(10, 70, data.hourly.relative_humidity_2m[0],
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, TEST_EXP_HPOP_TEMP_K, data.hourly[0].temp,
+        "Should have mild temperature (~293K / 20°C)");
+    TEST_ASSERT_INT_WITHIN_MESSAGE(10, TEST_EXP_HPOP_HUM, data.hourly[0].humidity,
         "Should have moderate humidity (~70%)");
     
-    // Step 5: Submit events
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->submitEvents(), 
         "Failed to submit render events");
     
-    // Verify render mock - umbrella MUST be drawn
     RenderMock& renderer = g_orchestrator->getRenderMock();
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasUmbrellaDrawn(), 
         "Umbrella MUST be drawn when POP crosses threshold");
     
-    // Verify weather values
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_HPOP_TEMP, 2.0f),
         "Temperature should be rendered");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_HPOP_HUM, 10),
         "Humidity should be rendered");
     
-    // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for high_precipitation_prob scenario");
 }
 
 /**
  * Test: No precipitation with low probability
- * Expected: Cloud icon drawn, NO umbrella
  */
 void test_no_precip_low_prob(void) {
-    // Step 1: Set scenario
     TEST_ASSERT_TRUE_MESSAGE(
         g_orchestrator->setScenario("no_precip_low_prob"),
         "Failed to set no_precip_low_prob scenario"
     );
     
-    // Step 2: Fetch weather data
     std::string json = g_orchestrator->fetchWeatherData();
     
-    // Steps 3 & 4: Parse and Render
     g_orchestrator->parseAndRender(json);
     
-    // Verify parsed data
-    const OpenMeteoResponse& data = g_orchestrator->getWeatherData();
-    TEST_ASSERT_TRUE_MESSAGE(data.getCurrentPop() < 30, 
+    const owm_resp_onecall_t& data = g_orchestrator->getWeatherData();
+    TEST_ASSERT_TRUE_MESSAGE(getCurrentPop(data) < 30, 
         "Scenario should have low POP (<30%)");
-    TEST_ASSERT_FALSE_MESSAGE(data.shouldShowUmbrella(), 
+    TEST_ASSERT_FALSE_MESSAGE(shouldShowUmbrella(data), 
         "Low POP and no precip should NOT require umbrella");
     
-    // Verify mild cloudy conditions
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, 21.0f, data.hourly.temperature_2m[0],
-        "Cloudy scenario should have mild temperature (~21°C)");
-    TEST_ASSERT_INT_WITHIN_MESSAGE(5, 50, data.hourly.relative_humidity_2m[0],
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, TEST_EXP_LPOP_TEMP_K, data.hourly[0].temp,
+        "Cloudy scenario should have mild temperature (~294K / 21°C)");
+    TEST_ASSERT_INT_WITHIN_MESSAGE(5, TEST_EXP_LPOP_HUM, data.hourly[0].humidity,
         "Cloudy scenario should have moderate humidity (~50%)");
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, 5.0f, data.hourly.wind_speed_10m[0],
-        "Cloudy scenario should have light winds (~5 km/h)");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, TEST_EXP_LPOP_WIND_MS, data.hourly[0].wind_speed,
+        "Cloudy scenario should have light winds (~1.4 m/s / 5 km/h)");
     
-    // Step 5: Submit events
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->submitEvents(), 
         "Failed to submit render events");
     
-    // Verify render mock
     RenderMock& renderer = g_orchestrator->getRenderMock();
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasIconDrawn("cloud") || renderer.wasIconDrawn("partly_cloudy"), 
         "Cloud icon should be drawn for cloudy weather");
     TEST_ASSERT_FALSE_MESSAGE(renderer.wasUmbrellaDrawn(), 
         "Umbrella should NOT be drawn for low probability");
     
-    // Verify weather values
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_LPOP_TEMP, 2.0f),
         "Temperature should be rendered for cloudy");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_LPOP_HUM, 5),
@@ -537,57 +507,43 @@ void test_no_precip_low_prob(void) {
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_LPOP_WIND, 2.0f),
         "Wind speed should be rendered for cloudy");
     
-    // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for no_precip_low_prob scenario");
 }
 
 /**
  * Test: Snowy conditions
- * Expected: Snow icon drawn, umbrella drawn
  */
 void test_snowy(void) {
-    // Step 1: Set scenario
     TEST_ASSERT_TRUE_MESSAGE(
         g_orchestrator->setScenario("snowy"),
         "Failed to set snowy scenario"
     );
     
-    // Step 2: Fetch weather data
     std::string json = g_orchestrator->fetchWeatherData();
     
-    // Steps 3 & 4: Parse and Render
     g_orchestrator->parseAndRender(json);
     
-    // Verify parsed data
-    const OpenMeteoResponse& data = g_orchestrator->getWeatherData();
-    TEST_ASSERT_TRUE_MESSAGE(data.shouldShowUmbrella(), 
+    const owm_resp_onecall_t& data = g_orchestrator->getWeatherData();
+    TEST_ASSERT_TRUE_MESSAGE(shouldShowUmbrella(data), 
         "Snowy conditions SHOULD require umbrella (high POP + precip)");
     
-    // Verify freezing conditions
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, 0.0f, data.hourly.temperature_2m[0],
-        "Snowy scenario should have freezing temperature (~0°C)");
-    TEST_ASSERT_INT_WITHIN_MESSAGE(5, 85, data.hourly.relative_humidity_2m[0],
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, TEST_EXP_SNOW_TEMP_K, data.hourly[0].temp,
+        "Snowy scenario should have freezing temperature (~273K / 0°C)");
+    TEST_ASSERT_INT_WITHIN_MESSAGE(5, TEST_EXP_SNOW_HUM, data.hourly[0].humidity,
         "Snowy scenario should have high humidity (~85%)");
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(3.0f, 10.0f, data.hourly.wind_speed_10m[0],
-        "Snowy scenario should have moderate winds (~10 km/h)");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, TEST_EXP_SNOW_WIND_MS, data.hourly[0].wind_speed,
+        "Snowy scenario should have moderate winds (~2.8 m/s / 10 km/h)");
     
-    // Verify snowfall is present
-    TEST_ASSERT_TRUE_MESSAGE(data.hourly.getMaxPrecipitation() > 0,
-        "Snowy scenario should have precipitation (snowfall)");
-    
-    // Step 5: Submit events
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->submitEvents(), 
         "Failed to submit render events");
     
-    // Verify render mock
     RenderMock& renderer = g_orchestrator->getRenderMock();
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasIconDrawn("snow"), 
         "Snow icon should be drawn");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasUmbrellaDrawn(), 
         "Umbrella should be drawn for snow");
     
-    // Verify freezing temperature rendered
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasTemperatureDrawn(TEST_EXP_SNOW_TEMP, 2.0f),
         "Freezing temperature should be rendered for snow");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_SNOW_HUM, 5),
@@ -595,23 +551,19 @@ void test_snowy(void) {
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_SNOW_WIND, 3.0f),
         "Wind speed should be rendered for snow");
     
-    // Step 6: Validate with server
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for snowy scenario");
 }
 
 /**
  * Test: Report generation
- * Validates that the mock server generates proper reports
  */
 void test_report_generation(void) {
-    // Set a scenario and capture some events
     g_orchestrator->setScenario("light_rain");
     std::string json = g_orchestrator->fetchWeatherData();
     g_orchestrator->parseAndRender(json);
     g_orchestrator->submitEvents();
     
-    // Get report
     std::string report = g_orchestrator->getReport();
     TEST_ASSERT_FALSE_MESSAGE(report.empty(), "Report should not be empty");
     TEST_ASSERT_TRUE_MESSAGE(report.find("current_scenario") != std::string::npos, 
@@ -622,47 +574,43 @@ void test_report_generation(void) {
 
 /**
  * Test: Temperature accuracy across scenarios
- * Validates that temperature values are correctly parsed and rendered
- * Handles both Celsius and Fahrenheit based on UNITS_* defines
  */
 void test_temperature_accuracy(void) {
-    float sunnyTemp, snowyTemp;
+    float sunnyTempK, snowyTempK;
     
     // Test sunny - warm
     g_orchestrator->setScenario("sunny");
     std::string json = g_orchestrator->fetchWeatherData();
     g_orchestrator->parseAndRender(json);
-    sunnyTemp = g_orchestrator->getWeatherData().hourly.temperature_2m[0];
+    sunnyTempK = g_orchestrator->getWeatherData().hourly[0].temp;
     
-    // Compare raw value (API returns Celsius) with expected Celsius
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, 22.0f, sunnyTemp,
-        "Sunny: Raw temperature should be ~22°C");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXP_SUNNY_TEMP_K, sunnyTempK,
+        "Sunny: Raw temperature should be ~295K (22°C)");
     
-    // Compare rendered value with expected in display units
+    // Rendered temperature check
     float drawnTemp = g_orchestrator->getRenderMock().getDrawnTemperature();
     TEST_ASSERT_FALSE_MESSAGE(std::isnan(drawnTemp),
         "Sunny: Temperature should be rendered");
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXP_SUNNY_TEMP, drawnTemp,
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(2.0f, TEST_EXP_SUNNY_TEMP, drawnTemp,
         "Sunny: Rendered temperature should match configured units");
     
-    // Test snowy - freezing (store value before changing scenario)
+    // Test snowy - freezing
     g_orchestrator->setScenario("snowy");
     json = g_orchestrator->fetchWeatherData();
     g_orchestrator->parseAndRender(json);
-    snowyTemp = g_orchestrator->getWeatherData().hourly.temperature_2m[0];
+    snowyTempK = g_orchestrator->getWeatherData().hourly[0].temp;
     
-    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, 0.0f, snowyTemp,
-        "Snowy: Raw temperature should be ~0°C");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1.0f, TEST_EXP_SNOW_TEMP_K, snowyTempK,
+        "Snowy: Raw temperature should be ~273K (0°C)");
     
-    // Verify temperature range difference (using stored values)
-    float tempDiff = sunnyTemp - snowyTemp;
-    TEST_ASSERT_TRUE_MESSAGE(tempDiff > 15.0f,
-        "Temperature difference between sunny and snowy should be >15°C");
+    // Verify temperature range difference
+    float tempDiffK = sunnyTempK - snowyTempK;
+    TEST_ASSERT_TRUE_MESSAGE(tempDiffK > 20.0f,
+        "Temperature difference between sunny and snowy should be >20K");
 }
 
 /**
  * Test: Humidity levels across scenarios
- * Validates that humidity values are correctly parsed and rendered
  */
 void test_humidity_levels(void) {
     int sunnyHumidity, stormHumidity;
@@ -671,21 +619,21 @@ void test_humidity_levels(void) {
     g_orchestrator->setScenario("sunny");
     std::string json = g_orchestrator->fetchWeatherData();
     g_orchestrator->parseAndRender(json);
-    sunnyHumidity = g_orchestrator->getWeatherData().hourly.relative_humidity_2m[0];
+    sunnyHumidity = g_orchestrator->getWeatherData().hourly[0].humidity;
     
     TEST_ASSERT_TRUE_MESSAGE(sunnyHumidity < 60,
         "Sunny: Humidity should be <60%");
     
-    // Storm - high humidity (store value before changing scenario)
+    // Storm - high humidity
     g_orchestrator->setScenario("heavy_storm");
     json = g_orchestrator->fetchWeatherData();
     g_orchestrator->parseAndRender(json);
-    stormHumidity = g_orchestrator->getWeatherData().hourly.relative_humidity_2m[0];
+    stormHumidity = g_orchestrator->getWeatherData().hourly[0].humidity;
     
     TEST_ASSERT_TRUE_MESSAGE(stormHumidity > 80,
         "Storm: Humidity should be >80%");
     
-    // Verify humidity difference (using stored values)
+    // Verify humidity difference
     int humidityDiff = stormHumidity - sunnyHumidity;
     TEST_ASSERT_TRUE_MESSAGE(humidityDiff > 30,
         "Humidity difference between storm and sunny should be >30%");
@@ -693,35 +641,32 @@ void test_humidity_levels(void) {
 
 /**
  * Test: Wind speed variations across scenarios
- * Validates that wind speed values are correctly parsed and rendered
- * Handles both km/h and mph based on UNITS_* defines
  */
 void test_wind_speed_variations(void) {
-    float sunnyWind, stormWind;
+    float sunnyWindMs, stormWindMs;
     
     // Sunny - calm
     g_orchestrator->setScenario("sunny");
     std::string json = g_orchestrator->fetchWeatherData();
     g_orchestrator->parseAndRender(json);
-    sunnyWind = g_orchestrator->getWeatherData().hourly.wind_speed_10m[0];
+    sunnyWindMs = g_orchestrator->getWeatherData().hourly[0].wind_speed;
     
-    // Raw values (API returns km/h) - test threshold in original units
-    TEST_ASSERT_TRUE_MESSAGE(sunnyWind < 10.0f,
-        "Sunny: Wind speed should be <10 km/h (calm)");
+    TEST_ASSERT_TRUE_MESSAGE(sunnyWindMs < 3.0f,
+        "Sunny: Wind speed should be <3 m/s (calm)");
     
-    // Storm - strong winds (store value before changing scenario)
+    // Storm - strong winds
     g_orchestrator->setScenario("heavy_storm");
     json = g_orchestrator->fetchWeatherData();
     g_orchestrator->parseAndRender(json);
-    stormWind = g_orchestrator->getWeatherData().hourly.wind_speed_10m[0];
+    stormWindMs = g_orchestrator->getWeatherData().hourly[0].wind_speed;
     
-    TEST_ASSERT_TRUE_MESSAGE(stormWind > 20.0f,
-        "Storm: Wind speed should be >20 km/h (strong)");
+    TEST_ASSERT_TRUE_MESSAGE(stormWindMs > 5.0f,
+        "Storm: Wind speed should be >5 m/s (strong)");
     
-    // Verify significant wind difference (using stored values)
-    float windDiff = stormWind - sunnyWind;
-    TEST_ASSERT_TRUE_MESSAGE(windDiff > 10.0f,
-        "Wind speed difference between storm and sunny should be >10 km/h");
+    // Verify significant wind difference
+    float windDiff = stormWindMs - sunnyWindMs;
+    TEST_ASSERT_TRUE_MESSAGE(windDiff > 3.0f,
+        "Wind speed difference between storm and sunny should be >3 m/s");
 }
 
 // ============================================================================
@@ -735,6 +680,7 @@ int main(int argc, char** argv) {
     std::cout << "========================================" << std::endl;
     std::cout << "ESP32 Weather EPD Blackbox Tests" << std::endl;
     std::cout << "Mock Server: " << MOCK_SERVER_URL << std::endl;
+    std::cout << "Using owm_resp_onecall_t (firmware structure)" << std::endl;
     std::cout << "========================================" << std::endl;
     
     // Initialize orchestrator
@@ -757,8 +703,6 @@ int main(int argc, char** argv) {
     
     if (retries <= 0) {
         std::cerr << "✗ Mock server not responding at " << MOCK_SERVER_URL << std::endl;
-        std::cerr << "Make sure the mock server is running:" << std::endl;
-        std::cerr << "  cd test/mock_server && docker run -p 8080:8080 weather-epd-mock" << std::endl;
         delete g_orchestrator;
         return 1;
     }

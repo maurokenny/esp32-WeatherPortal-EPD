@@ -4,14 +4,13 @@
  * Mock implementation of the display renderer that captures drawing
  * operations and sends them to the mock server via HTTP POST.
  * 
- * Component: Render (Mock)
- * Architecture: Firmware → Render Mock → HTTP POST → Mock Server
+ * Uses firmware's owm_resp_onecall_t structure.
  */
 
 #ifndef RENDER_MOCK_H
 #define RENDER_MOCK_H
 
-#include "api_response.h"
+#include "api_response_compat.h"
 #include <vector>
 #include <string>
 #include <functional>
@@ -33,9 +32,8 @@ public:
 /**
  * Render Mock - Captures display operations and sends to mock server
  * 
- * This class simulates the firmware's renderer without actual display hardware.
- * Instead of drawing to e-paper, it records events and submits them to the
- * mock server for validation.
+ * This class simulates the firmware's renderer using owm_resp_onecall_t.
+ * Instead of drawing to e-paper, it records events and submits them.
  */
 class RenderMock {
 public:
@@ -66,14 +64,14 @@ public:
     void drawText(const char* text, int x, int y);
     
     /**
-     * Draw temperature display
+     * Draw temperature display (converts from Kelvin to display units)
      */
-    void drawTemperature(float temp, int x, int y);
+    void drawTemperature(float tempKelvin, int x, int y);
     
     /**
      * Draw precipitation probability
      */
-    void drawPop(int pop, int x, int y);
+    void drawPop(float pop, int x, int y);  // pop is 0.0-1.0
     
     /**
      * Draw humidity percentage
@@ -81,30 +79,29 @@ public:
     void drawHumidity(int humidity, int x, int y);
     
     /**
-     * Draw wind speed
+     * Draw wind speed (converts from m/s to display units)
      */
-    void drawWindSpeed(float windSpeed, int x, int y);
+    void drawWindSpeed(float windSpeedMs, int x, int y);
     
     /**
      * Draw atmospheric pressure
      */
-    void drawPressure(float pressure, int x, int y);
+    void drawPressure(float pressureHpa, int x, int y);
     
     /**
-     * Draw visibility/distance
+     * Draw visibility/distance (converts from meters to display units)
      */
-    void drawVisibility(float distance, int x, int y);
+    void drawVisibility(int visibilityMeters, int x, int y);
     
     /**
      * Draw precipitation amount
      */
-    void drawPrecipitation(float amount, int x, int y);
+    void drawPrecipitation(float amountMm, int x, int y);
     
     /**
-     * Render complete weather scene based on Open-Meteo data
-     * This is the high-level method that orchestrates all drawing
+     * Render complete weather scene based on OWM data
      */
-    void renderWeatherScene(const OpenMeteoResponse& data);
+    void renderWeatherScene(const owm_resp_onecall_t& data);
     
     // -------------------------------------------------------------------------
     // Event Management
@@ -112,7 +109,6 @@ public:
     
     /**
      * Submit captured events to mock server
-     * HTTP POST /test/events
      */
     bool submitToServer();
     
@@ -143,6 +139,7 @@ public:
     
     /**
      * Check if temperature was drawn with specific value (within tolerance)
+     * Note: temp is in display units (Celsius, Fahrenheit, or Kelvin)
      */
     bool wasTemperatureDrawn(float expectedTemp, float tolerance = 0.5f) const;
     
@@ -153,36 +150,37 @@ public:
     
     /**
      * Check if wind speed was drawn with specific value (within tolerance)
+     * Note: wind is in display units (m/s, km/h, or mph)
      */
     bool wasWindSpeedDrawn(float expectedWindSpeed, float tolerance = 1.0f) const;
     
     /**
-     * Get the drawn temperature value (0 if not found)
+     * Get the drawn temperature value in display units (NaN if not found)
      */
     float getDrawnTemperature() const;
     
     /**
-     * Get the drawn humidity value (0 if not found)
+     * Get the drawn humidity value (NaN if not found)
      */
     float getDrawnHumidity() const;
     
     /**
-     * Get the drawn wind speed value (0 if not found)
+     * Get the drawn wind speed value in display units (NaN if not found)
      */
     float getDrawnWindSpeed() const;
     
     /**
-     * Get the drawn pressure value (0 if not found)
+     * Get the drawn pressure value (NaN if not found)
      */
     float getDrawnPressure() const;
     
     /**
-     * Get the drawn visibility value (0 if not found)
+     * Get the drawn visibility value in display units (NaN if not found)
      */
     float getDrawnVisibility() const;
     
     /**
-     * Get the drawn precipitation value (0 if not found)
+     * Get the drawn precipitation value (NaN if not found)
      */
     float getDrawnPrecipitation() const;
     
@@ -201,9 +199,6 @@ private:
     
     // Map weather code to icon name
     const char* weatherCodeToIconName(int code) const;
-    
-    // Determine if umbrella should be shown (mirrors firmware logic)
-    bool shouldShowUmbrella(const OpenMeteoResponse& data) const;
 };
 
 /**
