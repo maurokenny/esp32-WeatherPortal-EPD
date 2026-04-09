@@ -27,3 +27,4 @@ platformio/logs/
 
 # Miscellaneous / Editor swap files
 *.swp
+platformio/.gitignore
