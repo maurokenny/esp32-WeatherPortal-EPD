@@ -279,7 +279,7 @@ static void parseAndConvertHourly(
     
     int numHours = std::min(static_cast<int>(times.size()), maxHours);
     
-    for (int i = 0; i < numHours; i++) {
+    for (size_t i = 0; i < static_cast<size_t>(numHours); i++) {
         owm_hourly_t& h = hourlyArray[i];
         
         // Timestamp
@@ -353,7 +353,7 @@ static void parseAndConvertDaily(
     
     int numDays = std::min(static_cast<int>(times.size()), maxDays);
     
-    for (int i = 0; i < numDays; i++) {
+    for (size_t i = 0; i < static_cast<size_t>(numDays); i++) {
         owm_daily_t& d = dailyArray[i];
         
         // Timestamp (date only, set to noon)

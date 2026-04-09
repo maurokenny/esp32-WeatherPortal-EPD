@@ -97,7 +97,4 @@ using std::max;
 #define bitSet(value, bit) ((value) |= (1UL << (bit)))
 #define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
 
-// Global instance
-static MockSerial Serial;
-
 #endif // ARDUINO_H

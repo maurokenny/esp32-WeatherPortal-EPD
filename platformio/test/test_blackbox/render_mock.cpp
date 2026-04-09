@@ -380,6 +380,48 @@ bool RenderMock::wasWindSpeedDrawn(float expectedWindSpeed, float tolerance) con
     return false;
 }
 
+bool RenderMock::wasPressureDrawn(float expectedPressure, float tolerance) const {
+    for (const auto& event : events_) {
+        if (event.event_type == "pressure_drawn") {
+            float drawnPressure = 0;
+            if (sscanf(event.icon_name.c_str(), "%f", &drawnPressure) == 1) {
+                if (std::fabs(drawnPressure - expectedPressure) <= tolerance) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool RenderMock::wasVisibilityDrawn(float expectedVisibility, float tolerance) const {
+    for (const auto& event : events_) {
+        if (event.event_type == "visibility_drawn") {
+            float drawnVis = 0;
+            if (sscanf(event.icon_name.c_str(), "%f", &drawnVis) == 1) {
+                if (std::fabs(drawnVis - expectedVisibility) <= tolerance) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool RenderMock::wasPrecipitationDrawn(float expectedPrecip, float tolerance) const {
+    for (const auto& event : events_) {
+        if (event.event_type == "precipitation_drawn") {
+            float drawnPrecip = 0;
+            if (sscanf(event.icon_name.c_str(), "%f", &drawnPrecip) == 1) {
+                if (std::fabs(drawnPrecip - expectedPrecip) <= tolerance) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 float RenderMock::getDrawnTemperature() const {
     for (const auto& event : events_) {
         if (event.event_type == "text_drawn") {

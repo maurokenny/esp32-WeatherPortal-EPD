@@ -324,6 +324,10 @@ void test_sunny(void) {
         "Humidity should be rendered for sunny");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_SUNNY_WIND, 2.0f),
         "Wind speed should be rendered for sunny");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasPressureDrawn(TEST_PRES(TEST_EXP_SUNNY_PRES), 5.0f),
+        "Pressure should be rendered for sunny");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasVisibilityDrawn(TEST_DIST_M(TEST_EXP_SUNNY_DIST_M), 0.5f),
+        "Visibility should be rendered for sunny");
     
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for sunny scenario");
@@ -373,6 +377,10 @@ void test_light_rain(void) {
         "Humidity should be rendered for light rain");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_RAIN_WIND, 2.0f),
         "Wind speed should be rendered for light rain");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasPressureDrawn(TEST_PRES(TEST_EXP_RAIN_PRES), 5.0f),
+        "Pressure should be rendered for light rain");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasVisibilityDrawn(TEST_DIST_M(TEST_EXP_RAIN_DIST_M), 0.5f),
+        "Visibility should be rendered for light rain");
     
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for light_rain scenario");
@@ -419,6 +427,10 @@ void test_heavy_storm(void) {
         "Humidity should be rendered for storm");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_STORM_WIND, 10.0f),
         "High wind speed should be rendered for storm");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasPressureDrawn(TEST_PRES(TEST_EXP_STORM_PRES), 5.0f),
+        "Pressure should be rendered for storm");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasVisibilityDrawn(TEST_DIST_M(TEST_EXP_STORM_DIST_M), 0.5f),
+        "Visibility should be rendered for storm");
     
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for heavy_storm scenario");
@@ -460,6 +472,8 @@ void test_high_precipitation_prob(void) {
         "Temperature should be rendered");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasHumidityDrawn(TEST_EXP_HPOP_HUM, 10),
         "Humidity should be rendered");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasPressureDrawn(TEST_PRES(TEST_EXP_HPOP_PRES), 5.0f),
+        "Pressure should be rendered for high precip prob");
     
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for high_precipitation_prob scenario");
@@ -506,6 +520,8 @@ void test_no_precip_low_prob(void) {
         "Humidity should be rendered for cloudy");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_LPOP_WIND, 2.0f),
         "Wind speed should be rendered for cloudy");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasPressureDrawn(TEST_PRES(TEST_EXP_LPOP_PRES), 5.0f),
+        "Pressure should be rendered for cloudy");
     
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for no_precip_low_prob scenario");
@@ -550,6 +566,8 @@ void test_snowy(void) {
         "High humidity should be rendered for snow");
     TEST_ASSERT_TRUE_MESSAGE(renderer.wasWindSpeedDrawn(TEST_EXP_SNOW_WIND, 3.0f),
         "Wind speed should be rendered for snow");
+    TEST_ASSERT_TRUE_MESSAGE(renderer.wasVisibilityDrawn(TEST_DIST_M(TEST_EXP_SNOW_DIST_M), 0.5f),
+        "Visibility should be rendered for snow");
     
     TEST_ASSERT_TRUE_MESSAGE(g_orchestrator->validate(), 
         "Server validation failed for snowy scenario");

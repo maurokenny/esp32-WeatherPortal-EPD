@@ -153,6 +153,9 @@ public:
      * Note: wind is in display units (m/s, km/h, or mph)
      */
     bool wasWindSpeedDrawn(float expectedWindSpeed, float tolerance = 1.0f) const;
+    bool wasPressureDrawn(float expectedPressure, float tolerance = 5.0f) const;
+    bool wasVisibilityDrawn(float expectedVisibility, float tolerance = 0.5f) const;
+    bool wasPrecipitationDrawn(float expectedPrecip, float tolerance = 0.5f) const;
     
     /**
      * Get the drawn temperature value in display units (NaN if not found)
