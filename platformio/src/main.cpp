@@ -642,7 +642,6 @@ void updateWeather()
   #endif
 
 #else
-  // Option 3: Fetch from Open-Meteo API (default)
   #ifdef USE_HTTP
     WiFiClient client;
   #else
@@ -713,8 +712,6 @@ void updateWeather()
   powerOffDisplay();
 
   // Success - reset all counters
-  if (isFirstBoot) isFirstBoot = false;
-  
   if (connectionFailCycles > 0) {
     Serial.printf("[WiFi] Reset counter %d->0\n", connectionFailCycles);
     connectionFailCycles = 0;
