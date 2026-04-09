@@ -145,6 +145,7 @@ const char *TXT_LOW_BATTERY = "Bater\355a Baja";
 const char *TXT_NETWORK_NOT_AVAILABLE = "Red No Disponible";
 const char *TXT_TIME_SYNCHRONIZATION_FAILED = "Fallo en la Sincronizaci\363n de la Hora";
 const char *TXT_WIFI_CONNECTION_FAILED = "Fallo en la Conexi\363n WiFi";
+const char *TXT_API_ERROR = "Error de API del Clima";
 const char *TXT_AP_TIMEOUT_LINE1 = "Tiempo Agotado";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manual necesario para recuperar";
 const char *TXT_ERROR_GENERIC = "Algo salió mal";

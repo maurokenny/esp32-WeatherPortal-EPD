@@ -153,6 +153,7 @@ const char *TXT_LOW_BATTERY = "Batterie Faible";
 const char *TXT_NETWORK_NOT_AVAILABLE = "R\351seau Non Disponible";
 const char *TXT_TIME_SYNCHRONIZATION_FAILED = "\311chec de la Synchronisation Horaire";
 const char *TXT_WIFI_CONNECTION_FAILED = "\311chec de la Connexion WiFi";
+const char *TXT_API_ERROR = "Erreur API M\351t\351o";
 const char *TXT_AP_TIMEOUT_LINE1 = "D\351lai d\351pass\351";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manuel n\351cessaire";
 const char *TXT_ERROR_GENERIC = "Quelque chose s'est mal passé";

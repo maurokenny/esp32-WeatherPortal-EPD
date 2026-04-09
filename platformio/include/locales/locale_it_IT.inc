@@ -153,6 +153,7 @@ const char *TXT_LOW_BATTERY = "Batteria quasi scarica";
 const char *TXT_NETWORK_NOT_AVAILABLE = "Rete non disponibile";
 const char *TXT_TIME_SYNCHRONIZATION_FAILED = "Sincronizzazione data e ora fallita";
 const char *TXT_WIFI_CONNECTION_FAILED = "Connessione Wi-Fi non riuscita";
+const char *TXT_API_ERROR = "Errore API Meteo";
 const char *TXT_AP_TIMEOUT_LINE1 = "Tempo Scaduto";
 const char *TXT_AP_TIMEOUT_LINE2 = "Reset manuale necessario per recuperare";
 const char *TXT_ERROR_GENERIC = "Qualcosa è andato storto";

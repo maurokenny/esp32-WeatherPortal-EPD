@@ -653,7 +653,7 @@ void updateWeather()
   if (rxStatus != HTTP_CODE_OK)
   {
     String detail = String(rxStatus) + ": " + getHttpResponsePhrase(rxStatus);
-    handleFailure(FAILURE_API, "Open-Meteo Forecast API Error", detail);
+    handleFailure(FAILURE_API, TXT_API_ERROR, detail);
     return;
   }
   
