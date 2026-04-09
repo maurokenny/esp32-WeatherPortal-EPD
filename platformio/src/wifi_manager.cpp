@@ -35,7 +35,7 @@ FirmwareState currentState = STATE_BOOT;
 /// @brief WiFi manager configuration
 DeviceConfig wifiConfig = {
     .wifiConnectTimeout = 20,  ///< WiFi connection attempt timeout (seconds)
-    .configTimeout = 300       ///< AP mode timeout (seconds)
+    .configTimeout = 300      ///< AP mode timeout (seconds) - 5 minutes
 };
 
 /// @brief Runtime state tracking
@@ -178,7 +178,7 @@ void wifiManagerLoop() {
     // PRODUCTION MODE: Real hardware feedback
     input.wifiConnected = (WiFi.status() == WL_CONNECTED);
     input.wifiTimeout = (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000);
-    input.portalTimeout = (millis() - runtime.portalStartTime > 300000); // 5 min timeout
+    input.portalTimeout = (millis() - runtime.portalStartTime > wifiConfig.configTimeout * 1000);
     input.configSaved = (!runtime.portalActive && input.hasCredentials);
 #endif
 
