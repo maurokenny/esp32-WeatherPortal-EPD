@@ -28,3 +28,6 @@ platformio/logs/
 # Miscellaneous / Editor swap files
 *.swp
 platformio/.gitignore
+
+# Bundler
+.bundle/

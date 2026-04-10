@@ -1,0 +1,69 @@
+# State Machine Unit Tests
+# Tests state machine logic (WiFi, sleep, transitions)
+# Fast, no Docker - runs on every PR/push
+name: State Machine Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'platformio/src/state_machine/**'
+      - 'platformio/include/state_machine/**'
+      - 'platformio/include/state_decision.h'
+      - 'platformio/test/test_state_machine/**'
+      - 'platformio/platformio.ini'
+      - '.github/workflows/state-machine.yml'
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - 'platformio/src/state_machine/**'
+      - 'platformio/include/state_machine/**'
+      - 'platformio/include/state_decision.h'
+      - 'platformio/test/test_state_machine/**'
+      - 'platformio/platformio.ini'
+      - '.github/workflows/state-machine.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: platformio
+
+jobs:
+  test-state-machine:
+    name: Native Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-state-${{ hashFiles('platformio/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-state-
+            ${{ runner.os }}-pio-
+            
+      - name: Install PlatformIO
+        run: |
+          pip install --upgrade platformio
+          pio --version
+          
+      - name: Run State Machine Tests
+        run: |
+          pio test -e native --verbose
+        
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-machine-test-results
+          path: platformio/.pio/test/native
+          retention-days: 7
