@@ -1,11 +1,12 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,8 +19,30 @@ while [ ! -f "$ROOT_DIR/platformio.ini" ]; do
 done
 cd "$ROOT_DIR" || exit 1
 
+# Cleanup function to always remove docker containers cleanly
+cleanup() {
+    local exit_code=$?
+    echo -e "\n${BLUE}Cleaning up resources...${NC}"
+    cd "${SCRIPT_DIR}"
+    docker compose down --remove-orphans || true
+    
+    if [ $exit_code -ne 0 ] || [ "${failed:-0}" -ne 0 ]; then 
+        echo -e "${RED}========================================${NC}"
+        echo -e "${RED}Tests failed or were interrupted!${NC}"
+        echo -e "${RED}========================================${NC}"
+        [ $exit_code -eq 0 ] && exit 1 || exit $exit_code
+    else
+        echo -e "${GREEN}========================================${NC}"
+        echo -e "${GREEN}All unit tests passed!${NC}"
+        echo -e "${GREEN}========================================${NC}"
+        exit 0
+    fi
+}
+
+trap cleanup EXIT
+
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}Unit Tests (Matrix) Runner${NC}"
+echo -e "${BLUE}Unit Tests (Matrix) Runner - Verbose${NC}"
 echo -e "${BLUE}========================================${NC}"
 
 # Check prerequisites
@@ -75,34 +98,45 @@ ENVIRONMENTS=(
   "blackbox-precip-cm" 
   "blackbox-precip-in" 
 )
+
 passed=0
 failed=0
+FAILED_ENVS=()
+
+echo -e "\n${CYAN}Running all test environments...${NC}\n"
+
 for env in "${ENVIRONMENTS[@]}"; do
-  echo "Testing $env..."
-  if pio test -e "$env"; then
-    echo "  [OK] $env"
+  echo -e "${BLUE}----------------------------------------${NC}"
+  echo -e "${CYAN}[$(($passed + $failed + 1))/$((${#ENVIRONMENTS[@]}))] Testing: ${YELLOW}$env${NC}"
+  echo -e "${BLUE}----------------------------------------${NC}"
+  
+  if pio test -e "$env" --verbose; then
+    echo -e "${GREEN}  ✓ [OK] $env${NC}\n"
     ((passed++))
   else
-    echo "  [ERR] $env"
+    echo -e "${RED}  ✗ [FAILED] $env${NC}\n"
+    FAILED_ENVS+=("$env")
     ((failed++))
   fi
 done
 
-echo
-printf "Passed: %d; Failed: %d\n" "$passed" "$failed"
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}           FINAL SUMMARY                ${NC}"
+echo -e "${BLUE}========================================${NC}"
+printf "${GREEN}Passed:  %d${NC}\n" "$passed"
+printf "${RED}Failed:  %d${NC}\n" "$failed"
+echo ""
 
-# Cleanup
-echo -e "${BLUE}Cleaning up...${NC}"
-cd "$SCRIPT_DIR"
-docker compose down
-
-if [ "$failed" -ne 0 ]; then 
-    echo -e "${RED}========================================${NC}"
-    echo -e "${RED}Some tests failed!${NC}"
-    echo -e "${RED}========================================${NC}"
-    exit 1
+if [ ${#FAILED_ENVS[@]} -gt 0 ]; then
+  echo -e "${RED}Failed environments:${NC}"
+  for env in "${FAILED_ENVS[@]}"; do
+    echo -e "  ${RED}✗ $env${NC}"
+  done
+  echo ""
 fi
 
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}All unit tests passed!${NC}"
-echo -e "${GREEN}========================================${NC}"
+# The exit process will trigger the trap properly cleaning up the docker resources
+if [ "$failed" -ne 0 ]; then
+    exit 1
+fi
+exit 0
