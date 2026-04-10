@@ -16,10 +16,39 @@ NC='\033[0m' # No Color
 
 # Default settings
 VERBOSE=false
-MOCK_SERVER_URL="http://localhost:8080"
+MOCK_SERVER_HOST="${MOCK_SERVER_HOST:-localhost}"
+MOCK_SERVER_PORT="${MOCK_SERVER_PORT:-8080}"
+MOCK_SERVER_STARTUP_RETRIES="${MOCK_SERVER_STARTUP_RETRIES:-30}"
+MOCK_URL="http://${MOCK_SERVER_HOST}:${MOCK_SERVER_PORT}"
 
 # Script location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    echo -e "\n${BLUE}Cleaning up resources...${NC}"
+    cd "${SCRIPT_DIR}"
+    docker compose down --remove-orphans || true
+    
+    # Hide cleanup messages if it was just help requested
+    if [ "$1" == "help" ]; then
+        exit 0
+    fi
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "${GREEN}========================================${NC}"
+        echo -e "${GREEN}All tests passed!${NC}"
+        echo -e "${GREEN}========================================${NC}"
+    else
+        echo -e "${RED}========================================${NC}"
+        echo -e "${RED}Tests failed!${NC}"
+        echo -e "${RED}========================================${NC}"
+    fi
+    exit $exit_code
+}
+
+trap cleanup EXIT
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -31,6 +60,7 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo "  --verbose, -v   Enable verbose output"
+            trap - EXIT # Remove trap so we don't print cleanup message for help
             exit 0
             ;;
         *)
@@ -63,21 +93,25 @@ docker compose build mock-server
 docker compose up -d mock-server
 
 # Wait for mock server
-echo -ne "${BLUE}Waiting for mock server${NC}"
-for i in {1..30}; do
-    if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-        echo -e "\n${GREEN}✓ Mock server ready!${NC}"
+echo -e "${BLUE}Waiting for mock server at ${MOCK_URL}/health...${NC}"
+SERVER_READY=false
+for attempt in $(seq 1 $MOCK_SERVER_STARTUP_RETRIES); do
+    if curl -sf --connect-timeout 2 --max-time 5 "${MOCK_URL}/health" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Mock server ready after ${attempt}s${NC}"
+        SERVER_READY=true
         break
     fi
     echo -ne "."
     sleep 1
 done
 
+echo "" # Newline after dots
+
 # Check if mock server is healthy
-if ! curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-    echo -e "\n${RED}✗ Mock server failed to start${NC}"
+if [ "$SERVER_READY" = false ]; then
+    echo -e "${RED}✗ Mock server failed to start after ${MOCK_SERVER_STARTUP_RETRIES}s${NC}"
+    echo -e "${YELLOW}Docker logs:${NC}"
     docker compose logs mock-server
-    docker compose down
     exit 1
 fi
 
@@ -96,21 +130,4 @@ else
     pio test -e blackbox
 fi
 
-TEST_RESULT=$?
-
-# Cleanup
-echo -e "${BLUE}Cleaning up...${NC}"
-cd "${SCRIPT_DIR}"
-docker compose down
-
-if [ $TEST_RESULT -eq 0 ]; then
-    echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}All tests passed!${NC}"
-    echo -e "${GREEN}========================================${NC}"
-else
-    echo -e "${RED}========================================${NC}"
-    echo -e "${RED}Tests failed!${NC}"
-    echo -e "${RED}========================================${NC}"
-fi
-
-exit $TEST_RESULT
+# The exit process will trigger the trap properly cleaning up the docker resources
