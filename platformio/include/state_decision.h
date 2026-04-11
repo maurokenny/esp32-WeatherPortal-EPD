@@ -50,6 +50,7 @@ struct DecisionOutput {
     bool resetApiFail;         // Set apiFailCycles = 0
     bool incApiFail;           // Increment apiFailCycles
     bool setErrorFlag;         // Set isErrorState = true (and sleep forever)
+    bool updateFirstBoot;      // Set isFirstBoot = false
 };
 
 DecisionOutput decideTransition(State current, const DecisionInput& input);

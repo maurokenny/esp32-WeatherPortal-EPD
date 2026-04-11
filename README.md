@@ -76,7 +76,6 @@ stateDiagram-v2
 - **Easy Setup** – Captive portal with auto mobile detection
 - **Auto Location** – Optional IP-based geolocation
 - **Umbrella Indicator** – Rain probability at a glance
-- **Error Screens** – Distinct icons for WiFi, NTP, API, Battery
 - **Offline Mode** – Full simulation without WiFi
 
 ---

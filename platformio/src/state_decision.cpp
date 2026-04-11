@@ -19,6 +19,7 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
     output.resetApiFail = false;
     output.incApiFail = false;
     output.setErrorFlag = false;
+    output.updateFirstBoot = false;
 
     switch (current) {
         case STATE_BOOT:
@@ -33,6 +34,7 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
             if (input.wifiConnected) {
                 output.nextState = STATE_NORMAL_MODE;
                 output.resetWifiFail = true;
+                output.updateFirstBoot = input.isFirstBoot; // Reset isFirstBoot flag
             } else if (input.wifiTimeout) {
                 if (input.isFirstBoot) {
                     output.nextState = STATE_AP_CONFIG_MODE;

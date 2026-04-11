@@ -192,6 +192,14 @@ void wifiManagerLoop() {
     // 3. EXECUTE SIDE EFFECTS (Impure hardware/UI calls)
     if (output.nextState != currentState) {
         
+        // Apply side effects from decision output
+        if (output.updateFirstBoot) {
+            isFirstBoot = false;
+            Serial.println("[WiFi] First boot flag reset on successful connection");
+        }
+        if (output.resetWifiFail) { connectionFailCycles = 0; }
+        if (output.incWifiFail) { connectionFailCycles++; }
+        
         // Actions on ENTERING a new state
         switch (output.nextState) {
             case STATE_WIFI_CONNECTING:
@@ -211,20 +219,9 @@ void wifiManagerLoop() {
 
             case STATE_NORMAL_MODE:
                 runtime.wifiConnected = true;
-                // Clear first boot flag immediately on successful connection
-                isFirstBoot = false;
                 // Show status on first boot or if not silent
                 if (isFirstBoot || !SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
-                }
-
-                // Reset isFirstBoot as soon as WiFi connects successfully.
-                // This prevents entering AP mode on subsequent WiFi timeouts.
-                // Previously, isFirstBoot was only reset at the end of updateWeather(),
-                // which meant NTP/API failures could leave it true indefinitely.
-                if (isFirstBoot) {
-                    isFirstBoot = false;
-                    Serial.println("[WiFi] First boot flag reset on successful connection");
                 }
                 break;
 
