@@ -1,6 +1,6 @@
 # ESP32 E-Paper Weather Display
 
-A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. It features a modern web-based setup experience and uses **Open-Meteo** for free weather data (no API key required for personal use).
+A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. Uses **Open-Meteo** for free weather data (no API key required).
 
 <p float="left">
   <img src="showcase/assembled-demo-raleigh-front.jpg" />
@@ -9,105 +9,17 @@ A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. It fea
 </p>
 
 ---
-## State Machine Diagram (Mermaid)
-
-```mermaid
-stateDiagram-v2
-  [*] --> BOOT : Power On / Wake Up
-
-  BOOT --> STATE_WIFI_CONNECTING : Credentials Exist
-  BOOT --> STATE_AP_CONFIG_MODE : No Credentials
-
-  STATE_WIFI_CONNECTING --> STATE_NORMAL_MODE : WiFi Connected
-  STATE_WIFI_CONNECTING --> STATE_AP_CONFIG_MODE : Timeout + First Boot
-  STATE_WIFI_CONNECTING --> STATE_SLEEP_PENDING : Timeout + Retry Available
-  STATE_WIFI_CONNECTING --> STATE_ERROR : Timeout + Max Fail Cycles
-
-  STATE_NORMAL_MODE --> STATE_SLEEP_PENDING : Success
-
-  STATE_SLEEP_PENDING --> [*] : Deep Sleep
-  [*] --> BOOT : Wake Up
-
-  STATE_AP_CONFIG_MODE --> BOOT : Config Saved
-  STATE_AP_CONFIG_MODE --> STATE_ERROR : Timeout (5min)
-
-  STATE_ERROR --> [*] : Sleep Forever
-```
-
-### Local testing with act (GitHub Actions Runner Locally)
-Prerequisites:
-- Docker installed and running
-- The tool act installed on your machine
- 
-Installation:
-- macOS: brew install act
-- Linux: curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
-- Windows: Use choco or scoop installers as per the project's docs
-
-Usage:
-- Run the Blackbox Matrix workflow locally:
-  act -j blackbox-matrix -P ubuntu-latest=catthehacker/ubuntu:act-latest --artifact-server-path /tmp/artifacts
-- Run the State Machine unit tests workflow locally:
-  act -j test-state-machine -P ubuntu-latest=catthehacker/ubuntu:act-latest --artifact-server-path /tmp/artifacts
-
-- Artifacts:
-  Results and test artifacts will be written to /tmp/artifacts on your host.
-- Optional: supply a GitHub event payload file with -e <event.json>, for example to mimic a PR event.
-- Have Docker network access; ensure the environment can reach the mock server if your workflow relies on it.
-- Note: Act uses container runners to emulate GitHub Actions; performance may vary depending on host resources.
-
-## Features
-
-* **No API Key Required** – Powered by Open-Meteo (free for personal, non-commercial use)
-* **Easy Setup** – Captive portal with automatic mobile detection
-* **QR Code Onboarding** – Connect instantly by scanning from the display
-* **Auto Location Detection** – Optional IP-based geolocation
-* **Umbrella Indicator** – Quick visual cue for rain probability
-* **Visual Error Feedback** – Distinct icons for WiFi, time sync, API, and battery errors
-* **Multi-Display Support** – Works with multiple Waveshare / Good Display 7.5" panels
-* **Offline Development Mode** – Full simulation without WiFi or API calls
-
-> **Power Note**
-> This project currently targets the **E-Paper ESP32 Driver Board Rev 3 (USB-powered)**.
-> Deep sleep consumption is higher than ultra-low-power builds due to onboard components. Battery optimization has not yet been implemented.
-
----
-
-## Requirements
-
-### Hardware
-- ESP32 Dev Module or FireBeetle ESP32
-- 7.5" e-paper display (Waveshare or Good Display compatible)
-- Compatible driver board (DESPI-C02 or Waveshare)
-- Optional: BME280/BME680 sensor for indoor readings
-
-### Software
-- PlatformIO Core 6.0+ (with Arduino framework)
-- Python 3.8+ (for build scripts)
-- Git
-
-### Dependencies
-All dependencies are managed automatically by PlatformIO:
-- GxEPD2 (e-paper display driver)
-- ArduinoJson (JSON parsing)
-- ESPAsyncWebServer (web portal)
-- Adafruit sensor libraries
-
----
 
 ## Quick Start
 
-### 1. Build & Flash
-
 ```bash
 cd platformio
-
 pio run
 pio run --target upload
 pio device monitor --baud 115200
 ```
 
-### 2. First Boot
+### First Boot
 
 On first boot, the device creates a Wi-Fi access point for configuration.
 
@@ -118,106 +30,54 @@ On first boot, the device creates a Wi-Fi access point for configuration.
 ### Web Portal (Recommended)
 
 1. **Power on the device**
-2. Scan the QR code on the display
-   *or connect manually to:*
-   ```
-   weather_eink-AP
-   ```
+2. Scan the QR code on the display, or connect to `weather_eink-AP`
+3. Open: http://192.168.4.1 or http://weather.local
+4. Configure WiFi credentials and location
+5. Save → device restarts and begins updating
 
-3. Open the setup page:
-   * http://weather.local
-   * http://192.168.4.1
+> **Security Note**: Setup runs over **unencrypted HTTP**. Perform on a trusted network.
 
-4. Configure:
-   * Wi-Fi credentials
-   * Location (or enable auto-detection)
+### Alternative: Environment Variables
 
-5. Save → device restarts and begins updating weather
-
-> ⚠️ **Security Notice**
-> Setup runs over **unencrypted HTTP**.
-> Perform configuration on a trusted network.
-
----
-
-### Alternative Configuration
-
-#### Manual Defaults (Firmware)
-
-Edit:
-
-```
-platformio/src/config.cpp
-```
-
-Used for:
-* Default values in the portal
-* Fallback when configuration is missing
-
----
-
-#### Environment Variables
-
-Create:
-
-```
-.env
-```
+Create `.env` in the `platformio/` directory:
 
 ```env
 WIFI_SSID=your_wifi
 WIFI_PASSWORD=your_password
 ```
 
-Loaded at build time via `platformio/load_env.py`. **Optional** - if not provided, fallback values are used and WiFi can be configured via the web portal.
-
----
-
-## Hardware
-
-Current development setup:
-
-* **ESP32 Board**
-  E-Paper ESP32 Driver Board Rev 3
-
-* **Display**
-  Waveshare 7.5" e-paper (800×480, Black/White)
-
-* **Adapter**
-  Waveshare e-Paper adapter
-
-* **Power**
-  USB-powered
-
 ---
 
 ## State Machine
 
-The firmware uses a deterministic state machine to manage WiFi connectivity, configuration, and error recovery with persistent state across deep sleep. Transitions depend on timeouts and per-subsystem failure counters (WiFi, NTP, API). RTC memory preserves state across deep sleep cycles.
+The firmware uses a deterministic state machine with deep sleep. For complete details, see [`docs/STATE_MACHINE.md`](docs/STATE_MACHINE.md).
 
+```mermaid
+stateDiagram-v2
+  [*] --> STATE_BOOT
+  STATE_BOOT --> STATE_WIFI_CONNECTING : Credentials exist
+  STATE_BOOT --> STATE_AP_CONFIG_MODE : No credentials
+  STATE_WIFI_CONNECTING --> STATE_NORMAL_MODE : Connected
+  STATE_WIFI_CONNECTING --> STATE_AP_CONFIG_MODE : Timeout + First boot
+  STATE_WIFI_CONNECTING --> STATE_SLEEP_PENDING : Timeout + Retry
+  STATE_WIFI_CONNECTING --> STATE_ERROR : Max retries reached
+  STATE_NORMAL_MODE --> STATE_SLEEP_PENDING : Success
+  STATE_SLEEP_PENDING --> STATE_BOOT : Wake up
+  STATE_AP_CONFIG_MODE --> STATE_BOOT : Config saved
+  STATE_AP_CONFIG_MODE --> STATE_ERROR : Timeout
+  STATE_ERROR --> [*] : Sleep forever
 ```
-┌─────────┐    ┌─────────────────┐    ┌─────────────┐
-│  BOOT   │───▶│ STATE_WIFI_CONNECTING │───▶│ STATE_NORMAL_MODE │
-└─────────┘    └─────────────────┘    └─────────────┘
-     │                │                      │
-     │                ▼                      ▼
-     │         ┌──────────────────┐        ┌──────────────────┐
-     └────────▶│ STATE_AP_CONFIG_MODE │        │ STATE_SLEEP_PENDING│
-                └──────────────────┘        └──────────────────┘
-                       │                        │
-                       ▼                        ▼
-                ┌──────────────┐         ┌──────────────┐
-                │ STATE_ERROR  │         │ Deep Sleep   │
-                └──────────────┘         └──────────────┘
-```
 
-**Key behaviors:**
-- **First boot**: AP configuration mode (captive portal) is available when ramSSID is empty (no credentials) or if WiFi connection fails during the first boot.
-- **Post-first-boot**: WiFi failures follow a retry cycle; AP mode is not entered after a successful WiFi connection.
-- **Error screens**: Distinct icons for WiFi, NTP, API, and Battery issues.
-- **Deep sleep**: State persists in RTC memory across sleep cycles
+---
 
-📖 **Full documentation**: See [`docs/STATE_MACHINE.md`](docs/STATE_MACHINE.md) for complete state diagrams, failure cycle logic, and troubleshooting.
+## Features
+
+- **No API Key** – Open-Meteo (free, personal use)
+- **Easy Setup** – Captive portal with auto mobile detection
+- **Auto Location** – Optional IP-based geolocation
+- **Umbrella Indicator** – Rain probability at a glance
+- **Error Screens** – Distinct icons for WiFi, NTP, API, Battery
+- **Offline Mode** – Full simulation without WiFi
 
 ---
 
@@ -225,41 +85,28 @@ The firmware uses a deterministic state machine to manage WiFi connectivity, con
 
 ### Offline Mode (No WiFi)
 
-Enable in `config.h`:
+Enable in `include/config.h`:
 
 ```c
 #define USE_MOCKUP_DATA 1
 ```
 
-Simulates full device lifecycle:
+Available scenarios: SUNNY, RAINY, SNOWY, CLOUDY, THUNDER
 
-* Boot → WiFi → Fetch → Display → Sleep
-* Deterministic timing (no network dependency)
+### Local Testing with act
 
-Available scenarios:
+Run GitHub Actions workflows locally:
 
-* Weather: SUNNY, RAINY, SNOWY, CLOUDY, THUNDER
-* Rain widget: NO_RAIN, COMPACT, TAKE, GRAPH_TEST
-
----
-
-### Using Saved API Data
-
-Skip live API calls and replay real responses:
-
-1. Download data:
 ```bash
-curl "https://api.open-meteo.com/..." -o api_response.json
-```
+# Install act
+brew install act  # macOS
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash  # Linux
 
-2. Convert:
-```bash
-python json_to_header.py api_response.json
-```
+# Run state machine tests
+act -j test-state-machine -P ubuntu-latest=catthehacker/ubuntu:act-latest
 
-3. Enable:
-```c
-#define USE_SAVED_API_DATA 1
+# Run blackbox matrix tests
+act -j blackbox-matrix -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
 
 ---
@@ -267,47 +114,23 @@ python json_to_header.py api_response.json
 ## Troubleshooting
 
 | Issue | Fix |
-|------|-----|
+|-------|-----|
 | Display not updating | Check SPI wiring and BUSY pin |
-| White/washed display | Known panel limitation (pattern workaround applied) |
 | WiFi fails | Verify credentials and signal strength |
-| Time sync issues | Check timezone and NTP settings |
+| Time sync issues | Check timezone settings |
 
 For deeper debugging, see `platformio/AGENTS.md`.
 
 ---
 
-## Known Limitations
+## Hardware
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **Weather Alerts** | ❌ Not implemented | Alert parsing from Open-Meteo is not yet implemented. The display infrastructure exists but the data pipeline is incomplete. |
-
----
-
-## Project Background
-
-This project is a significantly reworked fork of the excellent [esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd) by Luke Marzen.
-
-### Key Changes
-
-* Migrated to **Open-Meteo** (no API key required)
-* Added web-based setup portal
-* Introduced state machine architecture
-* Implemented umbrella indicator
-* Fixed display rendering issues on certain panels
-
----
-
-## Credits & Acknowledgments
-
-* Fork of [esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd) by **Luke Marzen**
-* Libraries: GxEPD2, ArduinoJson, Adafruit ecosystem
-* PlatformIO community
+- ESP32 Dev Module
+- 7.5" e-paper display (800×480)
+- Optional: BME280/BME680 sensor
 
 ---
 
 ## License
 
-Licensed under **GPL v3.0**.
-See original project for full attribution of third-party assets.
+GPL v3.0. See original project for full attribution.
