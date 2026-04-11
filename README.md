@@ -92,31 +92,67 @@ Enable in `include/config.h`:
 
 Available scenarios: SUNNY, RAINY, SNOWY, CLOUDY, THUNDER
 
+### Testing with Saved API Data
+
+Test with real API responses without making live calls:
+
+```bash
+# 1. Download an API response (example for New York)
+curl "https://api.open-meteo.com/v1/forecast?latitude=-3.10&longitude=-60.02&current=temperature_2m,apparent_temperature,is_day,weather_code,precipitation,rain,showers,snowfall,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,surface_pressure&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,precipitation_sum&timezone=auto&forecast_days=8" \
+  -o api_response.json
+
+# 2. Convert to C++ header
+cd platformio
+python json_to_header.py api_response.json
+
+# 3. Enable saved data mode in include/config.h
+#define USE_SAVED_API_DATA 1
+
+# 4. Build and run
+pio run -e esp32dev
+```
+
+Useful for:
+- Testing with consistent/known data
+- Avoiding API rate limits
+- Faster development cycles
+
 ### Local Testing with act
 
-You can run GitHub Actions workflows locally. The `.github/workflows/` folder contains several workflows:
-
-| Workflow | Description |
-|----------|-------------|
-| `state-machine.yml` | Unit tests for state machine logic |
-| `blackbox-matrix.yml` | Blackbox integration tests (14 environments) |
-| `blackbox.yml` | Single blackbox test environment |
-
-Example commands:
+Run GitHub Actions workflows locally using [act](https://github.com/nektos/act):
 
 ```bash
 # Install act
 brew install act  # macOS
 curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash  # Linux
 
-# Run state machine tests
-act -j test-state-machine -P ubuntu-latest=catthehacker/ubuntu:act-latest
+# Run a specific job
+act -j <job-name> -P ubuntu-latest=catthehacker/ubuntu:act-latest
 
-# Run blackbox matrix tests
-act -j blackbox-matrix -P ubuntu-latest=catthehacker/ubuntu:act-latest
+# List available jobs
+act -l
 ```
 
-Replace `-j <job-name>` with the desired job from each workflow.
+**Available Workflows:**
+
+| Workflow | Job Name | Description | Requirements |
+|----------|----------|-------------|--------------|
+| `state-machine.yml` | `test-state-machine` | Unit tests (fast) | None |
+| `blackbox.yml` | `blackbox-test` | Single integration test | Docker |
+| `blackbox-matrix.yml` | `blackbox-matrix` | Matrix tests (14 envs) | Docker + artifact path |
+
+**Examples:**
+
+```bash
+# Fast unit tests - no Docker required
+act -j test-state-machine -P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Integration tests - requires Docker
+act -j blackbox-test -P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Full matrix tests - save artifacts
+act -j blackbox-matrix -P ubuntu-latest=catthehacker/ubuntu:act-latest --artifact-server-path /tmp/artifacts
+```
 
 ---
 
@@ -134,9 +170,19 @@ For deeper debugging, see `platformio/AGENTS.md`.
 
 ## Hardware
 
-- ESP32 Dev Module
-- 7.5" e-paper display (800×480)
-- Optional: BME280/BME680 sensor
+Current development setup:
+
+* **ESP32 Board**
+  E-Paper ESP32 Driver Board Rev 3
+
+* **Display**
+  Waveshare 7.5" e-paper (800×480, Black/White)
+
+* **Adapter**
+  Waveshare e-Paper adapter
+
+* **Power**
+  USB-powered
 
 ---
 
