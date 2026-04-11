@@ -17,6 +17,7 @@ A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. It fea
 * **QR Code Onboarding** – Connect instantly by scanning from the display
 * **Auto Location Detection** – Optional IP-based geolocation
 * **Umbrella Indicator** – Quick visual cue for rain probability
+* **Visual Error Feedback** – Distinct icons for WiFi, time sync, API, and battery errors
 * **Multi-Display Support** – Works with multiple Waveshare / Good Display 7.5" panels
 * **Offline Development Mode** – Full simulation without WiFi or API calls
 
@@ -144,6 +145,37 @@ Current development setup:
 
 ---
 
+## State Machine
+
+The firmware uses a deterministic state machine to manage WiFi connectivity, configuration, and error recovery:
+
+```
+┌─────────┐    ┌─────────────────┐    ┌─────────────┐
+│  BOOT   │───▶│ WIFI_CONNECTING │───▶│ NORMAL_MODE │
+└─────────┘    └─────────────────┘    └─────────────┘
+     │                │                      │
+     │                ▼                      ▼
+     │         ┌─────────────┐         ┌──────────────┐
+     └────────▶│ AP_CONFIG   │         │ SLEEP_PENDING│
+               │   MODE      │         └──────────────┘
+               └─────────────┘                │
+                      │                        │
+                      ▼                        ▼
+               ┌─────────────┐         ┌──────────────┐
+               │ STATE_ERROR │         │ Deep Sleep   │
+               └─────────────┘         └──────────────┘
+```
+
+**Key behaviors:**
+- **First boot only**: AP configuration mode available ( captive portal )
+- **Post-first-boot**: WiFi failures use retry cycle with error screens
+- **Error screens**: Distinct icons for WiFi (strike-through), NTP (clock), API (cloud), Battery
+- **Deep sleep**: Preserves state in RTC memory across sleep cycles
+
+📖 **Full documentation**: See [`docs/STATE_MACHINE.md`](docs/STATE_MACHINE.md) for complete state diagrams, failure cycle logic, and troubleshooting.
+
+---
+
 ## Development & Testing
 
 ### Offline Mode (No WiFi)
@@ -197,6 +229,14 @@ python json_to_header.py api_response.json
 | Time sync issues | Check timezone and NTP settings |
 
 For deeper debugging, see `platformio/AGENTS.md`.
+
+---
+
+## Known Limitations
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Weather Alerts** | ❌ Not implemented | Alert parsing from Open-Meteo is not yet implemented. The display infrastructure exists but the data pipeline is incomplete. |
 
 ---
 

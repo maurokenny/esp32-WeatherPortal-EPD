@@ -1766,7 +1766,7 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 
     // --- Header ---
     display.setFont(&FONT_26pt8b);
-    drawString(DISP_WIDTH / 2, 55, "Device Setup Mode", CENTER);
+    drawString(DISP_WIDTH / 2, 55, TXT_AP_MODE_HEADER, CENTER);
     display.drawFastHLine(40, 75, DISP_WIDTH - 80, GxEPD_BLACK);
 
     // --- Left side: larger QR (Version 3 * scale 8 = 232px) ---
@@ -1796,7 +1796,7 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 
     // Step 1: Wi-Fi
     display.setFont(&FONT_18pt8b);
-    drawString(txtX, stepY, "1. Scan to Join Wi-Fi", LEFT);
+    drawString(txtX, stepY, TXT_AP_MODE_STEP1, LEFT);
     
     stepY += lineSpace;
     display.setFont(&FONT_16pt8b);
@@ -1806,17 +1806,19 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
     // Step 2: Portal
     stepY += lineSpace * 1.8;
     display.setFont(&FONT_18pt8b);
-    drawString(txtX, stepY, "2. Open Device Portal", LEFT);
+    drawString(txtX, stepY, TXT_AP_MODE_STEP2, LEFT);
     
     stepY += lineSpace;
     display.setFont(&FONT_16pt8b);
-    drawString(txtX + 25, stepY, "http://weather.local", LEFT);
+    String urlLocal = String("http://") + AP_URL_LOCAL;
+    drawString(txtX + 25, stepY, urlLocal.c_str(), LEFT);
     stepY += 35;
-    drawString(txtX + 25, stepY, "or 192.168.4.1", LEFT);
+    String urlIp = String("or ") + AP_IP_ADDRESS;
+    drawString(txtX + 25, stepY, urlIp.c_str(), LEFT);
 
     // Footer: Timeout countdown
     char timeoutMsg[64];
-    snprintf(timeoutMsg, sizeof(timeoutMsg), "Portal closes in %u minutes", timeoutMinutes);
+    snprintf(timeoutMsg, sizeof(timeoutMsg), TXT_AP_MODE_TIMEOUT, timeoutMinutes);
     display.setFont(&FONT_12pt8b);
     drawString(DISP_WIDTH - 40, DISP_HEIGHT - 30, timeoutMsg, RIGHT);
 
@@ -1826,7 +1828,7 @@ void drawAPModeScreen(const char* ssid, uint32_t timeoutMinutes)
 
 void drawTimeoutScreen()
 {
-  drawLoading(warning_icon_196x196, "Setup Timed Out", "Device is entering deep sleep");
+  drawLoading(warning_icon_196x196, TXT_AP_TIMEOUT_SCREEN, TXT_AP_TIMEOUT_SLEEP);
 }
 
 void drawErrorScreen(const char* title, const char* message, const char* action)
@@ -1856,10 +1858,6 @@ void drawErrorScreen(const char* title, const char* message, const char* action)
       drawString(DISP_WIDTH / 2, 350, action, CENTER);
     }
     
-    // Bottom note
-    display.setFont(&FreeSans_9pt8b);
-    drawString(DISP_WIDTH / 2, 430, "Manual reset required to recover", CENTER);
-    
   } while (display.nextPage());
   powerOffDisplay();
 }
@@ -1880,10 +1878,11 @@ static const struct FailureConfig {
     const uint8_t* icon;
     const char* name;
 } failureConfig[] = {
-    [FAILURE_WIFI]    = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_x_196x196,       "WiFi" },
-    [FAILURE_NTP]     = { &ntpFailCycles,        MAX_NTP_FAIL_CYCLES,  wi_time_4_196x196,    "NTP" },
-    [FAILURE_API]     = { &apiFailCycles,        MAX_API_FAIL_CYCLES,  wi_cloud_down_196x196,"API" },
-    [FAILURE_BATTERY] = { nullptr,               1,                    battery_alert_0deg_196x196, "Battery" }
+    [FAILURE_WIFI]       = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_off_196x196,         "WiFi" },
+    [FAILURE_NTP]        = { &ntpFailCycles,        MAX_NTP_FAIL_CYCLES,  wi_time_4_196x196,      "NTP" },
+    [FAILURE_API]        = { &apiFailCycles,        MAX_API_FAIL_CYCLES,  wi_cloud_down_196x196, "API" },
+    [FAILURE_BATTERY]    = { nullptr,               1,                    battery_alert_0deg_196x196, "Battery" },
+    [FAILURE_AP_TIMEOUT] = { nullptr,               1,                    wifi_x_196x196,          "AP Timeout" }
 };
 
 void handleFailure(FailureType type, const String& line1, const String& line2)
@@ -1898,16 +1897,18 @@ void handleFailure(FailureType type, const String& line1, const String& line2)
     }
     
     // Calculate criticality
+    // Critical if: battery error, AP timeout (no retry), or max retry cycles reached
     bool isCritical = (type == FAILURE_BATTERY) || 
+                      (type == FAILURE_AP_TIMEOUT) ||
                       (cfg.maxCycles > 0 && cfg.counter && 
                        *cfg.counter >= cfg.maxCycles);
     
-    // Decide whether to show screen (battery always shows)
-    bool shouldShow = isCritical || !SILENT_STATUS || (type == FAILURE_BATTERY);
+    // Decide whether to show screen
+    // Always show for critical errors (terminal state), otherwise respect SILENT_STATUS
+    bool shouldShow = isCritical || !SILENT_STATUS;
     
     if (shouldShow) {
         Serial.println("[FAILURE] Showing error screen");
-        // USES drawError() FROM RENDERER - reuses existing code!
         drawError(cfg.icon, line1, line2);
     } else {
         Serial.println("[FAILURE] Silent mode, skipping screen");

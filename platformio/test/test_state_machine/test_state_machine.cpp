@@ -166,6 +166,46 @@ void test_api_failure_leads_to_error_if_max_reached(void) {
 // EDGE CASES
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * @brief Critical regression test for the "AP mode stuck" bug.
+ * 
+ * Bug scenario:
+ * 1. Cold boot: WiFi connects (isFirstBoot=true), but NTP/API fails
+ * 2. isFirstBoot was only reset at the END of updateWeather() - never reached
+ * 3. Next wake: WiFi fails (router slow/down)
+ * 4. Because isFirstBoot was still true, device entered AP mode unnecessarily
+ * 
+ * This test verifies that after WiFi success, isFirstBoot becomes false
+ * BEFORE NTP/API processing, so subsequent WiFi failures don't trigger AP mode.
+ */
+void test_wifi_success_resets_first_boot_before_ntp_api(void) {
+    // CYCLE 1: WiFi connects successfully
+    DecisionInput input1 = {};
+    input1.wifiConnected = true;
+    input1.isFirstBoot = true;
+    
+    DecisionOutput output1 = decideTransition(STATE_WIFI_CONNECTING, input1);
+    
+    TEST_ASSERT_EQUAL(STATE_NORMAL_MODE, output1.nextState);
+    TEST_ASSERT_TRUE(output1.updateFirstBoot);
+    
+    // CYCLE 2: Later, WiFi fails (router issue, etc.)
+    // isFirstBoot should now be false because it was reset on previous WiFi success
+    DecisionInput input2 = {};
+    input2.isFirstBoot = false;
+    input2.wifiConnected = false;
+    input2.wifiTimeout = true;
+    input2.wifiFailCycles = 0;
+    input2.maxWifiFail = 10;
+    
+    DecisionOutput output2 = decideTransition(STATE_WIFI_CONNECTING, input2);
+    
+    // MUST NOT go to AP mode - should sleep and retry later
+    TEST_ASSERT_EQUAL(STATE_SLEEP_PENDING, output2.nextState);
+    TEST_ASSERT_TRUE(output2.incWifiFail);
+    TEST_ASSERT_NOT_EQUAL(STATE_AP_CONFIG_MODE, output2.nextState);
+}
+
 void test_max_is_one_immediate_error_on_second_attempt(void) {
     DecisionInput input = {};
     input.isFirstBoot = false;
@@ -323,6 +363,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_api_failure_leads_to_error_if_max_reached);
     
     // Edge cases
+    RUN_TEST(test_wifi_success_resets_first_boot_before_ntp_api);
     RUN_TEST(test_max_is_one_immediate_error_on_second_attempt);
 
     // Sleep duration

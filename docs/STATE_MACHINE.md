@@ -209,6 +209,10 @@ When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false`
 - AP mode can be entered in two situations:
   1. **No credentials**: At boot when `ramSSID` is empty (first boot or after RTC clear)
   2. **First boot timeout**: When WiFi connection times out and `isFirstBoot == true`
+- When entering AP mode from WiFi timeout (scenario 2), an **error screen** is displayed first:
+  - Icon: WiFi with strike-through (`wifi_off_196x196`)
+  - Message: "WiFi Connection Failed"
+  - Duration: 3 seconds before AP mode starts
 - The timeout only applies while `portalActive == true` (waiting for user input)
 - After user saves configuration, there's a 3-second delay before transitioning to BOOT state
 - The web server provides captive portal detection for automatic redirect on mobile devices
@@ -657,7 +661,7 @@ Scenario with PER-SUBSYSTEM counters (good):
 **Better Diagnostics**: The error screen shows exactly which subsystem failed:
 ```cpp
 // Error display shows specific icon and message per failure type
-[FAILURE_WIFI] = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_x_196x196, "WiFi" },
+[FAILURE_WIFI] = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_off_196x196, "WiFi" },
 [FAILURE_NTP]  = { &ntpFailCycles,        MAX_NTP_FAIL_CYCLES,  wi_time_4_196x196,    "NTP" },
 [FAILURE_API]  = { &apiFailCycles,        MAX_API_FAIL_CYCLES,  wi_cloud_down_196x196,"API" },
 ```
@@ -746,6 +750,49 @@ Boot N+2: BOOT ──→ WIFI_CONNECTING (timeout again)
 **Key Point**: The device NEVER goes to AP_CONFIG_MODE after first boot. It cycles through:
 1. `WIFI_CONNECTING` → `SLEEP_PENDING` (retry with counter increment)
 2. Eventually: `WIFI_CONNECTING` → `STATE_ERROR` (permanent sleep)
+
+---
+
+## Error Screens
+
+The firmware displays specific error screens for different failure types using distinct icons:
+
+### Error Icons
+
+| Failure Type | Icon | Description |
+|--------------|------|-------------|
+| **WiFi Connection** | `wifi_off_196x196` | WiFi symbol with strike-through bar |
+| **NTP Time Sync** | `wi_time_4_196x196` | Clock icon |
+| **API Request** | `wi_cloud_down_196x196` | Cloud with downward arrow |
+| **Battery Low** | `battery_alert_0deg_196x196` | Battery with alert indicator |
+| **AP Timeout** | `wifi_off_196x196` | WiFi symbol with strike-through bar |
+
+### When Error Screens Are Shown
+
+1. **First Boot WiFi Failure** → Before entering AP mode
+   - Icon: `wifi_off_196x196`
+   - Message: "WiFi Connection Failed"
+   - Duration: 3 seconds
+
+2. **Post-First-Boot Failures** → Via `handleFailure()`
+   - Only shown if `SILENT_STATUS` is `false` OR error is critical
+   - Critical errors: Battery, AP timeout, or max retry cycles reached
+
+3. **Permanent Errors (STATE_ERROR)** → Always shown
+   - Device enters indefinite sleep after displaying
+
+### Error Screen Implementation
+
+Error screens are rendered using `drawLoading()` or `drawError()` from `display_utils.cpp`:
+
+```cpp
+// Example: WiFi error on first boot
+drawLoading(wifi_off_196x196, TXT_WIFI_CONNECTION_FAILED);
+delay(3000);
+
+// Example: NTP error via handleFailure
+handleFailure(FAILURE_NTP, TXT_FAILED_TO_FETCH_TIME, "");
+```
 
 ---
 

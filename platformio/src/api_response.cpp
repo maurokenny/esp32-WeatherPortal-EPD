@@ -539,7 +539,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   unsigned long startTime = millis();
   
   // Keep reading until stream is empty or timeout
-  while (bytesRead < 30000 && (millis() - startTime) < 10000) {
+  while (bytesRead < 30000 && (millis() - startTime) < HTTP_CLIENT_TCP_TIMEOUT) {
     if (json.available()) {
       char c = json.read();
       if (c >= 0) {
@@ -833,8 +833,8 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
   int bytesRead = 0;
   unsigned long startTime = millis();
   
-  // Keep reading until stream is empty or timeout (10 seconds)
-  while (bytesRead < 15000 && (millis() - startTime) < 10000) {
+  // Keep reading until stream is empty or timeout
+  while (bytesRead < 15000 && (millis() - startTime) < HTTP_CLIENT_TCP_TIMEOUT) {
     if (json.available()) {
       char c = json.read();
       if (c >= 0) {

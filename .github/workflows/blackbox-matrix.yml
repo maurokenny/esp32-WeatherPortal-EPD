@@ -1,0 +1,167 @@
+name: Blackbox Matrix Tests
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Prevent simultaneous runs with blackbox.yml to avoid port/resource conflicts.
+# cancel-in-progress: false ensures already-running jobs are not killed.
+concurrency:
+  group: mock-server-tests
+  cancel-in-progress: false
+
+env:
+  PLATFORMIO_CORE_DIR: ~/.platformio
+  MOCK_SERVER_HOST: localhost
+  MOCK_SERVER_PORT: 8080
+  MOCK_SERVER_STARTUP_RETRIES: 30
+
+jobs:
+  blackbox-matrix:
+    name: All Unit Environments
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Start Mock Server
+        working-directory: platformio/test
+        run: |
+          set -e
+          echo "Starting mock server..."
+          docker compose up --build -d mock-server
+
+          # Wait for healthcheck with retry logic
+          MOCK_URL="http://${MOCK_SERVER_HOST}:${MOCK_SERVER_PORT}"
+          echo "Waiting for mock server at ${MOCK_URL}/health..."
+
+          for attempt in $(seq 1 $MOCK_SERVER_STARTUP_RETRIES); do
+            if curl -sf \
+              --connect-timeout 2 \
+              --max-time 5 \
+              "${MOCK_URL}/health" > /dev/null 2>&1; then
+              echo "✓ Mock server ready after ${attempt}s"
+              echo "Server info:"
+              curl -s "${MOCK_URL}/" | head -20 || true
+              exit 0
+            fi
+
+            if [ $attempt -eq $MOCK_SERVER_STARTUP_RETRIES ]; then
+              echo "✗ Mock server failed to start after ${MOCK_SERVER_STARTUP_RETRIES}s"
+              echo "Docker logs:"
+              docker compose logs mock-server || true
+              exit 1
+            fi
+
+            echo "Attempt $attempt/$MOCK_SERVER_STARTUP_RETRIES - retrying..."
+            sleep 1
+          done
+
+      - name: Run All Blackbox Unit Environments
+        working-directory: platformio
+        run: |
+          set -uo pipefail
+
+          ENVIRONMENTS=(
+            "blackbox-temp-c"
+            "blackbox-temp-f"
+            "blackbox-temp-k"
+            "blackbox-wind-kmh"
+            "blackbox-wind-mph"
+            "blackbox-pres-hpa"
+            "blackbox-pres-mmhg"
+            "blackbox-pres-inhg"
+            "blackbox-pres-psi"
+            "blackbox-dist-km"
+            "blackbox-dist-mi"
+            "blackbox-precip-mm"
+            "blackbox-precip-cm"
+            "blackbox-precip-in"
+          )
+
+          passed=0
+          failed=0
+          FAILED_ENVS=()
+          TOTAL=${#ENVIRONMENTS[@]}
+
+          echo "========================================"
+          echo " Running ${TOTAL} blackbox environments"
+          echo "========================================"
+
+          for env in "${ENVIRONMENTS[@]}"; do
+            echo "----------------------------------------"
+            echo "[$(($passed + $failed + 1))/${TOTAL}] Testing: ${env}"
+            echo "----------------------------------------"
+
+            if pio test -e "${env}" --verbose; then
+              echo "  ✓ [OK] ${env}"
+              passed=$((passed + 1))
+            else
+              echo "  ✗ [FAILED] ${env}"
+              FAILED_ENVS+=("${env}")
+              failed=$((failed + 1))
+            fi
+          done
+
+          echo ""
+          echo "========================================"
+          echo "             FINAL SUMMARY              "
+          echo "========================================"
+          printf "Passed:  %d\n" "${passed}"
+          printf "Failed:  %d\n" "${failed}"
+          echo ""
+
+          if [ ${#FAILED_ENVS[@]} -gt 0 ]; then
+            echo "Failed environments:"
+            for env in "${FAILED_ENVS[@]}"; do
+              echo "  ✗ ${env}"
+            done
+            echo ""
+            exit 1
+          fi
+
+          echo "✓ All ${passed}/${TOTAL} environments passed"
+
+      - name: Collect Test Results
+        if: always()
+        working-directory: platformio
+        run: |
+          echo "Build artifacts:"
+          ls -la .pio/build/ 2>/dev/null | grep blackbox || echo "No blackbox build artifacts found"
+
+      - name: Cleanup Resources
+        if: always()
+        working-directory: platformio/test
+        run: |
+          echo "Cleaning up Docker resources..."
+          docker compose down --remove-orphans || true
+          docker ps -a | grep mock-server || echo "No orphaned containers"
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackbox-matrix-test-results
+          path: platformio/.pio/build/
+          retention-days: 30
+          if-no-files-found: warn

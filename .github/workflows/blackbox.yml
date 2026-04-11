@@ -1,0 +1,115 @@
+name: Blackbox Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Prevent simultaneous runs with blackbox-matrix.yml to avoid port/resource conflicts.
+# cancel-in-progress: false ensures already-running jobs are not killed.
+concurrency:
+  group: mock-server-tests
+  cancel-in-progress: false
+
+env:
+  PLATFORMIO_CORE_DIR: ~/.platformio
+  MOCK_SERVER_HOST: localhost
+  MOCK_SERVER_PORT: 8080
+  MOCK_SERVER_HEALTH_TIMEOUT: 30
+  MOCK_SERVER_STARTUP_RETRIES: 30
+
+jobs:
+  blackbox-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Start Mock Server
+        working-directory: platformio/test
+        run: |
+          set -e
+          echo "Starting mock server..."
+          docker compose up --build -d mock-server
+
+          # Wait for healthcheck with retry logic
+          MOCK_URL="http://${MOCK_SERVER_HOST}:${MOCK_SERVER_PORT}"
+          echo "Waiting for mock server at ${MOCK_URL}/health..."
+
+          for attempt in $(seq 1 $MOCK_SERVER_STARTUP_RETRIES); do
+            if curl -sf \
+              --connect-timeout 2 \
+              --max-time 5 \
+              "${MOCK_URL}/health" > /dev/null 2>&1; then
+              echo "✓ Mock server ready after ${attempt}s"
+              echo "Server info:"
+              curl -s "${MOCK_URL}/" | head -20 || true
+              exit 0
+            fi
+
+            if [ $attempt -eq $MOCK_SERVER_STARTUP_RETRIES ]; then
+              echo "✗ Mock server failed to start after ${MOCK_SERVER_STARTUP_RETRIES}s"
+              echo "Docker logs:"
+              docker compose logs mock-server || true
+              exit 1
+            fi
+
+            echo "Attempt $attempt/$MOCK_SERVER_STARTUP_RETRIES - retrying..."
+            sleep 1
+          done
+
+      - name: Run Blackbox Tests
+        working-directory: platformio
+        run: |
+          set -e
+          echo "Running PlatformIO tests..."
+          pio test -e blackbox --verbose
+
+          if [ $? -ne 0 ]; then
+            echo "✗ Tests failed"
+            exit 1
+          fi
+          echo "✓ All tests passed"
+
+      - name: Collect Test Results
+        if: always()
+        working-directory: platformio
+        run: |
+          echo "Test Results:"
+          ls -la .pio/build/blackbox/ || echo "No build artifacts found"
+
+      - name: Cleanup Resources
+        if: always()
+        working-directory: platformio/test
+        run: |
+          echo "Cleaning up Docker resources..."
+          docker compose down --remove-orphans || true
+          docker ps -a | grep mock-server || echo "No orphaned containers"
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackbox-test-results
+          path: platformio/.pio/build/blackbox/
+          retention-days: 30
+          if-no-files-found: warn

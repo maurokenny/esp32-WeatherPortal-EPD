@@ -35,7 +35,7 @@ FirmwareState currentState = STATE_BOOT;
 /// @brief WiFi manager configuration
 DeviceConfig wifiConfig = {
     .wifiConnectTimeout = 20,  ///< WiFi connection attempt timeout (seconds)
-    .configTimeout = 300       ///< AP mode timeout (seconds)
+    .configTimeout = 300     ///< AP mode timeout (seconds) - 5 minutes
 };
 
 /// @brief Runtime state tracking
@@ -81,7 +81,7 @@ DNSServer dnsServer;
 /// @details Implements captive portal detection for iOS, Android, Windows, macOS
 bool handleCaptivePortal(AsyncWebServerRequest *request) {
     String host = request->host();
-    if (host != "192.168.4.1" && host != "weather.local") {
+    if (host != AP_IP_ADDRESS && host != AP_URL_LOCAL) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/html", index_html_gz, index_html_gz_len);
         response->addHeader("Content-Encoding", "gzip");
         request->send(response);
@@ -91,15 +91,19 @@ bool handleCaptivePortal(AsyncWebServerRequest *request) {
 }
 
 /// @brief Start Access Point configuration mode
-/// @details Creates "weather_eink-AP" network and starts DNS server
+/// @details Creates AP network and starts DNS server
 /// for captive portal detection. Serves configuration page on port 80.
 void startAP() {
     Serial.println("Starting Access Point Mode...");
     WiFi.mode(WIFI_AP);
-    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
-    WiFi.softAP("weather_eink-AP", NULL, 6);
+    IPAddress apIp, apGateway, apMask;
+    apIp.fromString(AP_IP_ADDRESS);
+    apGateway.fromString(AP_IP_ADDRESS);
+    apMask.fromString("255.255.255.0");
+    WiFi.softAPConfig(apIp, apGateway, apMask);
+    WiFi.softAP(AP_SSID, NULL, 6);
     
-    dnsServer.start(53, "*", IPAddress(192, 168, 4, 1));
+    dnsServer.start(53, "*", apIp);
     
     // Main setup page
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -140,7 +144,7 @@ void startAP() {
     runtime.portalActive = true;
     runtime.portalStartTime = millis();
     
-    drawAPModeScreen("weather_eink-AP", wifiConfig.configTimeout / 60);
+    drawAPModeScreen(AP_SSID, wifiConfig.configTimeout / 60);
     setFirmwareState(STATE_AP_CONFIG_MODE);
 }
 
@@ -178,7 +182,7 @@ void wifiManagerLoop() {
     // PRODUCTION MODE: Real hardware feedback
     input.wifiConnected = (WiFi.status() == WL_CONNECTED);
     input.wifiTimeout = (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000);
-    input.portalTimeout = (millis() - runtime.portalStartTime > 300000); // 5 min timeout
+    input.portalTimeout = (millis() - runtime.portalStartTime > wifiConfig.configTimeout * 1000);
     input.configSaved = (!runtime.portalActive && input.hasCredentials);
 #endif
 
@@ -214,20 +218,34 @@ void wifiManagerLoop() {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
 
+                // Reset isFirstBoot as soon as WiFi connects successfully.
+                // This prevents entering AP mode on subsequent WiFi timeouts.
+                // Previously, isFirstBoot was only reset at the end of updateWeather(),
+                // which meant NTP/API failures could leave it true indefinitely.
+                if (isFirstBoot) {
+                    isFirstBoot = false;
+                    Serial.println("[WiFi] First boot flag reset on successful connection");
+                }
                 break;
 
             case STATE_AP_CONFIG_MODE:
+                // If coming from WiFi failure on first boot, show error before AP mode
+                if (currentState == STATE_WIFI_CONNECTING && isFirstBoot) {
+                    drawLoading(wifi_off_196x196, TXT_WIFI_CONNECTION_FAILED);
+                    delay(3000);
+                }
                 startAP();
                 break;
 
             case STATE_ERROR:
                 if (output.setErrorFlag) {
-                    // Logic from original handleFailure / startAP timeout
                     if (currentState == STATE_WIFI_CONNECTING) {
                         String detail = "Attempt " + String(connectionFailCycles + 1) + "/" + String(MAX_WIFI_FAIL_CYCLES);
                         handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail);
+                    } else if (currentState == STATE_AP_CONFIG_MODE) {
+                        handleFailure(FAILURE_AP_TIMEOUT, TXT_AP_TIMEOUT_LINE1, TXT_AP_TIMEOUT_LINE2);
                     } else {
-                        handleFailure(FAILURE_BATTERY, "System Error", "Timeout");
+                        handleFailure(FAILURE_BATTERY, TXT_LOW_BATTERY, "");
                     }
                 }
                 break;

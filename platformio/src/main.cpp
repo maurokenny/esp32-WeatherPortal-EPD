@@ -587,7 +587,7 @@ void updateWeather()
   isTimeConfigured = waitForSNTPSync(&currentTimInfo);
   if (!isTimeConfigured)
   {
-    handleFailure(FAILURE_NTP, TXT_TIME_SYNCHRONIZATION_FAILED);
+    handleFailure(FAILURE_NTP, TXT_FAILED_TO_FETCH_TIME, "");
     return;
   }
   
@@ -642,7 +642,6 @@ void updateWeather()
   #endif
 
 #else
-  // Option 3: Fetch from Open-Meteo API (default)
   #ifdef USE_HTTP
     WiFiClient client;
   #else
@@ -654,7 +653,7 @@ void updateWeather()
   if (rxStatus != HTTP_CODE_OK)
   {
     String detail = String(rxStatus) + ": " + getHttpResponsePhrase(rxStatus);
-    handleFailure(FAILURE_API, "Open-Meteo Forecast API Error", detail);
+    handleFailure(FAILURE_API, TXT_API_ERROR, detail);
     return;
   }
   
@@ -713,8 +712,6 @@ void updateWeather()
   powerOffDisplay();
 
   // Success - reset all counters
-  if (isFirstBoot) isFirstBoot = false;
-  
   if (connectionFailCycles > 0) {
     Serial.printf("[WiFi] Reset counter %d->0\n", connectionFailCycles);
     connectionFailCycles = 0;
@@ -872,8 +869,12 @@ void loop()
       Serial.println("ERROR_CONNECTION: Entering indefinite deep sleep.");
       Serial.println("Manual reset required to recover.");
       
-      // Note: Error screen should have been displayed by wifi_manager.cpp
-      // before transitioning to this state. If not, show generic error.
+      // Always show error screen for STATE_ERROR, even in silent mode
+      // This is a terminal state - user needs to know device needs reset
+      drawErrorScreen(TXT_ERROR_GENERIC, TXT_ERROR_CONNECT_TIMEOUT, TXT_AP_TIMEOUT_LINE2);
+
+      // Wait for e-paper to complete physical refresh before sleeping.
+      delay(2000);  // 2 seconds for display to stabilize
       
       // Sleep indefinitely - disable ALL wakeup sources
       // Only EXT0/EXT1 (GPIO) or manual reset can wake the device now

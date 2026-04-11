@@ -377,6 +377,10 @@ extern const char *WIFI_PASSWORD;      ///< WiFi password
 extern const unsigned long WIFI_TIMEOUT;           ///< WiFi connection timeout (ms)
 extern const unsigned HTTP_CLIENT_TCP_TIMEOUT;     ///< HTTP TCP timeout (ms)
 
+extern const char *AP_SSID;            ///< Access Point SSID
+extern const char *AP_IP_ADDRESS;      ///< Access Point IP address
+extern const char *AP_URL_LOCAL;       ///< mDNS local URL
+
 extern const String OPENMETEO_ENDPOINT;            ///< API hostname
 extern const uint16_t OPENMETEO_PORT;              ///< API port (80 or 443)
 extern const String OPENMETEO_AIRQUALITY_ENDPOINT; ///< Air quality API hostname

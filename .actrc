@@ -1,0 +1,3 @@
+--platform ubuntu-latest=ubuntu:22.04
+--container-architecture linux/amd64
+--container-options --privileged

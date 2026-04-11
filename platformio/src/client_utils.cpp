@@ -99,7 +99,7 @@ bool printLocalTime(tm *timeInfo)
   int attempts = 0;
   while (!getLocalTime(timeInfo) && attempts++ < 3)
   {
-    Serial.println(TXT_FAILED_TO_GET_TIME);
+    Serial.println(TXT_FAILED_TO_FETCH_TIME);
     return false;
   }
   Serial.println(timeInfo, "%A, %B %d, %Y %H:%M:%S");
