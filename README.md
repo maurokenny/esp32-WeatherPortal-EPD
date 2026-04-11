@@ -9,6 +9,52 @@ A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. It fea
 </p>
 
 ---
+## State Machine Diagram (Mermaid)
+
+```mermaid
+stateDiagram-v2
+  [*] --> BOOT : Power On / Wake Up
+
+  BOOT --> STATE_WIFI_CONNECTING : Credentials Exist
+  BOOT --> STATE_AP_CONFIG_MODE : No Credentials
+
+  STATE_WIFI_CONNECTING --> STATE_NORMAL_MODE : WiFi Connected
+  STATE_WIFI_CONNECTING --> STATE_AP_CONFIG_MODE : Timeout + First Boot
+  STATE_WIFI_CONNECTING --> STATE_SLEEP_PENDING : Timeout + Retry Available
+  STATE_WIFI_CONNECTING --> STATE_ERROR : Timeout + Max Fail Cycles
+
+  STATE_NORMAL_MODE --> STATE_SLEEP_PENDING : Success
+
+  STATE_SLEEP_PENDING --> [*] : Deep Sleep
+  [*] --> BOOT : Wake Up
+
+  STATE_AP_CONFIG_MODE --> BOOT : Config Saved
+  STATE_AP_CONFIG_MODE --> STATE_ERROR : Timeout (5min)
+
+  STATE_ERROR --> [*] : Sleep Forever
+```
+
+### Local testing with act (GitHub Actions Runner Locally)
+Prerequisites:
+- Docker installed and running
+- The tool act installed on your machine
+ 
+Installation:
+- macOS: brew install act
+- Linux: curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+- Windows: Use choco or scoop installers as per the project's docs
+
+Usage:
+- Run the Blackbox Matrix workflow locally:
+  act -j blackbox-matrix -P ubuntu-latest=catthehacker/ubuntu:act-latest --artifact-server-path /tmp/artifacts
+- Run the State Machine unit tests workflow locally:
+  act -j test-state-machine -P ubuntu-latest=catthehacker/ubuntu:act-latest --artifact-server-path /tmp/artifacts
+
+- Artifacts:
+  Results and test artifacts will be written to /tmp/artifacts on your host.
+- Optional: supply a GitHub event payload file with -e <event.json>, for example to mimic a PR event.
+- Have Docker network access; ensure the environment can reach the mock server if your workflow relies on it.
+- Note: Act uses container runners to emulate GitHub Actions; performance may vary depending on host resources.
 
 ## Features
 
