@@ -225,6 +225,11 @@ void wifiManagerLoop() {
                 break;
 
             case STATE_AP_CONFIG_MODE:
+                // If coming from WiFi failure on first boot, show error before AP mode
+                if (currentState == STATE_WIFI_CONNECTING && isFirstBoot) {
+                    drawLoading(wifi_off_196x196, TXT_WIFI_CONNECTION_FAILED);
+                    delay(3000);
+                }
                 startAP();
                 break;
 
@@ -236,7 +241,7 @@ void wifiManagerLoop() {
                     } else if (currentState == STATE_AP_CONFIG_MODE) {
                         handleFailure(FAILURE_AP_TIMEOUT, TXT_AP_TIMEOUT_LINE1, TXT_AP_TIMEOUT_LINE2);
                     } else {
-                        handleFailure(FAILURE_BATTERY, "System Error", "Timeout");
+                        handleFailure(FAILURE_BATTERY, TXT_LOW_BATTERY, "");
                     }
                 }
                 break;

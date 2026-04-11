@@ -189,7 +189,7 @@ extern const char *TXT_NOT_FOUND;                       ///< "not found"
 extern const char *TXT_READ_FAILED;                     ///< "read failed"
 
 // Complete Phrases
-extern const char *TXT_FAILED_TO_GET_TIME;              ///< "Failed To Get Time"
+extern const char *TXT_FAILED_TO_FETCH_TIME;            ///< "Failed to Fetch The Time"
 extern const char *TXT_HIBERNATING_INDEFINITELY_NOTICE; ///< "Hibernating Indefinitely"
 extern const char *TXT_REFERENCING_OLDER_TIME_NOTICE;   ///< "Referencing Older Time"
 extern const char *TXT_WAITING_FOR_SNTP;                ///< "Waiting For SNTP"

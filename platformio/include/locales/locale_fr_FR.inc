@@ -181,7 +181,7 @@ const char *TXT_UNKNOWN = "Unknown";
 const char *TXT_NOT_FOUND = "not found";
 const char *TXT_READ_FAILED = "read failed";
 // Complete Sentences
-const char *TXT_FAILED_TO_GET_TIME = "Failed to get the time!";
+const char *TXT_FAILED_TO_FETCH_TIME = "Échec de la récupération de l'heure";
 const char *TXT_HIBERNATING_INDEFINITELY_NOTICE = "Hibernating without wake time!";
 const char *TXT_REFERENCING_OLDER_TIME_NOTICE = "Failed to synchronize time before deep-sleep, referencing older time.";
 const char *TXT_WAITING_FOR_SNTP = "Waiting for SNTP synchronization.";

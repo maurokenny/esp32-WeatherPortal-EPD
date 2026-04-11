@@ -1878,7 +1878,7 @@ static const struct FailureConfig {
     const uint8_t* icon;
     const char* name;
 } failureConfig[] = {
-    [FAILURE_WIFI]       = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_x_196x196,         "WiFi" },
+    [FAILURE_WIFI]       = { &connectionFailCycles, MAX_WIFI_FAIL_CYCLES, wifi_off_196x196,         "WiFi" },
     [FAILURE_NTP]        = { &ntpFailCycles,        MAX_NTP_FAIL_CYCLES,  wi_time_4_196x196,      "NTP" },
     [FAILURE_API]        = { &apiFailCycles,        MAX_API_FAIL_CYCLES,  wi_cloud_down_196x196, "API" },
     [FAILURE_BATTERY]    = { nullptr,               1,                    battery_alert_0deg_196x196, "Battery" },

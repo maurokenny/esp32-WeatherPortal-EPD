@@ -30,4 +30,4 @@ platformio/logs/
 platformio/.gitignore
 
 # Bundler
-.bundle/
+*.bundle/

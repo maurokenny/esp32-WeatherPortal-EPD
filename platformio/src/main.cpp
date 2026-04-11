@@ -587,7 +587,7 @@ void updateWeather()
   isTimeConfigured = waitForSNTPSync(&currentTimInfo);
   if (!isTimeConfigured)
   {
-    handleFailure(FAILURE_NTP, TXT_TIME_SYNCHRONIZATION_FAILED);
+    handleFailure(FAILURE_NTP, TXT_FAILED_TO_FETCH_TIME, "");
     return;
   }
   

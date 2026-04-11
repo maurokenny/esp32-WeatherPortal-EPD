@@ -173,7 +173,7 @@ const char *TXT_UNKNOWN = "Desconocido";
 const char *TXT_NOT_FOUND = "no encontrado";
 const char *TXT_READ_FAILED = "fallo en la lectura";
 // Complete Sentences
-const char *TXT_FAILED_TO_GET_TIME = "\241Error al obtener la hora!";
+const char *TXT_FAILED_TO_FETCH_TIME = "Error al obtener la hora";
 const char *TXT_HIBERNATING_INDEFINITELY_NOTICE = "\241Hibernando sin tiempo de despertar!";
 const char *TXT_REFERENCING_OLDER_TIME_NOTICE = "Fallo al sincronizar la hora antes del sue\361o profundo, haciendo referencia a la hora anterior.";
 const char *TXT_WAITING_FOR_SNTP = "Esperando la sincronizaci\363n SNTP.";
