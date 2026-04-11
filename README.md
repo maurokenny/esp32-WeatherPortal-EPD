@@ -95,7 +95,15 @@ Available scenarios: SUNNY, RAINY, SNOWY, CLOUDY, THUNDER
 
 ### Local Testing with act
 
-Run GitHub Actions workflows locally:
+You can run GitHub Actions workflows locally. The `.github/workflows/` folder contains several workflows:
+
+| Workflow | Description |
+|----------|-------------|
+| `state-machine.yml` | Unit tests for state machine logic |
+| `blackbox-matrix.yml` | Blackbox integration tests (14 environments) |
+| `blackbox.yml` | Single blackbox test environment |
+
+Example commands:
 
 ```bash
 # Install act
@@ -108,6 +116,8 @@ act -j test-state-machine -P ubuntu-latest=catthehacker/ubuntu:act-latest
 # Run blackbox matrix tests
 act -j blackbox-matrix -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
+
+Replace `-j <job-name>` with the desired job from each workflow.
 
 ---
 
