@@ -147,30 +147,29 @@ Current development setup:
 
 ## State Machine
 
-The firmware uses a deterministic state machine to manage WiFi connectivity, configuration, and error recovery:
+The firmware uses a deterministic state machine to manage WiFi connectivity, configuration, and error recovery with persistent state across deep sleep. Transitions depend on timeouts and per-subsystem failure counters (WiFi, NTP, API). RTC memory preserves state across deep sleep cycles.
 
 ```
 ┌─────────┐    ┌─────────────────┐    ┌─────────────┐
-│  BOOT   │───▶│ WIFI_CONNECTING │───▶│ NORMAL_MODE │
+│  BOOT   │───▶│ STATE_WIFI_CONNECTING │───▶│ STATE_NORMAL_MODE │
 └─────────┘    └─────────────────┘    └─────────────┘
      │                │                      │
      │                ▼                      ▼
-     │         ┌─────────────┐         ┌──────────────┐
-     └────────▶│ AP_CONFIG   │         │ SLEEP_PENDING│
-               │   MODE      │         └──────────────┘
-               └─────────────┘                │
-                      │                        │
-                      ▼                        ▼
-               ┌─────────────┐         ┌──────────────┐
-               │ STATE_ERROR │         │ Deep Sleep   │
-               └─────────────┘         └──────────────┘
+     │         ┌──────────────────┐        ┌──────────────────┐
+     └────────▶│ STATE_AP_CONFIG_MODE │        │ STATE_SLEEP_PENDING│
+                └──────────────────┘        └──────────────────┘
+                       │                        │
+                       ▼                        ▼
+                ┌──────────────┐         ┌──────────────┐
+                │ STATE_ERROR  │         │ Deep Sleep   │
+                └──────────────┘         └──────────────┘
 ```
 
 **Key behaviors:**
-- **First boot only**: AP configuration mode available ( captive portal )
-- **Post-first-boot**: WiFi failures use retry cycle with error screens
-- **Error screens**: Distinct icons for WiFi (strike-through), NTP (clock), API (cloud), Battery
-- **Deep sleep**: Preserves state in RTC memory across sleep cycles
+- **First boot**: AP configuration mode (captive portal) is available when ramSSID is empty (no credentials) or if WiFi connection fails during the first boot.
+- **Post-first-boot**: WiFi failures follow a retry cycle; AP mode is not entered after a successful WiFi connection.
+- **Error screens**: Distinct icons for WiFi, NTP, API, and Battery issues.
+- **Deep sleep**: State persists in RTC memory across sleep cycles
 
 📖 **Full documentation**: See [`docs/STATE_MACHINE.md`](docs/STATE_MACHINE.md) for complete state diagrams, failure cycle logic, and troubleshooting.
 

@@ -21,7 +21,7 @@ This document describes the firmware state machine implementation for the ESP32 
 
 ## Overview
 
-The firmware implements a deterministic state machine designed for battery-powered operation with deep sleep. All states transition based on timeouts or events, not retry counters. The state persists across deep sleep cycles using RTC (Real-Time Clock) memory.
+The firmware implements a deterministic state machine designed for battery-powered operation with deep sleep. Transitions rely on timeouts and per-subsystem failure counters (WiFi, NTP, API). The state persists across deep sleep cycles using RTC memory.
 
 ### State Machine Diagram
 
@@ -29,21 +29,21 @@ The firmware implements a deterministic state machine designed for battery-power
 stateDiagram-v2
     [*] --> BOOT : Power On / Wake Up
     
-    BOOT --> WIFI_CONNECTING : Credentials Exist
-    BOOT --> AP_CONFIG_MODE : No Credentials
+    BOOT --> STATE_WIFI_CONNECTING : Credentials Exist
+    BOOT --> STATE_AP_CONFIG_MODE : No Credentials
     
-    WIFI_CONNECTING --> NORMAL_MODE : WiFi Connected
-    WIFI_CONNECTING --> AP_CONFIG_MODE : Timeout + First Boot
-    WIFI_CONNECTING --> SLEEP_PENDING : Timeout + Retry Available
-    WIFI_CONNECTING --> STATE_ERROR : Timeout + Max Fail Cycles
+    STATE_WIFI_CONNECTING --> STATE_NORMAL_MODE : WiFi Connected
+    STATE_WIFI_CONNECTING --> STATE_AP_CONFIG_MODE : Timeout + First Boot
+    STATE_WIFI_CONNECTING --> STATE_SLEEP_PENDING : Timeout + Retry Available
+    STATE_WIFI_CONNECTING --> STATE_ERROR : Timeout + Max Fail Cycles
     
-    NORMAL_MODE --> SLEEP_PENDING : Success
+    STATE_NORMAL_MODE --> STATE_SLEEP_PENDING : Success
     
     SLEEP_PENDING --> [*] : Deep Sleep
     SLEEP_PENDING --> BOOT : Wake Up (Reset)
     
-    AP_CONFIG_MODE --> BOOT : Config Saved
-    AP_CONFIG_MODE --> STATE_ERROR : Timeout (5min)
+    STATE_AP_CONFIG_MODE --> BOOT : Config Saved
+    STATE_AP_CONFIG_MODE --> STATE_ERROR : Timeout (5min)
     
     STATE_ERROR --> [*] : Sleep Forever
     
@@ -52,7 +52,7 @@ stateDiagram-v2
         saved credentials
     end note
     
-    note right of WIFI_CONNECTING
+    note right of STATE_WIFI_CONNECTING
         20 second timeout
         Calls handleFailure() on timeout
         handleFailure() decides:
@@ -60,11 +60,10 @@ stateDiagram-v2
         - STATE_ERROR (max retries reached)
     end note
     
-    note right of AP_CONFIG_MODE
+    note right of STATE_AP_CONFIG_MODE
         Captive portal mode
         5 minute timeout
-        ONLY accessible on First Boot!
-        (isFirstBoot == true)
+        Accessible on the first boot when ramSSID is empty or when WiFi timeout occurs
     end note
     
     note right of NORMAL_MODE
@@ -528,7 +527,7 @@ DeviceConfig wifiConfig = {
 
 ## AP Mode Entry Conditions
 
-> ⚠️ **CRITICAL**: AP Configuration Mode is **ONLY** available during the first boot (`isFirstBoot == true`). Once the device has successfully connected and fetched weather data at least once, AP mode becomes **permanently inaccessible**. WiFi failures on subsequent boots will follow the retry/error path, never the configuration path.
+> ⚠️ **CRITICAL**: AP Configuration Mode is intended for initial setup and is available during the first boot when there are no credentials stored, or when the WiFi connection times out on the first boot. After a successful WiFi connection and weather fetch, AP mode becomes inaccessible on subsequent boots.
 
 The device enters AP Configuration Mode (`STATE_AP_CONFIG_MODE`) in exactly **two scenarios**:
 
