@@ -1,6 +1,6 @@
 # ESP32 E-Paper Weather Display
 
-A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. Uses **Open-Meteo** for free weather data (no API key required).
+A low-power weather station that displays real-time conditions and forecasts on a 7.5" e-paper display. Powered by ESP32 and Open-Meteo — no API key required for personal use.
 
 <p float="left">
   <img src="showcase/assembled-demo-raleigh-front.jpg" />
@@ -10,18 +10,48 @@ A low-power weather display powered by an ESP32 and a 7.5" e-paper panel. Uses *
 
 ---
 
+## Features
+
+- **No API Key** — Free weather data via Open-Meteo (no API key required for personal use)
+- **Easy Setup** — QR code + captive portal for mobile
+- **Auto Location** — IP-based geolocation (optional)
+- **Rain Alert** — Umbrella indicator with probability
+- **Low Power** — Deep sleep between updates
+- **Offline Dev** — Mock data mode for testing
+- **Multi-locale** — 10 language support
+
+---
+
+## Requirements
+
+### Hardware
+- **ESP32 Board**: E-Paper ESP32 Driver Board Rev 3 (or compatible)
+- **Display**: Waveshare 7.5" e-paper (800x480, Black/White)
+- **Adapter**: Waveshare e-Paper adapter
+- **Optional**: BME280/BME680 sensor for indoor readings
+
+### Software
+- [PlatformIO Core](https://platformio.org/install) 6.0+
+- Python 3.8+
+- Git
+
+---
+
 ## Quick Start
 
 ```bash
+# Clone and build
 cd platformio
 pio run
+
+# Upload to device
 pio run --target upload
+
+# Monitor serial output
 pio device monitor --baud 115200
 ```
 
-### First Boot
-
-On first boot, the device creates a Wi-Fi access point for configuration.
+On first boot, the device creates a Wi-Fi access point named `weather_eink-AP`. Scan the QR code on the display or connect manually to configure.
 
 ---
 
@@ -29,17 +59,17 @@ On first boot, the device creates a Wi-Fi access point for configuration.
 
 ### Web Portal (Recommended)
 
-1. **Power on the device**
-2. Scan the QR code on the display, or connect to `weather_eink-AP`
-3. Open: http://192.168.4.1 or http://weather.local
-4. Configure WiFi credentials and location
-5. Save → device restarts and begins updating
+1. Power on the device
+2. Scan the QR code on screen, or connect to `weather_eink-AP`
+3. Open http://192.168.4.1 or http://weather.local
+4. Enter Wi-Fi credentials and location
+5. Save — device restarts and begins updating
 
-> **Security Note**: Setup runs over **unencrypted HTTP**. Perform on a trusted network.
+> **Security Note**: Setup runs over unencrypted HTTP. Perform on a trusted network.
 
 ### Alternative: Environment Variables
 
-Create `.env` in the `platformio/` directory:
+Create `platformio/.env`:
 
 ```env
 WIFI_SSID=your_wifi
@@ -48,35 +78,19 @@ WIFI_PASSWORD=your_password
 
 ---
 
-## State Machine
+## How It Works
 
-The firmware uses a deterministic state machine with deep sleep. For complete details, see [`docs/STATE_MACHINE.md`](docs/STATE_MACHINE.md).
+The firmware runs on a deterministic state machine that:
 
-```mermaid
-stateDiagram-v2
-  [*] --> STATE_BOOT
-  STATE_BOOT --> STATE_WIFI_CONNECTING : Credentials exist
-  STATE_BOOT --> STATE_AP_CONFIG_MODE : No credentials
-  STATE_WIFI_CONNECTING --> STATE_NORMAL_MODE : Connected
-  STATE_WIFI_CONNECTING --> STATE_AP_CONFIG_MODE : Timeout + First boot
-  STATE_WIFI_CONNECTING --> STATE_SLEEP_PENDING : Timeout + Retry
-  STATE_WIFI_CONNECTING --> STATE_ERROR : Max retries reached
-  STATE_NORMAL_MODE --> STATE_SLEEP_PENDING : Success
-  STATE_SLEEP_PENDING --> STATE_BOOT : Wake up
-  STATE_AP_CONFIG_MODE --> STATE_BOOT : Config saved
-  STATE_AP_CONFIG_MODE --> STATE_ERROR : Timeout
-  STATE_ERROR --> [*] : Sleep forever
-```
+1. Connects to Wi-Fi (or enters setup mode on first boot)
+2. Fetches weather data from Open-Meteo
+3. Renders current conditions and forecast to the e-paper display
+4. Enters deep sleep to conserve power
+5. Wakes up after the configured interval and repeats
 
----
+Persistent state (credentials, failure counters) survives deep sleep in RTC memory.
 
-## Features
-
-- **No API Key** – Open-Meteo (free, personal use)
-- **Easy Setup** – Captive portal with auto mobile detection
-- **Auto Location** – Optional IP-based geolocation
-- **Umbrella Indicator** – Rain probability at a glance
-- **Offline Mode** – Full simulation without WiFi
+**Read more**: [State Machine Documentation](docs/STATE_MACHINE.md)
 
 ---
 
@@ -97,7 +111,7 @@ Available scenarios: SUNNY, RAINY, SNOWY, CLOUDY, THUNDER
 Test with real API responses without making live calls:
 
 ```bash
-# 1. Download an API response (example for New York)
+# 1. Download an API response (example for Manaus, Brazil)
 curl "https://api.open-meteo.com/v1/forecast?latitude=-3.10&longitude=-60.02&current=temperature_2m,apparent_temperature,is_day,weather_code,precipitation,rain,showers,snowfall,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,surface_pressure&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,precipitation_sum&timezone=auto&forecast_days=8" \
   -o api_response.json
 
@@ -158,34 +172,17 @@ act -j blackbox-matrix -P ubuntu-latest=catthehacker/ubuntu:act-latest --artifac
 
 ## Troubleshooting
 
-| Issue | Fix |
-|-------|-----|
-| Display not updating | Check SPI wiring and BUSY pin |
-| WiFi fails | Verify credentials and signal strength |
-| Time sync issues | Check timezone settings |
+| Issue | Solution |
+|-------|----------|
+| Display not updating | Check SPI wiring and BUSY pin connection |
+| Wi-Fi won't connect | Verify credentials; check signal strength |
+| Time wrong | Check timezone setting in config |
+| Stuck in setup mode | Ensure first boot (RTC clears on power loss) |
 
-For deeper debugging, see `platformio/AGENTS.md`.
-
----
-
-## Hardware
-
-Current development setup:
-
-* **ESP32 Board**
-  E-Paper ESP32 Driver Board Rev 3
-
-* **Display**
-  Waveshare 7.5" e-paper (800×480, Black/White)
-
-* **Adapter**
-  Waveshare e-Paper adapter
-
-* **Power**
-  USB-powered
+For detailed debugging, see [AGENTS.md](platformio/AGENTS.md).
 
 ---
 
 ## License
 
-GPL v3.0. See original project for full attribution.
+GPL v3.0. A fork of the excellent [esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd) project by Luke Marzen.
