@@ -192,6 +192,9 @@ void wifiManagerLoop() {
     // 3. EXECUTE SIDE EFFECTS (Impure hardware/UI calls)
     if (output.nextState != currentState) {
         
+        // Save isFirstBoot before it gets potentially reset for the decision output
+        bool wasFirstBoot = isFirstBoot;
+
         // Apply side effects from decision output
         if (output.updateFirstBoot) {
             isFirstBoot = false;
@@ -219,8 +222,8 @@ void wifiManagerLoop() {
 
             case STATE_NORMAL_MODE:
                 runtime.wifiConnected = true;
-                // Show status on first boot or if not silent
-                if (isFirstBoot || !SILENT_STATUS) {
+                // Show status on first boot (original value before reset) or if not silent
+                if (wasFirstBoot || !SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
                 break;
