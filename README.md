@@ -1,6 +1,6 @@
-# ESP32 E-Paper Weather Display
+# esp32-WeatherPortal-EPD - ESP32 E-Paper Weather Display
 
-A low-power weather station that displays real-time conditions and forecasts on a 7.5" e-paper display. Powered by ESP32 and [Open-Meteo API](https://open-meteo.com/) — no API key required.
+A low-power weather station that displays real-time conditions and forecasts on a 7.5" e-paper display. Powered by ESP32 and [Open-Meteo API](https://open-meteo.com/) — no API key required for personal use.
 
 > **Note:** This is a fork of the excellent [esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd) by [Luke Marzen](https://github.com/lmarzen).
 
