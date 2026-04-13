@@ -5,6 +5,10 @@ A low-power weather station that displays real-time conditions and forecasts on 
 > **Note:** This is a fork of the excellent [esp32-weather-epd](https://github.com/lmarzen/esp32-weather-epd) by [Luke Marzen](https://github.com/lmarzen).
 
 <div align="center">
+  <img src="showcase/demo_front.jpg" width="100%" />
+  
+  <br/><br/>
+
   <img src="showcase/demo_connected.jpg" width="48%" />
   <img src="showcase/demo_wifi_connecting.jpg" width="48%" />
 
