@@ -174,7 +174,7 @@ stateDiagram-v2
 **Timeout**: Defined by `wifiConfig.wifiConnectTimeout` (default: 20 seconds)
 
 **Important Note on `isFirstBoot`**:
-When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false` and persisted to RTC memory. This ensures that even if subsequent steps fail (NTP sync, API fetch), the device will not enter AP mode on future connection failures. The device will follow the retry cycle instead.
+When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false` and persisted to RTC memory. This is driven by the pure state-decision function via `DecisionOutput.updateFirstBoot` (see [Implementation Details](#implementation-details)). This ensures that even if subsequent steps fail (NTP sync, API fetch), the device will not enter AP mode on future connection failures. The device will follow the retry cycle instead.
 
 ---
 
@@ -237,7 +237,7 @@ When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false`
 
 | Condition | Next State | Actions |
 |-----------|------------|---------|
-| Data fetch and render successful | `STATE_SLEEP_PENDING` | Set `isFirstBoot = false`, reset `connectionFailCycles = 0` |
+| Data fetch and render successful | `STATE_SLEEP_PENDING` | Reset `connectionFailCycles = 0` |
 | API fetch fails | `STATE_SLEEP_PENDING` | Keep previous valid data (do NOT overwrite) |
 | Time sync fails | `STATE_SLEEP_PENDING` | Display error status, continue with last known time |
 | Sensor read fails | `STATE_SLEEP_PENDING` | Display dashes for missing sensor data |
@@ -245,7 +245,7 @@ When WiFi connects successfully, `isFirstBoot` is **immediately** set to `false`
 **Notes**:
 - Valid data is NEVER overwritten by API failures
 - Previous weather data persists across failed updates
-- `isFirstBoot` is set to `false` only after first successful render
+- `isFirstBoot` is already `false` by the time this state is entered (it was cleared immediately upon the WiFi connection success). Only `connectionFailCycles` is reset here after a successful render
 - This state is primarily handled in `main.cpp`, not `wifi_manager.cpp`
 
 ---
@@ -328,7 +328,7 @@ Variables stored in RTC memory survive deep sleep but are cleared on power loss:
 
 | Variable | Type | Purpose |
 |----------|------|---------|
-| `isFirstBoot` | `bool` | `true` until first successful data fetch and render |
+| `isFirstBoot` | `bool` | `true` until first successful WiFi connection |
 | `connectionFailCycles` | `uint8_t` | Consecutive WiFi connection failures after first boot |
 | `ntpFailCycles` | `uint8_t` | Consecutive NTP synchronization failures |
 | `apiFailCycles` | `uint8_t` | Consecutive API request failures |
@@ -694,6 +694,8 @@ The counter is reset to 0 when:
 1. WiFi connects successfully (`STATE_WIFI_CONNECTING` → `STATE_NORMAL_MODE`)
 2. Weather data is fetched and rendered successfully (end of `STATE_NORMAL_MODE`)
 
+> Note: `isFirstBoot` is **only** cleared during transition #1. It is not tied to the success of NTP or API calls.
+
 ### Example Scenario (MAX_WIFI_FAIL_CYCLES = 3)
 
 | Boot # | isFirstBoot | WiFi Result | Fail Cycles | Action | Next State |
@@ -805,6 +807,8 @@ handleFailure(FAILURE_NTP, TXT_FAILED_TO_FETCH_TIME, "");
 | `src/wifi_manager.cpp` | Core state machine implementation (`wifiManagerLoop()`) |
 | `src/wifi_manager_handlers.cpp` | HTTP request handlers, configuration validation |
 | `src/main.cpp` | `STATE_NORMAL_MODE` implementation, error display, deep sleep entry |
+| `include/state_decision.h` | `DecisionInput` / `DecisionOutput` structs and `decideTransition()` declaration |
+| `src/state_decision.cpp` | Pure state-transition logic (no side effects) |
 | `include/config.h` | `MAX_FAIL_CYCLES` compile-time constant |
 
 ### Key Functions
