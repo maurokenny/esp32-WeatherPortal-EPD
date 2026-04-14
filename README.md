@@ -24,7 +24,7 @@ A low-power weather station that displays real-time conditions and forecasts on 
 
 ## Features
 
-- **No API Key Required** — Free weather data via Open-Meteo
+- **No API Key Required** — Free weather data via Open-Meteo for personal use
 - **Easy Setup** — QR code + captive portal for mobile configuration
 - **Auto Location** — IP-based geolocation (optional manual override)
 - **Rain Alert** — Umbrella indicator with probability of precipitation
@@ -149,6 +149,9 @@ python json_to_header.py api_response.json
 # Unit tests (native, no hardware required)
 platformio test -e native
 ```
+
+## TODO items
+- [ ] Re-add weather alert messages (removed after API change); suitable replacement not yet found.
 
 ---
 
