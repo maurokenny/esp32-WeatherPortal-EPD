@@ -34,7 +34,7 @@ FirmwareState currentState = STATE_BOOT;
 
 /// @brief WiFi manager configuration
 DeviceConfig wifiConfig = {
-    .wifiConnectTimeout = 20,  ///< WiFi connection attempt timeout (seconds)
+    .wifiConnectTimeout = 60,  ///< WiFi connection attempt timeout (seconds)
     .configTimeout = 300     ///< AP mode timeout (seconds) - 5 minutes
 };
 
@@ -241,11 +241,7 @@ void wifiManagerLoop() {
                 if (output.setErrorFlag) {
                     if (currentState == STATE_WIFI_CONNECTING) {
                         String detail = "Attempt " + String(connectionFailCycles + 1) + "/" + String(MAX_WIFI_FAIL_CYCLES);
-                        handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail);
-                    } else if (currentState == STATE_AP_CONFIG_MODE) {
-                        handleFailure(FAILURE_AP_TIMEOUT, TXT_AP_TIMEOUT_LINE1, TXT_AP_TIMEOUT_LINE2);
-                    } else {
-                        handleFailure(FAILURE_BATTERY, TXT_LOW_BATTERY, "");
+                        handleFailure(FAILURE_WIFI, TXT_WIFI_CONNECTION_FAILED, detail, false);
                     }
                 }
                 break;

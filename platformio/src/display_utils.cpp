@@ -1871,6 +1871,8 @@ void drawErrorScreen(const char* title, const char* message, const char* action)
 // Failure counters are declared in failure_handler.h (extern)
 // and defined in wifi_manager.cpp (RTC_DATA_ATTR)
 
+bool errorScreenDrawn = false;
+
 // Config table - avoids repetitive switch-case
 static const struct FailureConfig {
     uint8_t* counter;
@@ -1885,14 +1887,17 @@ static const struct FailureConfig {
     [FAILURE_AP_TIMEOUT] = { nullptr,               1,                    wifi_x_196x196,          "AP Timeout" }
 };
 
-void handleFailure(FailureType type, const String& line1, const String& line2)
+void handleFailure(FailureType type, const String& line1, const String& line2, bool incrementCounter)
 {
     const FailureConfig& cfg = failureConfig[type];
     
-    // Increment counter (except battery)
-    if (cfg.counter != nullptr) {
+    // Increment counter (except battery) unless caller already counted it
+    if (cfg.counter != nullptr && incrementCounter) {
         (*cfg.counter)++;
         Serial.printf("[FAILURE] %s: attempt %d/%d\n", 
+                      cfg.name, *cfg.counter, cfg.maxCycles);
+    } else if (cfg.counter != nullptr) {
+        Serial.printf("[FAILURE] %s: existing attempt %d/%d (counter not incremented)\n", 
                       cfg.name, *cfg.counter, cfg.maxCycles);
     }
     
@@ -1909,6 +1914,7 @@ void handleFailure(FailureType type, const String& line1, const String& line2)
     
     if (shouldShow) {
         Serial.println("[FAILURE] Showing error screen");
+        errorScreenDrawn = true;
         drawError(cfg.icon, line1, line2);
     } else {
         Serial.println("[FAILURE] Silent mode, skipping screen");

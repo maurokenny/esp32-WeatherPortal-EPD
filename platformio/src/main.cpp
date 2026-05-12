@@ -869,9 +869,13 @@ void loop()
       Serial.println("ERROR_CONNECTION: Entering indefinite deep sleep.");
       Serial.println("Manual reset required to recover.");
       
-      // Always show error screen for STATE_ERROR, even in silent mode
-      // This is a terminal state - user needs to know device needs reset
-      drawErrorScreen(TXT_ERROR_GENERIC, TXT_ERROR_CONNECT_TIMEOUT, TXT_AP_TIMEOUT_LINE2);
+      // Only draw a generic error screen if the terminal error has not
+      // already been rendered by handleFailure(). This preserves the
+      // actual subsystem failure reason and avoids overwriting it.
+      if (!errorScreenDrawn) {
+          drawErrorScreen(TXT_ERROR_GENERIC, TXT_ERROR_CONNECT_TIMEOUT, TXT_AP_TIMEOUT_LINE2);
+          errorScreenDrawn = true;
+      }
 
       // Wait for e-paper to complete physical refresh before sleeping.
       delay(2000);  // 2 seconds for display to stabilize

@@ -49,7 +49,7 @@ const uint8_t BME_ADDRESS = 0x76; // 0x76 if SDO -> GND; 0x77 if SDO -> VCC
 //   WIFI_PASSWORD=your_password
 const char *WIFI_SSID     = WIFI_SSID_VALUE;
 const char *WIFI_PASSWORD = WIFI_PASSWORD_VALUE;
-const unsigned long WIFI_TIMEOUT = 20000; // ms, WiFi connection timeout (20 seconds)
+const unsigned long WIFI_TIMEOUT = 60000; // ms, WiFi connection timeout (60 seconds)
 
 // ACCESS POINT
 const char *AP_SSID = "weather_eink-AP";

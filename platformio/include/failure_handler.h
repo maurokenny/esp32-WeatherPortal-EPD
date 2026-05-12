@@ -39,6 +39,11 @@ extern uint8_t ntpFailCycles;
 /// @details RTC RAM variable, persists across deep sleep
 extern uint8_t apiFailCycles;
 
+/// @brief Flag indicating error screen has already been displayed
+/// @details Prevents generic STATE_ERROR redraw from overwriting a
+/// failure-specific screen already rendered by handleFailure().
+extern bool errorScreenDrawn;
+
 /// @brief Handle system failure with retry logic
 /// @param type Failure category
 /// @param line1 Primary error message (displayed on screen)
@@ -57,6 +62,7 @@ extern uint8_t apiFailCycles;
 /// @note This function does not return if entering STATE_ERROR
 void handleFailure(FailureType type,
                    const String& line1,
-                   const String& line2 = "");
+                   const String& line2 = "",
+                   bool incrementCounter = true);
 
 #endif // __FAILURE_HANDLER_H__
