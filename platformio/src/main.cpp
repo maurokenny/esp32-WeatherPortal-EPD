@@ -521,6 +521,12 @@ void beginDeepSleep(unsigned long startTime, uint64_t sleepDurationSeconds)
   // Small delay to allow background tasks to complete and prevent watchdog issues
   delay(100);
 
+  // Disconnect and power off WiFi radio before entering deep sleep.
+  // When WiFi is active, esp_deep_sleep_start() may hang waiting for
+  // pending TCP interrupts (TX/RX ACKs), causing TG1WDT_SYS_RESET.
+  // This corrupts RTC memory and forces AP mode on next boot.
+  killWiFi();
+
   esp_sleep_enable_timer_wakeup(sleepDurationSeconds * 1000000ULL);
   Serial.print(TXT_AWAKE_FOR);
   Serial.println(" "  + String((millis() - startTime) / 1000.0, 3) + "s");
@@ -831,6 +837,7 @@ void setup()
     
     // ORIGINAL: Hibernate indefinitely (NO timer wakeup)
     // Device will NOT wake up automatically. Requires manual reset or recharge.
+    killWiFi();  // Prevent watchdog timeout during deep sleep entry
     esp_deep_sleep_start();
   }
   
@@ -891,6 +898,7 @@ void loop()
       Serial.println("All automatic wakeups disabled.");
       Serial.flush();
       
+      killWiFi();  // Prevent watchdog timeout during deep sleep entry
       esp_deep_sleep_start();
       
       // Should never reach here
