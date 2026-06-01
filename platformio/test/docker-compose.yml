@@ -5,6 +5,11 @@ services:
     build: ./mock_server
     image: weather-epd-mock:latest
     container_name: mock-server
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:8080"
     healthcheck:
@@ -19,6 +24,11 @@ services:
   blackbox-test:
     image: ubuntu:22.04
     container_name: blackbox-test
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       mock-server:
         condition: service_healthy
