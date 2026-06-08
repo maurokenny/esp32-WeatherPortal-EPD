@@ -535,6 +535,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   
   // Read entire response into String first for debugging
   String jsonString = "";
+  jsonString.reserve(30000);  // Pre-allocate ~30KB to avoid heap fragmentation
   int bytesRead = 0;
   unsigned long startTime = millis();
   
@@ -555,6 +556,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
   // Chunked format: "<hex-size>\r\n<data>\r\n...0\r\n\r\n"
   String cleanedJson = "";
+  cleanedJson.reserve(jsonString.length());  // Pre-allocate to avoid fragmentation
   int pos = 0;
   int chunksProcessed = 0;
   
@@ -643,6 +645,12 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   
   
   if (error) {
+    Serial.printf("[JSON] Deserialization error: %s (code %d)\n",
+                  error.c_str(), error.code());
+    if (error == DeserializationError::NoMemory) {
+      Serial.printf("[JSON] Out of memory — doc size=%u, json len=%d\n",
+                    doc.size(), jsonString.length());
+    }
   }
   
   if (error && doc.size() == 0) {
@@ -650,6 +658,8 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   }
   
   if (error) {
+    // Partial deserialization — log but attempt to continue with available data
+    Serial.println("[JSON] Warning: partial deserialization, continuing with available fields");
   }
   
   // Location data
@@ -830,6 +840,7 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
 {
   // Read entire response into buffer with timeout
   String jsonString = "";
+  jsonString.reserve(15000);  // Pre-allocate to avoid heap fragmentation
   int bytesRead = 0;
   unsigned long startTime = millis();
   
@@ -849,6 +860,7 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
   
   // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
   String cleanedJson = "";
+  cleanedJson.reserve(jsonString.length());  // Pre-allocate to avoid fragmentation
   int pos = 0;
   while (pos < (int)jsonString.length()) {
     int lineEnd = jsonString.indexOf("\r\n", pos);
