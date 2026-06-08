@@ -29,8 +29,8 @@
 /// @brief Static buffer for HTTP JSON payloads.
 /// @details Allocated once at program start, never freed or reallocated.
 ///          Eliminates heap fragmentation from repeated String construction.
-///          Size: 32KB for Open-Meteo forecast (~15-20KB typical).
-static char jsonBuffer[32768];
+///          Size: 24KB for Open-Meteo forecast (~15-20KB typical).
+static char jsonBuffer[24576];
 
 /// @brief Read HTTP response into static buffer
 /// @param client WiFiClient stream
@@ -661,6 +661,8 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   r.lon = doc["longitude"].as<float>();
   r.timezone = doc["timezone"].as<const char *>();
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
+  // When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
+  // When AUTO, API returns times in local timezone
   const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
 
   // Parse current weather
@@ -672,6 +674,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.current.dt = 0;
   }
 
+  // Open-Meteo returns temperatures in Celsius, convert to Kelvin
   r.current.temp = celsius_to_kelvin(current["temperature_2m"].as<float>());
   r.current.feels_like = celsius_to_kelvin(current["apparent_temperature"].as<float>());
   r.current.pressure = current["surface_pressure"].as<int>();
@@ -684,7 +687,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   r.current.wind_gust = kilometersperhour_to_meterspersecond(current["wind_gusts_10m"].as<float>());
   r.current.wind_deg = current["wind_direction_10m"].as<int>();
   r.current.rain_1h = current["rain"].as<float>();
-  r.current.snow_1h = centimeters_to_millimeters(current["snowfall"].as<float>());
+  r.current.snow_1h = centimeters_to_millimeters(current["snowfall"].as<float>()); // cm to mm
 
   bool isDay = current["is_day"].as<int>() == 1;
   int wmoCode = current["weather_code"].as<int>();
@@ -713,7 +716,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.daily[i].temp.min = celsius_to_kelvin(daily_min[i].as<float>());
     r.daily[i].sunrise = parseIso8601(daily_sunrise[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     r.daily[i].sunset = parseIso8601(daily_sunset[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
-    r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
+    r.daily[i].pop = daily_pop[i].as<float>() / 100.0f; // Convert % to 0-1
     r.daily[i].rain = daily_precip[i].as<float>();
     r.daily[i].snow = 0.0f;
     wmoToOwmWeather(daily_code[i].as<int>(), true, r.daily[i].weather);
@@ -739,6 +742,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.daily[i].wind_deg = 0;
   }
 
+  // Copy sunrise/sunset from daily[0] to current (Open-Meteo doesn't provide these in current)
   if (dailyCount > 0) {
     r.current.sunrise = r.daily[0].sunrise;
     r.current.sunset = r.daily[0].sunset;
@@ -776,9 +780,9 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.hourly[i].wind_gust = kilometersperhour_to_meterspersecond(hourly_gust[i].as<float>());
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
     float pop_val = hourly_pop[i].as<float>();
-    r.hourly[i].pop = pop_val / 100.0f;
+    r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
     r.hourly[i].rain_1h = hourly_precip[i].as<float>();
-    r.hourly[i].snow_1h = 0.0f;
+    r.hourly[i].snow_1h = 0.0f; // Open-Meteo doesn't separate snow in basic endpoint
     bool hourIsDay = hourly_is_day[i].as<int>() == 1;
     wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
     r.hourly[i].dew_point = r.hourly[i].temp - 2.0f;
@@ -969,7 +973,7 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   r.lon = doc["longitude"].as<float>();
   r.timezone = doc["timezone"].as<const char *>();
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
-// When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
+  // When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
   // When AUTO, API returns times in local timezone
   const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
 

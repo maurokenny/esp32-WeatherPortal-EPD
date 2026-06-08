@@ -59,7 +59,7 @@ namespace {
 
 #ifdef DISP_BW_V2
   GxEPD2_BW<GxEPD2_750_T7,
-            GxEPD2_750_T7::HEIGHT> display(
+            GxEPD2_750_T7::HEIGHT / 2> display(
     GxEPD2_750_T7(PIN_EPD_CS,
                   PIN_EPD_DC,
                   PIN_EPD_RST,
@@ -67,7 +67,7 @@ namespace {
 #endif
 #ifdef DISP_BW_V2_ALT
   GxEPD2_BW<GxEPD2_750_GDEY075T7,
-            GxEPD2_750_GDEY075T7::HEIGHT> display(
+            GxEPD2_750_GDEY075T7::HEIGHT / 2> display(
     GxEPD2_750_GDEY075T7(PIN_EPD_CS,
                   PIN_EPD_DC,
                   PIN_EPD_RST,

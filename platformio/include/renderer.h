@@ -37,13 +37,15 @@
 #ifdef DISP_BW_V2
   #include <GxEPD2_BW.h>
   /// @brief Display instance for 7.5" BW v2 panel
-  extern GxEPD2_BW<GxEPD2_750_T7, GxEPD2_750_T7::HEIGHT> display;
+  /// @note Uses partial buffer (HEIGHT/2) to reduce RAM usage
+  extern GxEPD2_BW<GxEPD2_750_T7, GxEPD2_750_T7::HEIGHT / 2> display;
 #endif
 
 #ifdef DISP_BW_V2_ALT
   #include <GxEPD2_BW.h>
   /// @brief Display instance for 7.5" BW v2 alt panel (FPC-C001)
-  extern GxEPD2_BW<GxEPD2_750_GDEY075T7, GxEPD2_750_GDEY075T7::HEIGHT> display;
+  /// @note Uses partial buffer (HEIGHT/2) to reduce RAM usage
+  extern GxEPD2_BW<GxEPD2_750_GDEY075T7, GxEPD2_750_GDEY075T7::HEIGHT / 2> display;
 #endif
 
 #ifdef DISP_3C_B
