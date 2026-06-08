@@ -169,8 +169,8 @@ void wifiManagerLoop() {
     
     // Status counters from RTC memory
     input.wifiFailCycles = connectionFailCycles;
-    input.ntpFailCycles = 0; // Handled in main.cpp for now
-    input.apiFailCycles = 0; // Handled in main.cpp for now
+    input.ntpFailCycles = ntpFailCycles;
+    input.apiFailCycles = apiFailCycles;
 
 #if USE_MOCKUP_DATA
     // MOCK MODE: Simulate WiFi feedback
@@ -257,10 +257,8 @@ void wifiManagerLoop() {
             default: break;
         }
 
-        // Apply state variables
-        if (output.resetWifiFail) { connectionFailCycles = 0; }
-        if (output.incWifiFail) { connectionFailCycles++; }
-        
+        // NOTE: counter side-effects were already applied above (lines 203-204).
+        // Do NOT apply them again here — double-application halved the effective threshold.
         setFirmwareState(output.nextState);
     }
 
