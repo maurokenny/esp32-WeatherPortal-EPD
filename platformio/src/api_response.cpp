@@ -22,6 +22,95 @@
 #include "config.h"
 #include "wifi_manager.h"
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Static JSON Buffer — zero-allocation, ESP32-safe
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief Static buffer for HTTP JSON payloads.
+/// @details Allocated once at program start, never freed or reallocated.
+///          Eliminates heap fragmentation from repeated String construction.
+///          Size: 32KB for Open-Meteo forecast (~15-20KB typical).
+static char jsonBuffer[32768];
+
+/// @brief Read HTTP response into static buffer
+/// @param client WiFiClient stream
+/// @param maxLen Maximum bytes to read (buffer size - 1)
+/// @param timeoutMs Read timeout in milliseconds
+/// @return Number of bytes read, or 0 on timeout/empty
+/// @note No dynamic allocation — writes directly into jsonBuffer.
+static size_t readResponseToBuffer(WiFiClient &client, size_t maxLen, unsigned long timeoutMs)
+{
+  size_t bytesRead = 0;
+  unsigned long startTime = millis();
+
+  while (bytesRead < maxLen && (millis() - startTime) < timeoutMs) {
+    if (client.available()) {
+      int c = client.read();
+      if (c >= 0) {
+        jsonBuffer[bytesRead++] = (char)c;
+      }
+    } else {
+      delay(10);
+    }
+  }
+  jsonBuffer[bytesRead] = '\0';
+  return bytesRead;
+}
+
+/// @brief Strip HTTP chunked-transfer encoding in-place.
+/// @param buf Buffer containing (possibly) chunked data.
+/// @param len Length of data in buffer.
+/// @return Length of cleaned data (JSON without chunk markers).
+/// @details Uses two-pointer technique: read advances through chunks,
+///          write copies clean data to the front of the buffer.
+///          Result: valid JSON starts at buf[0], null-terminated.
+/// @note Chunked format: "<hex>\r\n<data>\r\n...0\r\n\r\n"
+static size_t stripChunkedEncoding(char *buf, size_t len)
+{
+  char *read = buf;
+  char *write = buf;
+  char *end = buf + len;
+
+  while (read < end) {
+    // Find end of chunk size line (\r\n)
+    char *lineEnd = (char*)memchr(read, '\r', end - read);
+    if (!lineEnd || lineEnd + 1 >= end || lineEnd[1] != '\n') {
+      break;
+    }
+
+    // Parse chunk size (hex)
+    *lineEnd = '\0';
+    char *endptr;
+    long chunkSize = strtol(read, &endptr, 16);
+    *lineEnd = '\r';  // Restore
+
+    if (endptr == read || chunkSize < 0) {
+      break;  // Not a valid chunk header
+    }
+
+    if (chunkSize == 0) {
+      break;  // Last chunk
+    }
+
+    // Move read pointer to start of chunk data
+    read = lineEnd + 2;  // Skip \r\n
+
+    // Copy chunk data in-place
+    size_t toCopy = (size_t)chunkSize;
+    if (read + toCopy > end) {
+      toCopy = end - read;
+    }
+    if (toCopy > 0 && write != read) {
+      memmove(write, read, toCopy);
+    }
+    write += toCopy;
+    read += toCopy + 2;  // Skip data + trailing \r\n
+  }
+
+  *write = '\0';
+  return (size_t)(write - buf);
+}
+
 /// @brief Deserialize OpenWeatherMap OneCall API response
 /// @param json WiFi client stream
 /// @param r Output structure to populate
@@ -527,151 +616,53 @@ void wmoToOwmWeather(int wmoCode, bool isDay, owm_weather_t &weather)
 /// @param json WiFi client stream
 /// @param r Output structure to populate
 /// @return ArduinoJson deserialization error
-/// @details Handles chunked transfer encoding, parses ISO 8601 timestamps.
-/// Temperatures converted from Celsius to Kelvin for internal consistency.
+/// @details Zero-allocation path: reads into static buffer, strips chunked encoding
+///          in-place, parses directly from buffer. No String usage on hot path.
 DeserializationError deserializeOpenMeteo(WiFiClient &json,
                                           owm_resp_onecall_t &r)
 {
-  
-  // Read entire response into String first for debugging
-  String jsonString = "";
-  jsonString.reserve(30000);  // Pre-allocate ~30KB to avoid heap fragmentation
-  int bytesRead = 0;
-  unsigned long startTime = millis();
-  
-  // Keep reading until stream is empty or timeout
-  while (bytesRead < 30000 && (millis() - startTime) < HTTP_CLIENT_TCP_TIMEOUT) {
-    if (json.available()) {
-      char c = json.read();
-      if (c >= 0) {
-        jsonString += c;
-        bytesRead++;
-      }
-    } else {
-      delay(10);
-    }
+  // ── Step 1: Read response into static buffer (zero allocation) ──
+  size_t bytesRead = readResponseToBuffer(json, sizeof(jsonBuffer) - 1, HTTP_CLIENT_TCP_TIMEOUT);
+  if (bytesRead == 0) {
+    return DeserializationError::EmptyInput;
   }
-  
-  
-  // Remove HTTP chunked encoding markers (hex size + \r\n before each chunk)
-  // Chunked format: "<hex-size>\r\n<data>\r\n...0\r\n\r\n"
-  String cleanedJson = "";
-  cleanedJson.reserve(jsonString.length());  // Pre-allocate to avoid fragmentation
-  int pos = 0;
-  int chunksProcessed = 0;
-  
-  
-  while (pos < (int)jsonString.length()) {
-    // Find end of chunk size line (\r\n)
-    int lineEnd = jsonString.indexOf("\r\n", pos);
-    if (lineEnd < 0) {
-      break;
-    }
-    
-    // Extract chunk size (hex string)
-    String chunkSizeStr = jsonString.substring(pos, lineEnd);
-    chunkSizeStr.trim();
-    
-    if (chunkSizeStr.length() == 0) {
-      break;
-    }
-    
-    // Check if it looks like a hex number
-    bool isHex = true;
-    for (int i = 0; i < chunkSizeStr.length(); i++) {
-      char c = chunkSizeStr.charAt(i);
-      if (!isxdigit(c)) {
-        isHex = false;
-        break;
-      }
-    }
-    
-    if (!isHex) {
-      break;
-    }
-    
-    // Convert hex to int
-    int chunkSize = (int)strtol(chunkSizeStr.c_str(), NULL, 16);
-    
-    if (chunkSize == 0) {
-      break; // Last chunk
-    }
-    
-    // Move to start of chunk data
-    pos = lineEnd + 2; // Skip \r\n
-    
-    // Append chunk data
-    if (pos + chunkSize <= (int)jsonString.length()) {
-      cleanedJson += jsonString.substring(pos, pos + chunkSize);
-      pos += chunkSize + 2; // Skip data + \r\n
-      chunksProcessed++;
-    } else {
-      break;
-    }
-  }
-  
-  
-  // If no chunked encoding detected, use original string
-  if (cleanedJson.length() == 0) {
-    cleanedJson = jsonString;
-  }
-  
-  
-  // Find where JSON actually starts
-  int jsonStart = cleanedJson.indexOf('{');
-  if (jsonStart >= 0) {
-    cleanedJson = cleanedJson.substring(jsonStart);
-  } else {
+
+  // ── Step 2: Strip chunked encoding in-place (zero allocation) ──
+  size_t cleanedLen = stripChunkedEncoding(jsonBuffer, bytesRead);
+
+  // ── Step 3: Find JSON boundaries ──
+  char *jsonStart = (char*)memchr(jsonBuffer, '{', cleanedLen);
+  if (!jsonStart) {
     return DeserializationError::InvalidInput;
   }
-  
-  // Find actual end of JSON
-  int lastBrace = cleanedJson.lastIndexOf('}');
-  if (lastBrace > 0 && lastBrace < (int)cleanedJson.length() - 1) {
-    cleanedJson = cleanedJson.substring(0, lastBrace + 1);
+
+  char *jsonEnd = (char*)memrchr(jsonBuffer, '}', cleanedLen);
+  if (!jsonEnd) {
+    return DeserializationError::InvalidInput;
   }
-  
-  jsonString = cleanedJson;
-  
-  // Check braces balance
-  int openBraces = 0, closeBraces = 0;
-  for (int i = 0; i < (int)jsonString.length(); i++) {
-    if (jsonString[i] == '{') openBraces++;
-    if (jsonString[i] == '}') closeBraces++;
-  }
-  
+  *(jsonEnd + 1) = '\0';
+
+  // ── Step 4: Parse JSON directly from buffer (zero-copy) ──
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, jsonString);
-  
-  
+  DeserializationError error = deserializeJson(doc, jsonStart);
+
   if (error) {
     Serial.printf("[JSON] Deserialization error: %s (code %d)\n",
                   error.c_str(), error.code());
     if (error == DeserializationError::NoMemory) {
-      Serial.printf("[JSON] Out of memory — doc size=%u, json len=%d\n",
-                    doc.size(), jsonString.length());
+      Serial.printf("[JSON] Out of memory — doc size=%u, json len=%zu\n",
+                    doc.size(), strlen(jsonStart));
     }
-  }
-  
-  if (error && doc.size() == 0) {
     return error;
   }
-  
-  if (error) {
-    // Partial deserialization — log but attempt to continue with available data
-    Serial.println("[JSON] Warning: partial deserialization, continuing with available fields");
-  }
-  
+
   // Location data
   r.lat = doc["latitude"].as<float>();
   r.lon = doc["longitude"].as<float>();
   r.timezone = doc["timezone"].as<const char *>();
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
-// When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
-  // When AUTO, API returns times in local timezone
   const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
 
-  
   // Parse current weather
   JsonObject current = doc["current"];
   const char* timeStr = current["time"];
@@ -680,8 +671,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   } else {
     r.current.dt = 0;
   }
-  
-  // Open-Meteo returns temperatures in Celsius, convert to Kelvin
+
   r.current.temp = celsius_to_kelvin(current["temperature_2m"].as<float>());
   r.current.feels_like = celsius_to_kelvin(current["apparent_temperature"].as<float>());
   r.current.pressure = current["surface_pressure"].as<int>();
@@ -694,22 +684,18 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   r.current.wind_gust = kilometersperhour_to_meterspersecond(current["wind_gusts_10m"].as<float>());
   r.current.wind_deg = current["wind_direction_10m"].as<int>();
   r.current.rain_1h = current["rain"].as<float>();
-  r.current.snow_1h = centimeters_to_millimeters(current["snowfall"].as<float>()); // cm to mm
-  
-  // Determine if day or night
+  r.current.snow_1h = centimeters_to_millimeters(current["snowfall"].as<float>());
+
   bool isDay = current["is_day"].as<int>() == 1;
-  
-  // Convert WMO weather code to OWM format
   int wmoCode = current["weather_code"].as<int>();
   wmoToOwmWeather(wmoCode, isDay, r.current.weather);
-  
-  // Debug: Show received values for location comparison
+
 #if DEBUG_LEVEL >= 2
   Serial.println("[Open-Meteo] Location: " + String(r.lat, 2) + ", " + String(r.lon, 2));
 #endif
   Serial.println("[Open-Meteo] Current temp: " + String(kelvin_to_celsius(r.current.temp), 1) + "C, Weather: " + String(wmoCode) + ", Day: " + String(isDay));
-  
-  // Parse daily forecast first (needed for sunrise/sunset which are not in current)
+
+  // Parse daily forecast
   JsonObject daily = doc["daily"];
   JsonArray daily_time = daily["time"];
   JsonArray daily_max = daily["temperature_2m_max"];
@@ -719,25 +705,18 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonArray daily_code = daily["weather_code"];
   JsonArray daily_pop = daily["precipitation_probability_max"];
   JsonArray daily_precip = daily["precipitation_sum"];
-  
+
   int dailyCount = min((int)daily_time.size(), OWM_NUM_DAILY);
   for (int i = 0; i < dailyCount; i++) {
     r.daily[i].dt = parseIso8601(daily_time[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
-    // Convert Celsius to Kelvin
     r.daily[i].temp.max = celsius_to_kelvin(daily_max[i].as<float>());
     r.daily[i].temp.min = celsius_to_kelvin(daily_min[i].as<float>());
     r.daily[i].sunrise = parseIso8601(daily_sunrise[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     r.daily[i].sunset = parseIso8601(daily_sunset[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
     r.daily[i].pop = daily_pop[i].as<float>() / 100.0f;
-    
-    // Read daily precipitation (mm)
     r.daily[i].rain = daily_precip[i].as<float>();
     r.daily[i].snow = 0.0f;
-    
-    // Daily always uses day icons
     wmoToOwmWeather(daily_code[i].as<int>(), true, r.daily[i].weather);
-    
-    // Default values
     r.daily[i].moonrise = 0;
     r.daily[i].moonset = 0;
     r.daily[i].moon_phase = 0.0f;
@@ -759,8 +738,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.daily[i].wind_gust = 10.0f;
     r.daily[i].wind_deg = 0;
   }
-  
-  // Copy sunrise/sunset from daily[0] to current (Open-Meteo doesn't provide these in current)
+
   if (dailyCount > 0) {
     r.current.sunrise = r.daily[0].sunrise;
     r.current.sunset = r.daily[0].sunset;
@@ -769,7 +747,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.current.sunrise = 0;
     r.current.sunset = 0;
   }
-  
+
   // Parse hourly forecast
   JsonObject hourly = doc["hourly"];
   JsonArray hourly_time = hourly["time"];
@@ -785,11 +763,10 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   JsonArray hourly_precip = hourly["precipitation"];
   JsonArray hourly_code = hourly["weather_code"];
   JsonArray hourly_is_day = hourly["is_day"];
-  
+
   int hourlyCount = min((int)hourly_time.size(), OWM_NUM_HOURLY);
   for (int i = 0; i < hourlyCount; i++) {
     r.hourly[i].dt = parseIso8601(hourly_time[i], openMeteoTimeStringsAreUtc, r.timezone_offset);
-    // Convert Celsius to Kelvin
     r.hourly[i].temp = celsius_to_kelvin(hourly_temp[i].as<float>());
     r.hourly[i].feels_like = celsius_to_kelvin(hourly_feels[i].as<float>());
     r.hourly[i].humidity = hourly_humidity[i].as<int>();
@@ -798,25 +775,19 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
     r.hourly[i].wind_speed = kilometersperhour_to_meterspersecond(hourly_wind[i].as<float>());
     r.hourly[i].wind_gust = kilometersperhour_to_meterspersecond(hourly_gust[i].as<float>());
     r.hourly[i].wind_deg = hourly_deg[i].as<int>();
-    
     float pop_val = hourly_pop[i].as<float>();
-    r.hourly[i].pop = pop_val / 100.0f; // Convert % to 0-1
+    r.hourly[i].pop = pop_val / 100.0f;
     r.hourly[i].rain_1h = hourly_precip[i].as<float>();
-    r.hourly[i].snow_1h = 0.0f; // Open-Meteo doesn't separate snow in basic endpoint
-    
+    r.hourly[i].snow_1h = 0.0f;
     bool hourIsDay = hourly_is_day[i].as<int>() == 1;
     wmoToOwmWeather(hourly_code[i].as<int>(), hourIsDay, r.hourly[i].weather);
-    
-    // Default values for fields not provided by Open-Meteo
-    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f; // Estimate (already in Kelvin)
+    r.hourly[i].dew_point = r.hourly[i].temp - 2.0f;
     r.hourly[i].uvi = 0.0f;
     r.hourly[i].visibility = 10000;
   }
-  
-  // Clear alerts (not provided by Open-Meteo)
+
   r.alerts.clear();
-  
-  // Debug: Show summary for comparing locations
+
   float tempMin = r.hourly[0].temp, tempMax = r.hourly[0].temp;
   float popMin = r.hourly[0].pop, popMax = r.hourly[0].pop;
   for (int i = 1; i < hourlyCount; i++) {
@@ -827,7 +798,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   }
   Serial.println("[Open-Meteo] Summary: Temp range " + String(kelvin_to_celsius(tempMin), 1) + "C to " + String(kelvin_to_celsius(tempMax), 1) + "C");
   Serial.println("[Open-Meteo] Summary: POP range " + String(popMin * 100, 0) + "% to " + String(popMax * 100, 0) + "%");
-  
+
   return error;
 } // end deserializeOpenMeteo
 
