@@ -527,7 +527,11 @@ void beginDeepSleep(unsigned long startTime, uint64_t sleepDurationSeconds)
   // This corrupts RTC memory and forces AP mode on next boot.
   killWiFi();
 
-  esp_sleep_enable_timer_wakeup(sleepDurationSeconds * 1000000ULL);
+  esp_err_t err = esp_sleep_enable_timer_wakeup(sleepDurationSeconds * 1000000ULL);
+  if (err != ESP_OK) {
+      Serial.printf("[ERROR] Failed to configure wake-up timer: %s (0x%X). Device might hibernate permanently!\n", 
+                    esp_err_to_name(err), err);
+  }
   Serial.print(TXT_AWAKE_FOR);
   Serial.println(" "  + String((millis() - startTime) / 1000.0, 3) + "s");
   Serial.print(TXT_ENTERING_DEEP_SLEEP_FOR);
@@ -869,6 +873,11 @@ void loop()
       updateWeather();
   } else if (currentState == STATE_SLEEP_PENDING) {
       // Use sleep duration calculated by TimeCoordinator (no recalculation!)
+      if (calculatedSleepDuration == 0) {
+          calculatedSleepDuration = SLEEP_DURATION * 60ULL;
+          Serial.printf("[WARNING] Sleep pending with 0s duration (failure path). Falling back to configured sleep duration: %llus\n",
+                        calculatedSleepDuration);
+      }
       beginDeepSleep(startTick, calculatedSleepDuration);
   } else if (currentState == STATE_ERROR) {
       // Indefinite deep sleep - device will not wake up automatically
