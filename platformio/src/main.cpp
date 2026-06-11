@@ -501,6 +501,27 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   Serial.println("Mockup data filled successfully!");
 }
 
+/// @brief Calculate fallback sleep duration when the normal update cycle fails
+/// @details Uses RTC failure counters for progressive backoff:
+/// - 0-1 failures: 5 min (transient issue, retry quickly)
+/// - 2-3 failures: 10 min (moderate backoff)
+/// - 4+ failures: SLEEP_DURATION (persistent issue, full interval)
+/// @return Sleep duration in seconds
+static uint64_t getFallbackSleepDuration()
+{
+    uint8_t maxFail = connectionFailCycles;
+    if (ntpFailCycles > maxFail) maxFail = ntpFailCycles;
+    if (apiFailCycles > maxFail) maxFail = apiFailCycles;
+
+    if (maxFail <= 1) {
+        return 300ULL;           // 5 min
+    } else if (maxFail <= 3) {
+        return 600ULL;           // 10 min
+    } else {
+        return (uint64_t)SLEEP_DURATION * 60ULL;  // normal interval
+    }
+}
+
 /// @brief Enter ultra-low-power deep sleep mode
 /// @param startTime Application start time (millis())
 /// @param sleepDurationSeconds Time to sleep in seconds
@@ -874,8 +895,8 @@ void loop()
   } else if (currentState == STATE_SLEEP_PENDING) {
       // Use sleep duration calculated by TimeCoordinator (no recalculation!)
       if (calculatedSleepDuration == 0) {
-          calculatedSleepDuration = SLEEP_DURATION * 60ULL;
-          Serial.printf("[WARNING] Sleep pending with 0s duration (failure path). Falling back to configured sleep duration: %llus\n",
+          calculatedSleepDuration = getFallbackSleepDuration();
+          Serial.printf("[WARNING] Sleep pending with 0s duration (failure path). Falling back to %llus\n",
                         calculatedSleepDuration);
       }
       beginDeepSleep(startTick, calculatedSleepDuration);
