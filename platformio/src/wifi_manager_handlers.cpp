@@ -465,6 +465,9 @@ void handleConfigSave(AsyncWebServerRequest* request) {
     configStore.setAutoGeo(tempAutoGeo);
     configStore.setTimezoneMode(tempTimezoneMode);
 
+    // Reset provisioned flag so loading screens appear on next connection
+    configStore.setProvisioned(false);
+
     if (!configStore.saveToNVS()) {
         Serial.println("[ERROR] Failed to save configuration to NVS!");
         sendErrorResponse(request, "Failed to save configuration. Please try again.");
@@ -482,6 +485,8 @@ void handleConfigSave(AsyncWebServerRequest* request) {
     Serial.printf("  Timezone: %s%s\n", tempTimezone, tzApplied ? "" : " (fallback from invalid)");
     Serial.printf("  AutoGeo: %s\n", tempAutoGeo ? "true" : "false");
     Serial.printf("  TimezoneMode: %s\n", (tempTimezoneMode == TIMEZONE_MODE_AUTO) ? "AUTO" : "MANUAL");
+
+    Serial.println("[PROVISION] Config saved by user, provisioned flag reset for next connection.");
 
     // Send success response
     // Only show error if timezone failed in MANUAL mode
