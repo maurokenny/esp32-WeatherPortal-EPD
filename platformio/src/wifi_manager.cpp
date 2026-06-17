@@ -248,21 +248,28 @@ bool readConfigButton() {
     pinMode(CONFIG_BUTTON_PIN, INPUT_PULLUP);
     delay(500);  // Wait for boot to stabilize before sampling GPIO0
 
-    if (digitalRead(CONFIG_BUTTON_PIN) == HIGH) {
-        return false;
-    }
+    Serial.printf("[BUTTON] Hold GPIO0 for %ums within the next %ums to enter AP setup mode.\n",
+                  AP_MODE_HOLD_MS, BUTTON_READ_WINDOW_MS);
 
-    Serial.println("[BUTTON] Config button detected, measuring hold time...");
-    unsigned long pressStart = millis();
-    while (digitalRead(CONFIG_BUTTON_PIN) == LOW) {
-        if (millis() - pressStart >= AP_MODE_HOLD_MS) {
-            Serial.println("[BUTTON] AP mode requested.");
-            return true;
+    unsigned long windowStart = millis();
+    unsigned long pressStart = 0;
+
+    while (millis() - windowStart < BUTTON_READ_WINDOW_MS) {
+        if (digitalRead(CONFIG_BUTTON_PIN) == LOW) {
+            if (pressStart == 0) {
+                pressStart = millis();
+            }
+            if (millis() - pressStart >= AP_MODE_HOLD_MS) {
+                Serial.println("[BUTTON] AP mode requested.");
+                return true;
+            }
+        } else {
+            pressStart = 0;  // released early, reset
         }
         delay(50);
     }
 
-    Serial.println("[BUTTON] Button released before AP mode threshold.");
+    Serial.println("[BOOT] No button press detected. Booting normally.");
     return false;
 }
 
@@ -315,6 +322,23 @@ bool handleCaptivePortal(AsyncWebServerRequest *request) {
         return true;
     }
     return false;
+}
+
+/// @brief Stop Access Point configuration mode
+/// @details Stops DNS server, web server, and disconnects softAP.
+///          Resets WiFi mode to STA for clean connection attempts.
+void stopAP() {
+    if (runtime.apMode || runtime.portalActive) {
+        Serial.println("[AP] Stopping access point and DNS server...");
+        dnsServer.stop();
+        server.end();
+        MDNS.end();
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        runtime.apMode = false;
+        runtime.portalActive = false;
+        Serial.println("[AP] Stopped.");
+    }
 }
 
 /// @brief Start Access Point configuration mode
@@ -435,6 +459,11 @@ void wifiManagerLoop() {
         if (output.resetWifiFail) { connectionFailCycles = 0; }
         if (output.incWifiFail) { connectionFailCycles++; }
 
+        // Stop AP mode when transitioning out of it
+        if (currentState == STATE_AP_CONFIG_MODE) {
+            stopAP();
+        }
+
         // Actions on ENTERING a new state
         switch (output.nextState) {
             case STATE_WIFI_CONNECTING:
@@ -442,6 +471,9 @@ void wifiManagerLoop() {
                 mockWifiStartTime = millis();
 #else
                 if (currentState == STATE_CHECK_CONFIG || currentState == STATE_BOOTSTRAP) {
+                    WiFi.mode(WIFI_STA);
+                    Serial.printf("[WIFI] Connecting to SSID: \"%s\", timeout: %us\n",
+                                  configStore.ssid(), (unsigned int)wifiConfig.wifiConnectTimeout);
                     WiFi.begin(configStore.ssid(), configStore.password());
                     runtime.wifiStartTime = millis();
                 }

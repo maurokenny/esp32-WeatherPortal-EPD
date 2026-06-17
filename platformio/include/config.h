@@ -299,6 +299,9 @@
 /// @brief Time to hold configuration button to enter AP mode (milliseconds)
 #define AP_MODE_HOLD_MS 1500
 
+/// @brief Time window after boot to press the configuration button (milliseconds)
+#define BUTTON_READ_WINDOW_MS 10000
+
 /// @brief NVS namespace for persistent device configuration
 #define NVS_NAMESPACE_DEVICE "device"
 
