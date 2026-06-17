@@ -88,7 +88,7 @@ static bool g_apButtonPressed = false;
 // ═══════════════════════════════════════════════════════════════════════════
 
 ConfigStore::ConfigStore()
-    : autoGeo_(false), timezoneMode_(TIMEZONE_MODE_AUTO) {
+    : autoGeo_(false), timezoneMode_(TIMEZONE_MODE_AUTO), provisioned_(false) {
     ssid_[0] = '\0';
     password_[0] = '\0';
     lat_[0] = '\0';
@@ -99,7 +99,7 @@ ConfigStore::ConfigStore()
 }
 
 bool ConfigStore::begin(bool readOnly) {
-    return prefs_.begin(STORE_NAMESPACE, !readOnly);
+    return prefs_.begin(STORE_NAMESPACE, readOnly);
 }
 
 void ConfigStore::end() {
@@ -134,6 +134,7 @@ bool ConfigStore::loadFromNVS() {
 
     autoGeo_ = prefs_.getBool(KEY_AUTO_GEO, false);
     timezoneMode_ = prefs_.getUChar(KEY_TZ_MODE, TIMEZONE_MODE_AUTO);
+    provisioned_ = prefs_.getBool(KEY_PROVISIONED, false);
 
     end();
     return true;
@@ -144,18 +145,23 @@ bool ConfigStore::saveToNVS() {
         return false;
     }
 
-    prefs_.putString(KEY_SSID, ssid_);
-    prefs_.putString(KEY_PASSWORD, password_);
-    prefs_.putString(KEY_LAT, lat_);
-    prefs_.putString(KEY_LON, lon_);
-    prefs_.putString(KEY_CITY, city_);
-    prefs_.putString(KEY_COUNTRY, country_);
-    prefs_.putString(KEY_TZ, timezone_);
-    prefs_.putBool(KEY_AUTO_GEO, autoGeo_);
-    prefs_.putUChar(KEY_TZ_MODE, timezoneMode_);
+    bool ok = true;
+    ok &= prefs_.putString(KEY_SSID, ssid_) > 0;
+    ok &= prefs_.putString(KEY_PASSWORD, password_) > 0;
+    ok &= prefs_.putString(KEY_LAT, lat_) > 0;
+    ok &= prefs_.putString(KEY_LON, lon_) > 0;
+    ok &= prefs_.putString(KEY_CITY, city_) > 0;
+    ok &= prefs_.putString(KEY_COUNTRY, country_) > 0;
+    ok &= prefs_.putString(KEY_TZ, timezone_) > 0;
+    ok &= prefs_.putBool(KEY_AUTO_GEO, autoGeo_) > 0;
+    ok &= prefs_.putUChar(KEY_TZ_MODE, timezoneMode_) > 0;
+    ok &= prefs_.putBool(KEY_PROVISIONED, provisioned_) > 0;
 
     end();
-    return true;
+    if (!ok) {
+        Serial.println("[ERROR] ConfigStore::saveToNVS() failed to write one or more keys.");
+    }
+    return ok;
 }
 
 void ConfigStore::clear() {
@@ -172,6 +178,7 @@ void ConfigStore::clear() {
     timezone_[0] = '\0';
     autoGeo_ = false;
     timezoneMode_ = TIMEZONE_MODE_AUTO;
+    provisioned_ = false;
 }
 
 bool ConfigStore::hasValidWifiConfig() const {
@@ -439,15 +446,16 @@ void wifiManagerLoop() {
                     runtime.wifiStartTime = millis();
                 }
 #endif
-                if (!SILENT_STATUS) {
+                if (!configStore.provisioned() || !SILENT_STATUS) {
                     const char* ssidToShow = input.nvsValid ? configStore.ssid() : "MockNetwork";
                     drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ssidToShow);
                 }
+
                 break;
 
             case STATE_NORMAL_MODE:
                 runtime.wifiConnected = true;
-                if (!SILENT_STATUS) {
+                if (!configStore.provisioned() || !SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
                 break;

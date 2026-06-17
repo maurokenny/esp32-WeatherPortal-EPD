@@ -43,6 +43,7 @@ public:
     static constexpr const char* KEY_TZ = "tz";
     static constexpr const char* KEY_AUTO_GEO = "autoGeo";
     static constexpr const char* KEY_TZ_MODE = "tzMode";
+    static constexpr const char* KEY_PROVISIONED = "prov";
 
     ConfigStore();
 
@@ -85,6 +86,9 @@ public:
     void setTimezoneMode(uint8_t mode);
     void setAutoGeo(bool enabled);
 
+    bool provisioned() const { return provisioned_; }
+    void setProvisioned(bool v) { provisioned_ = v; }
+
     // Getters
     const char* ssid() const { return ssid_; }
     const char* password() const { return password_; }
@@ -107,6 +111,7 @@ private:
     char timezone_[64];
     bool autoGeo_;
     uint8_t timezoneMode_;
+    bool provisioned_;
 };
 
 /// @brief Global configuration store instance

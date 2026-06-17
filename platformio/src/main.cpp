@@ -639,7 +639,7 @@ void updateWeather()
   // ═══════════════════════════════════════════════════════════════════════════
   // LOADING SCREEN: Identical for both mock and production
   // ═══════════════════════════════════════════════════════════════════════════
-  if (!SILENT_STATUS) {
+  if (!configStore.provisioned() || !SILENT_STATUS) {
     drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", configStore.city());
   }
   
@@ -754,6 +754,12 @@ void updateWeather()
   if (apiFailCycles > 0) {
     Serial.printf("[API] Reset counter %d->0\n", apiFailCycles);
     apiFailCycles = 0;
+  }
+
+  if (!configStore.provisioned()) {
+    Serial.println("[PROVISION] First successful weather cycle. Flagging as provisioned.");
+    configStore.setProvisioned(true);
+    configStore.saveToNVS();
   }
   
   calculatedSleepDuration = timeData.sleepDurationSeconds;
