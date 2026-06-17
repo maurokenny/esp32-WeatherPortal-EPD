@@ -317,6 +317,7 @@ void sendSuccessResponse(AsyncWebServerRequest* request) {
 
     request->send(200, "text/html", htmlResponse);
 
+    Serial.println("[PORTAL] Success response sent, setting portalActive=false");
     // Mark portal as inactive to trigger restart sequence
     runtime.portalActive = false;
 }

@@ -876,15 +876,11 @@ void loop()
       // Wait for e-paper to complete physical refresh before sleeping.
       delay(2000);  // 2 seconds for display to stabilize
       
-      // Sleep indefinitely - disable ALL wakeup sources
-      // Only EXT0/EXT1 (GPIO) or manual reset can wake the device now
+      // Disable timer wakeup so device sleeps indefinitely.
+      // TOUCHPAD and ULP sources are not enabled, so skip them.
       esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
       
-      // Ensure no GPIO wakeup is configured
-      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TOUCHPAD);
-      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ULP);
-      
-      Serial.println("All automatic wakeups disabled.");
+      Serial.println("Timer wakeup disabled. Only manual reset can wake.");
       Serial.flush();
       
       killWiFi();  // Prevent watchdog timeout during deep sleep entry

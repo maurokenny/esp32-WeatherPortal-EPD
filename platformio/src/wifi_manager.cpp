@@ -455,6 +455,13 @@ void wifiManagerLoop() {
     // 3. EXECUTE SIDE EFFECTS (Impure hardware/UI calls)
     if (output.nextState != currentState) {
 
+        Serial.printf("[STATE] %d->%d | nvsValid=%d apButton=%d configSaved=%d portalTimeout=%d wifiConnected=%d wifiTimeout=%d | portalActive=%d apMode=%d | portalElapsed=%lu\n",
+                      currentState, output.nextState,
+                      input.nvsValid, input.apButtonPressed, input.configSaved, input.portalTimeout,
+                      input.wifiConnected, input.wifiTimeout,
+                      runtime.portalActive, runtime.apMode,
+                      (millis() - runtime.portalStartTime) / 1000);
+
         // Apply side effects from decision output
         if (output.resetWifiFail) { connectionFailCycles = 0; }
         if (output.incWifiFail) { connectionFailCycles++; }
