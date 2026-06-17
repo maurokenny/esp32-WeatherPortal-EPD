@@ -493,6 +493,7 @@ void wifiManagerLoop() {
                 break;
 
             case STATE_AP_CONFIG_MODE:
+                g_apButtonPressed = false;
                 startAP();
                 break;
 
