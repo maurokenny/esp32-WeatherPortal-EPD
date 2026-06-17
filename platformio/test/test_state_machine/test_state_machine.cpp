@@ -17,25 +17,59 @@ void tearDown(void) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BOOT TESTS
+// CHECK_CONFIG TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-void test_boot_no_credentials_goes_to_ap_mode(void) {
+void test_check_config_button_goes_to_ap_mode(void) {
     DecisionInput input = {};
-    input.hasCredentials = false;
-    
-    DecisionOutput output = decideTransition(STATE_BOOT, input);
-    
+    input.nvsValid = true;
+    input.apButtonPressed = true;
+
+    DecisionOutput output = decideTransition(STATE_CHECK_CONFIG, input);
+
     TEST_ASSERT_EQUAL(STATE_AP_CONFIG_MODE, output.nextState);
 }
 
-void test_boot_with_credentials_goes_to_wifi_connecting(void) {
+void test_check_config_nvs_valid_goes_to_wifi_connecting(void) {
     DecisionInput input = {};
-    input.hasCredentials = true;
-    
-    DecisionOutput output = decideTransition(STATE_BOOT, input);
-    
+    input.nvsValid = true;
+    input.apButtonPressed = false;
+
+    DecisionOutput output = decideTransition(STATE_CHECK_CONFIG, input);
+
     TEST_ASSERT_EQUAL(STATE_WIFI_CONNECTING, output.nextState);
+}
+
+void test_check_config_nvs_invalid_goes_to_bootstrap(void) {
+    DecisionInput input = {};
+    input.nvsValid = false;
+    input.apButtonPressed = false;
+
+    DecisionOutput output = decideTransition(STATE_CHECK_CONFIG, input);
+
+    TEST_ASSERT_EQUAL(STATE_BOOTSTRAP, output.nextState);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BOOTSTRAP TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+void test_bootstrap_nvs_valid_goes_to_check_config(void) {
+    DecisionInput input = {};
+    input.nvsValid = true;
+
+    DecisionOutput output = decideTransition(STATE_BOOTSTRAP, input);
+
+    TEST_ASSERT_EQUAL(STATE_CHECK_CONFIG, output.nextState);
+}
+
+void test_bootstrap_nvs_invalid_goes_to_ap_mode(void) {
+    DecisionInput input = {};
+    input.nvsValid = false;
+
+    DecisionOutput output = decideTransition(STATE_BOOTSTRAP, input);
+
+    TEST_ASSERT_EQUAL(STATE_AP_CONFIG_MODE, output.nextState);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -45,50 +79,50 @@ void test_boot_with_credentials_goes_to_wifi_connecting(void) {
 void test_wifi_success_goes_to_normal_mode(void) {
     DecisionInput input = {};
     input.wifiConnected = true;
-    input.isFirstBoot = true;
-    
+
     DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_NORMAL_MODE, output.nextState);
     TEST_ASSERT_TRUE(output.resetWifiFail);
 }
 
-void test_first_boot_wifi_timeout_goes_to_ap_mode(void) {
+void test_wifi_timeout_goes_to_sleep_pending(void) {
     DecisionInput input = {};
-    input.isFirstBoot = true;
-    input.wifiConnected = false;
-    input.wifiTimeout = true;
-    
-    DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
-    TEST_ASSERT_EQUAL(STATE_AP_CONFIG_MODE, output.nextState);
-    TEST_ASSERT_FALSE(output.incWifiFail); // Counter doesn't increment on first boot
-}
-
-void test_subsequent_boot_wifi_timeout_goes_to_sleep_pending(void) {
-    DecisionInput input = {};
-    input.isFirstBoot = false; // Post-first boot
     input.wifiConnected = false;
     input.wifiTimeout = true;
     input.wifiFailCycles = 0;
     input.maxWifiFail = 10;
-    
+
     DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_SLEEP_PENDING, output.nextState);
     TEST_ASSERT_TRUE(output.incWifiFail);
+    TEST_ASSERT_NOT_EQUAL(STATE_AP_CONFIG_MODE, output.nextState);
+}
+
+void test_wifi_timeout_never_goes_to_ap_mode(void) {
+    // Critical regression test: even with no credentials and button not pressed,
+    // WiFi timeout must never trigger AP mode.
+    DecisionInput input = {};
+    input.nvsValid = false;
+    input.apButtonPressed = false;
+    input.wifiConnected = false;
+    input.wifiTimeout = true;
+
+    DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
+
+    TEST_ASSERT_NOT_EQUAL(STATE_AP_CONFIG_MODE, output.nextState);
 }
 
 void test_wifi_max_failures_reaches_error_state(void) {
     DecisionInput input = {};
-    input.isFirstBoot = false;
     input.wifiConnected = false;
     input.wifiTimeout = true;
     input.wifiFailCycles = 9;   // Current is 9
     input.maxWifiFail = 10;    // Limit is 10
-    
+
     DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_ERROR, output.nextState);
     TEST_ASSERT_TRUE(output.incWifiFail);
     TEST_ASSERT_TRUE(output.setErrorFlag);
@@ -96,14 +130,13 @@ void test_wifi_max_failures_reaches_error_state(void) {
 
 void test_wifi_infinite_retry_when_max_is_zero(void) {
     DecisionInput input = {};
-    input.isFirstBoot = false;
     input.wifiConnected = false;
     input.wifiTimeout = true;
     input.wifiFailCycles = 99; // Very high count
     input.maxWifiFail = 0;    // Infinite retries
-    
+
     DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_SLEEP_PENDING, output.nextState);
     TEST_ASSERT_TRUE(output.incWifiFail);
 }
@@ -112,22 +145,22 @@ void test_wifi_infinite_retry_when_max_is_zero(void) {
 // AP_CONFIG_MODE TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-void test_ap_mode_config_saved_goes_to_boot(void) {
+void test_ap_mode_config_saved_goes_to_check_config(void) {
     DecisionInput input = {};
     input.configSaved = true;
-    
+
     DecisionOutput output = decideTransition(STATE_AP_CONFIG_MODE, input);
-    
-    TEST_ASSERT_EQUAL(STATE_BOOT, output.nextState);
+
+    TEST_ASSERT_EQUAL(STATE_CHECK_CONFIG, output.nextState);
     TEST_ASSERT_TRUE(output.resetWifiFail);
 }
 
 void test_ap_mode_timeout_goes_to_error(void) {
     DecisionInput input = {};
     input.portalTimeout = true;
-    
+
     DecisionOutput output = decideTransition(STATE_AP_CONFIG_MODE, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_ERROR, output.nextState);
     TEST_ASSERT_TRUE(output.setErrorFlag);
 }
@@ -140,9 +173,9 @@ void test_normal_mode_success_goes_to_sleep_pending(void) {
     DecisionInput input = {};
     input.ntpSuccess = true;
     input.apiSuccess = true;
-    
+
     DecisionOutput output = decideTransition(STATE_NORMAL_MODE, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_SLEEP_PENDING, output.nextState);
     TEST_ASSERT_TRUE(output.resetNtpFail);
     TEST_ASSERT_TRUE(output.resetApiFail);
@@ -154,9 +187,9 @@ void test_api_failure_leads_to_error_if_max_reached(void) {
     input.apiSuccess = false;
     input.apiFailCycles = 2; // Current is 2
     input.maxApiFail = 3;    // Limit is 3
-    
+
     DecisionOutput output = decideTransition(STATE_NORMAL_MODE, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_ERROR, output.nextState);
     TEST_ASSERT_TRUE(output.incApiFail);
     TEST_ASSERT_TRUE(output.setErrorFlag);
@@ -166,56 +199,15 @@ void test_api_failure_leads_to_error_if_max_reached(void) {
 // EDGE CASES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * @brief Critical regression test for the "AP mode stuck" bug.
- * 
- * Bug scenario:
- * 1. Cold boot: WiFi connects (isFirstBoot=true), but NTP/API fails
- * 2. isFirstBoot was only reset at the END of updateWeather() - never reached
- * 3. Next wake: WiFi fails (router slow/down)
- * 4. Because isFirstBoot was still true, device entered AP mode unnecessarily
- * 
- * This test verifies that after WiFi success, isFirstBoot becomes false
- * BEFORE NTP/API processing, so subsequent WiFi failures don't trigger AP mode.
- */
-void test_wifi_success_resets_first_boot_before_ntp_api(void) {
-    // CYCLE 1: WiFi connects successfully
-    DecisionInput input1 = {};
-    input1.wifiConnected = true;
-    input1.isFirstBoot = true;
-    
-    DecisionOutput output1 = decideTransition(STATE_WIFI_CONNECTING, input1);
-    
-    TEST_ASSERT_EQUAL(STATE_NORMAL_MODE, output1.nextState);
-    TEST_ASSERT_TRUE(output1.updateFirstBoot);
-    
-    // CYCLE 2: Later, WiFi fails (router issue, etc.)
-    // isFirstBoot should now be false because it was reset on previous WiFi success
-    DecisionInput input2 = {};
-    input2.isFirstBoot = false;
-    input2.wifiConnected = false;
-    input2.wifiTimeout = true;
-    input2.wifiFailCycles = 0;
-    input2.maxWifiFail = 10;
-    
-    DecisionOutput output2 = decideTransition(STATE_WIFI_CONNECTING, input2);
-    
-    // MUST NOT go to AP mode - should sleep and retry later
-    TEST_ASSERT_EQUAL(STATE_SLEEP_PENDING, output2.nextState);
-    TEST_ASSERT_TRUE(output2.incWifiFail);
-    TEST_ASSERT_NOT_EQUAL(STATE_AP_CONFIG_MODE, output2.nextState);
-}
-
 void test_max_is_one_immediate_error_on_second_attempt(void) {
     DecisionInput input = {};
-    input.isFirstBoot = false;
     input.wifiConnected = false;
     input.wifiTimeout = true;
     input.wifiFailCycles = 0; // Current is 0
     input.maxWifiFail = 1;    // Error after 1 failure
-    
+
     DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
+
     TEST_ASSERT_EQUAL(STATE_ERROR, output.nextState);
     TEST_ASSERT_TRUE(output.incWifiFail);
 }
@@ -252,22 +244,6 @@ void test_sleep_duration_no_bedtime_loop(void) {
     // Bedtime == WakeTime means infinite loop of standard intervals
     uint32_t sleep = calculateSleepDuration(23, 0, 0, 0, 0, 30);
     TEST_ASSERT_INT_WITHIN(5, 1806, sleep);
-}
-
-void test_wake_at_7am_wifi_fail_goes_to_sleep_not_ap_mode(void) {
-    // Scenario: User configured WiFi 2 days ago. Device wakes up at 07:00 AM.
-    // Router is slow to respond, WiFi connection times out.
-    DecisionInput input = {};
-    input.isFirstBoot = false;     // Already connected in the past!
-    input.hasCredentials = true; 
-    input.wifiConnected = false;
-    input.wifiTimeout = true;      // Failed to connect this time
-    
-    DecisionOutput output = decideTransition(STATE_WIFI_CONNECTING, input);
-    
-    // MUST go to SLEEP_PENDING (to retry later), NOT AP_CONFIG_MODE
-    TEST_ASSERT_EQUAL(STATE_SLEEP_PENDING, output.nextState);
-    TEST_ASSERT_TRUE(output.incWifiFail);
 }
 
 void test_sleep_duration_midnight_rollover(void) {
@@ -343,19 +319,24 @@ void test_forecast_day_names_en(void) {
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     
-    // Boot
-    RUN_TEST(test_boot_no_credentials_goes_to_ap_mode);
-    RUN_TEST(test_boot_with_credentials_goes_to_wifi_connecting);
+    // CHECK_CONFIG
+    RUN_TEST(test_check_config_button_goes_to_ap_mode);
+    RUN_TEST(test_check_config_nvs_valid_goes_to_wifi_connecting);
+    RUN_TEST(test_check_config_nvs_invalid_goes_to_bootstrap);
+    
+    // BOOTSTRAP
+    RUN_TEST(test_bootstrap_nvs_valid_goes_to_check_config);
+    RUN_TEST(test_bootstrap_nvs_invalid_goes_to_ap_mode);
     
     // WiFi Connecting
     RUN_TEST(test_wifi_success_goes_to_normal_mode);
-    RUN_TEST(test_first_boot_wifi_timeout_goes_to_ap_mode);
-    RUN_TEST(test_subsequent_boot_wifi_timeout_goes_to_sleep_pending);
+    RUN_TEST(test_wifi_timeout_goes_to_sleep_pending);
+    RUN_TEST(test_wifi_timeout_never_goes_to_ap_mode);
     RUN_TEST(test_wifi_max_failures_reaches_error_state);
     RUN_TEST(test_wifi_infinite_retry_when_max_is_zero);
     
     // AP mode
-    RUN_TEST(test_ap_mode_config_saved_goes_to_boot);
+    RUN_TEST(test_ap_mode_config_saved_goes_to_check_config);
     RUN_TEST(test_ap_mode_timeout_goes_to_error);
     
     // Normal mode
@@ -363,7 +344,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_api_failure_leads_to_error_if_max_reached);
     
     // Edge cases
-    RUN_TEST(test_wifi_success_resets_first_boot_before_ntp_api);
     RUN_TEST(test_max_is_one_immediate_error_on_second_attempt);
 
     // Sleep duration
@@ -381,9 +361,5 @@ int main(int argc, char **argv) {
     RUN_TEST(test_forecast_weekday_cycling);
     RUN_TEST(test_forecast_day_names_en);
     
-    // Specific real-world scenario
-    RUN_TEST(test_wake_at_7am_wifi_fail_goes_to_sleep_not_ap_mode);
-    
     return UNITY_END();
 }
-

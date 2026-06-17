@@ -145,10 +145,10 @@ void fillMockupData(owm_resp_onecall_t &owm_onecall, tm &timeInfo)
   struct timeval tv = { .tv_sec = now, .tv_usec = 0 };
   settimeofday(&tv, NULL);
   // In AUTO mode, force UTC as the base timezone because we apply the API offset manually.
-  // In MANUAL mode, use the user-selected timezone from RTC RAM or compile-time default.
+  // In MANUAL mode, use the user-selected timezone from ConfigStore.
   const char* tzToUse;
-  if (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') {
-    tzToUse = ramTimezone;
+  if (configStore.timezoneMode() == TIMEZONE_MODE_MANUAL && configStore.timezone()[0] != '\0') {
+    tzToUse = configStore.timezone();
   } else {
     tzToUse = "UTC0";
   }
@@ -607,10 +607,10 @@ void updateWeather()
 
   // TIME SYNCHRONIZATION
   // In AUTO mode, force UTC as the base timezone because we apply the API offset manually.
-  // In MANUAL mode, use the user-selected timezone from RTC RAM or compile-time default.
+  // In MANUAL mode, use the user-selected timezone from ConfigStore.
   const char* tzToUse;
-  if (ramTimezoneMode == TIMEZONE_MODE_MANUAL && ramTimezone[0] != '\0') {
-    tzToUse = ramTimezone;
+  if (configStore.timezoneMode() == TIMEZONE_MODE_MANUAL && configStore.timezone()[0] != '\0') {
+    tzToUse = configStore.timezone();
   } else {
     tzToUse = "UTC0";
   }
@@ -629,9 +629,9 @@ void updateWeather()
   }
 
   // MAKE API REQUESTS
-  if (ramAutoGeo) {
+  if (configStore.autoGeo()) {
     if (locateByIpAddress()) {
-      ramAutoGeo = false; // Only do it once after setting it
+      // locateByIpAddress() disables autoGeo and saves to NVS on success
     }
   }
 #endif
@@ -639,8 +639,8 @@ void updateWeather()
   // ═══════════════════════════════════════════════════════════════════════════
   // LOADING SCREEN: Identical for both mock and production
   // ═══════════════════════════════════════════════════════════════════════════
-  if (isFirstBoot || !SILENT_STATUS) {
-    drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", ramCity);
+  if (!SILENT_STATUS) {
+    drawLoading(wi_cloud_refresh_196x196, "Fetching weather...", configStore.city());
   }
   
 // DATA SOURCE SELECTION
@@ -732,8 +732,8 @@ void updateWeather()
     drawOutlookGraph(owm_onecall.hourly, owm_onecall.daily, 
                      timeData.hourlyLabels, timeData.hourlyStartIndex);
     drawForecast(owm_onecall.daily, timeData.todayDayOfWeek);
-    String locationStr = String(strlen(ramCity) > 0 ? ramCity : CITY_STRING) + " - " + 
-                         String(strlen(ramCountry) > 0 ? ramCountry : COUNTRY_STRING);
+    String locationStr = String(strlen(configStore.city()) > 0 ? configStore.city() : CITY_STRING.c_str()) + " - " + 
+                         String(strlen(configStore.country()) > 0 ? configStore.country() : COUNTRY_STRING.c_str());
     drawLocationDate(locationStr, timeData.displayDate);
 #if DISPLAY_ALERTS
     drawAlerts(owm_onecall.alerts, locationStr, timeData.displayDate);
@@ -767,60 +767,13 @@ void setup()
   Serial.begin(115200);
   disableBuiltinLED();
 
-  // Load defaults into RTC RAM variables only if not already initialized (e.g. cold boot)
-  // All strncpy calls use sizeof(dest) - 1 to ensure null-termination
-  
-  // Check for RTC memory corruption: rtcInitialized is true but credentials are empty.
-  // This happens after watchdog resets or power glitches during deep sleep.
-  bool rtcCorrupted = (rtcInitialized && strlen(ramSSID) == 0);
-  if (rtcCorrupted) {
-    Serial.println("[ERROR] RTC memory corrupted! WiFi credentials lost.");
-    Serial.println("[INFO] Please reconfigure WiFi via the setup portal.");
-    // Clear rtcInitialized so defaults are loaded as fallback,
-    // but we will force AP mode afterward to ensure user knows reconfiguration is needed.
-    rtcInitialized = false;
-  }
-  
-  if (!rtcInitialized) {
-    if (WIFI_SSID != nullptr && strlen(WIFI_SSID) > 0) {
-      strncpy(ramSSID, WIFI_SSID, sizeof(ramSSID) - 1);
-      ramSSID[sizeof(ramSSID) - 1] = '\0';
-    }
-    if (WIFI_PASSWORD != nullptr && strlen(WIFI_PASSWORD) > 0) {
-      strncpy(ramPassword, WIFI_PASSWORD, sizeof(ramPassword) - 1);
-      ramPassword[sizeof(ramPassword) - 1] = '\0';
-    }
-    if (CITY_STRING.length() > 0) {
-      strncpy(ramCity, CITY_STRING.c_str(), sizeof(ramCity) - 1);
-      ramCity[sizeof(ramCity) - 1] = '\0';
-    }
-    if (LAT.length() > 0) {
-      strncpy(ramLat, LAT.c_str(), sizeof(ramLat) - 1);
-      ramLat[sizeof(ramLat) - 1] = '\0';
-    }
-    if (LON.length() > 0) {
-      strncpy(ramLon, LON.c_str(), sizeof(ramLon) - 1);
-      ramLon[sizeof(ramLon) - 1] = '\0';
-    }
-    if (COUNTRY_STRING.length() > 0) {
-      strncpy(ramCountry, COUNTRY_STRING.c_str(), sizeof(ramCountry) - 1);
-      ramCountry[sizeof(ramCountry) - 1] = '\0';
-    }
-    rtcInitialized = true;
-  }
-  // Ensure ramCountry is set if empty (fallback)
-  if (strlen(ramCountry) == 0 && COUNTRY_STRING.length() > 0) {
-    strncpy(ramCountry, COUNTRY_STRING.c_str(), sizeof(ramCountry) - 1);
-    ramCountry[sizeof(ramCountry) - 1] = '\0';
-  }
-  
-  // If RTC was corrupted, force AP mode so user can reconfigure
-  // (don't silently use defaults - they may be wrong/outdated)
-  if (rtcCorrupted) {
-    // Clear the credentials we just loaded to force AP mode
-    ramSSID[0] = '\0';
-    ramPassword[0] = '\0';
-  }
+  // ============================================================
+  // CONFIGURATION LOADING
+  // ============================================================
+  // wifiManagerSetup() loads configuration from NVS, migrates any
+  // legacy RTC RAM config, and reads the configuration button.
+  // The .env file is used only as a factory bootstrap seed when
+  // ALLOW_ENV_BOOTSTRAP_TO_NVS is enabled and NVS is empty.
 
   // ============================================================
   // BATTERY CHECK (ORIGINAL BEHAVIOR - Single threshold, no retries)

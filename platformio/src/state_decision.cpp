@@ -10,7 +10,7 @@
 DecisionOutput decideTransition(State current, const DecisionInput& input) {
     DecisionOutput output = {};
     output.nextState = current; // Default stay in current state
-    
+
     // Clear side effects by default
     output.resetWifiFail = false;
     output.incWifiFail = false;
@@ -19,12 +19,23 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
     output.resetApiFail = false;
     output.incApiFail = false;
     output.setErrorFlag = false;
-    output.updateFirstBoot = false;
 
     switch (current) {
-        case STATE_BOOT:
-            if (input.hasCredentials) {
+        case STATE_CHECK_CONFIG:
+            if (input.apButtonPressed) {
+                output.nextState = STATE_AP_CONFIG_MODE;
+            } else if (input.nvsValid) {
                 output.nextState = STATE_WIFI_CONNECTING;
+            } else {
+                output.nextState = STATE_BOOTSTRAP;
+            }
+            break;
+
+        case STATE_BOOTSTRAP:
+            // If NVS became valid (env bootstrap succeeded), re-evaluate.
+            // Otherwise, enter AP mode for explicit provisioning.
+            if (input.nvsValid) {
+                output.nextState = STATE_CHECK_CONFIG;
             } else {
                 output.nextState = STATE_AP_CONFIG_MODE;
             }
@@ -34,31 +45,27 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
             if (input.wifiConnected) {
                 output.nextState = STATE_NORMAL_MODE;
                 output.resetWifiFail = true;
-                output.updateFirstBoot = input.isFirstBoot; // Reset isFirstBoot flag
             } else if (input.wifiTimeout) {
-                if (input.isFirstBoot) {
-                    output.nextState = STATE_AP_CONFIG_MODE;
+                // Network failures never trigger AP mode. Retry after sleep
+                // or enter terminal error state after max failures.
+                output.incWifiFail = true;
+                uint8_t nextFailCount = input.wifiFailCycles + 1;
+
+                if (input.maxWifiFail == 0) {
+                    // Infinite retry
+                    output.nextState = STATE_SLEEP_PENDING;
+                } else if (nextFailCount < input.maxWifiFail) {
+                    output.nextState = STATE_SLEEP_PENDING;
                 } else {
-                    // Logic to retry or go to error
-                    output.incWifiFail = true;
-                    uint8_t nextFailCount = input.wifiFailCycles + 1;
-                    
-                    if (input.maxWifiFail == 0) {
-                        // Infinite retry
-                        output.nextState = STATE_SLEEP_PENDING;
-                    } else if (nextFailCount < input.maxWifiFail) {
-                        output.nextState = STATE_SLEEP_PENDING;
-                    } else {
-                        output.nextState = STATE_ERROR;
-                        output.setErrorFlag = true;
-                    }
+                    output.nextState = STATE_ERROR;
+                    output.setErrorFlag = true;
                 }
             }
             break;
 
         case STATE_AP_CONFIG_MODE:
             if (input.configSaved) {
-                output.nextState = STATE_BOOT;
+                output.nextState = STATE_CHECK_CONFIG;
                 output.resetWifiFail = true;
             } else if (input.portalTimeout) {
                 output.nextState = STATE_ERROR;
@@ -69,7 +76,7 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
         case STATE_NORMAL_MODE:
             // This is usually reached after success or handled by individual failures
             output.nextState = STATE_SLEEP_PENDING;
-            
+
             if (input.ntpSuccess) {
                 output.resetNtpFail = true;
             } else {
@@ -79,7 +86,7 @@ DecisionOutput decideTransition(State current, const DecisionInput& input) {
                     output.setErrorFlag = true;
                 }
             }
-            
+
             if (input.apiSuccess) {
                 output.resetApiFail = true;
             } else {

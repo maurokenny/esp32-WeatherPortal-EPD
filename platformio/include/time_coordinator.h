@@ -98,7 +98,7 @@ enum TimeMode {
 class TimeCoordinator {
 public:
   /// @brief Initialize TimeCoordinator
-  /// @details Detects mode from ramTimezoneMode and configures timezone
+  /// @details Detects mode from configStore.timezoneMode() and configures timezone
   void begin();
 
   /// @brief Process API data and generate display-ready time information

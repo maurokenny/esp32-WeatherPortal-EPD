@@ -287,6 +287,26 @@
 #define MAX_API_FAIL_CYCLES   10  ///< API request failures
 /// @}
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION BUTTON AND NVS SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// @brief GPIO used for configuration button (BOOT button on GPIO0)
+/// @details Hold for AP_MODE_HOLD_MS after boot to enter AP config mode.
+///          GPIO0 must be released during reset to avoid bootloader mode.
+#define CONFIG_BUTTON_PIN 0
+
+/// @brief Time to hold configuration button to enter AP mode (milliseconds)
+#define AP_MODE_HOLD_MS 1500
+
+/// @brief NVS namespace for persistent device configuration
+#define NVS_NAMESPACE_DEVICE "device"
+
+/// @brief Allow .env credentials to be written to NVS when NVS is empty
+/// @details 1 = factory bootstrap from .env enabled
+///          0 = provisioning only via AP portal
+#define ALLOW_ENV_BOOTSTRAP_TO_NVS 1
+
 /// @brief Silent mode - hide loading/status screens
 /// @details true=Show only critical errors, false=Show all status screens
 #define SILENT_STATUS true

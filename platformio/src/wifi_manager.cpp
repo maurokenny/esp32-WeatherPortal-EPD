@@ -5,8 +5,9 @@
 ///
 /// @details
 /// Implements non-blocking WiFi state machine with:
-/// - Automatic connection with RTC RAM persisted credentials
-/// - Captive portal AP mode for initial configuration
+/// - NVS persisted credentials and location settings
+/// - Captive portal AP mode for explicit provisioning only
+/// - Configuration button support (GPIO0) to force AP mode after boot
 /// - IP-based geolocation for auto-location detection
 /// - Failure tracking with configurable retry limits
 /// - DNS server for captive portal detection
@@ -30,7 +31,7 @@
 #include "icons/icons_196x196.h"
 
 /// @brief Current firmware state machine state
-FirmwareState currentState = STATE_BOOT;
+FirmwareState currentState = STATE_CHECK_CONFIG;
 
 /// @brief WiFi manager configuration
 DeviceConfig wifiConfig = {
@@ -54,23 +55,242 @@ static uint32_t mockWifiStartTime = 0;
 
 /// @defgroup rtc_ram_vars RTC RAM Persistent Variables
 /// @brief Variables preserved across deep sleep (lost on power loss)
-/// @details Buffer sizes follow: Character Limit + 1 for null-terminator
-RTC_DATA_ATTR char ramSSID[33] = "";       // Wi-Fi SSID: 32 chars + \0 (optimized from 64)
-RTC_DATA_ATTR char ramPassword[64] = "";   // WPA2 password: 63 chars + \0
-RTC_DATA_ATTR char ramCity[64] = "";       // City name: 63 chars + \0
-RTC_DATA_ATTR char ramCountry[64] = "";    // Country: 63 chars + \0
-RTC_DATA_ATTR char ramLat[21] = "";        // Latitude: 20 chars + \0 (optimized from 32)
-RTC_DATA_ATTR char ramLon[21] = "";        // Longitude: 20 chars + \0 (optimized from 32)
-RTC_DATA_ATTR char ramTimezone[64] = "UTC0"; // Timezone: 63 chars + \0
-RTC_DATA_ATTR bool ramAutoGeo = false;
-RTC_DATA_ATTR uint8_t ramTimezoneMode = TIMEZONE_MODE_AUTO;  // Default: use API timezone
-RTC_DATA_ATTR bool rtcInitialized = false;
-RTC_DATA_ATTR bool isFirstBoot = true;
+/// @details Failure counters only. Configuration is persisted in NVS.
 // RTC RAM failure counters (persist during deep sleep)
 RTC_DATA_ATTR uint8_t connectionFailCycles = 0;  // WiFi connection failure cycles
 RTC_DATA_ATTR uint8_t ntpFailCycles = 0;         // NTP sync failure cycles  
 RTC_DATA_ATTR uint8_t apiFailCycles = 0;         // API request failure cycles
 RTC_DATA_ATTR bool isErrorState = false;         // Permanent error state flag
+
+/// @defgroup rtc_legacy_vars Legacy RTC RAM Configuration Variables
+/// @brief Kept only for one-time migration to NVS.
+/// @{
+RTC_DATA_ATTR char ramSSID[33] = "";
+RTC_DATA_ATTR char ramPassword[64] = "";
+RTC_DATA_ATTR char ramCity[64] = "";
+RTC_DATA_ATTR char ramCountry[64] = "";
+RTC_DATA_ATTR char ramLat[21] = "";
+RTC_DATA_ATTR char ramLon[21] = "";
+RTC_DATA_ATTR char ramTimezone[64] = "UTC0";
+RTC_DATA_ATTR bool ramAutoGeo = false;
+RTC_DATA_ATTR uint8_t ramTimezoneMode = TIMEZONE_MODE_AUTO;
+RTC_DATA_ATTR bool rtcInitialized = false;
+/// @}
+
+/// @brief Global configuration store instance
+ConfigStore configStore;
+
+/// @brief Configuration button state sampled once during setup
+static bool g_apButtonPressed = false;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGSTORE IMPLEMENTATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+ConfigStore::ConfigStore()
+    : autoGeo_(false), timezoneMode_(TIMEZONE_MODE_AUTO) {
+    ssid_[0] = '\0';
+    password_[0] = '\0';
+    lat_[0] = '\0';
+    lon_[0] = '\0';
+    city_[0] = '\0';
+    country_[0] = '\0';
+    timezone_[0] = '\0';
+}
+
+bool ConfigStore::begin(bool readOnly) {
+    return prefs_.begin(STORE_NAMESPACE, !readOnly);
+}
+
+void ConfigStore::end() {
+    prefs_.end();
+}
+
+bool ConfigStore::loadFromNVS() {
+    if (!begin(true)) {
+        return false;
+    }
+
+    String s = prefs_.getString(KEY_SSID, "");
+    safeCopy(s.c_str(), ssid_, sizeof(ssid_));
+
+    s = prefs_.getString(KEY_PASSWORD, "");
+    safeCopy(s.c_str(), password_, sizeof(password_));
+
+    s = prefs_.getString(KEY_LAT, "");
+    safeCopy(s.c_str(), lat_, sizeof(lat_));
+
+    s = prefs_.getString(KEY_LON, "");
+    safeCopy(s.c_str(), lon_, sizeof(lon_));
+
+    s = prefs_.getString(KEY_CITY, "");
+    safeCopy(s.c_str(), city_, sizeof(city_));
+
+    s = prefs_.getString(KEY_COUNTRY, "");
+    safeCopy(s.c_str(), country_, sizeof(country_));
+
+    s = prefs_.getString(KEY_TZ, "");
+    safeCopy(s.c_str(), timezone_, sizeof(timezone_));
+
+    autoGeo_ = prefs_.getBool(KEY_AUTO_GEO, false);
+    timezoneMode_ = prefs_.getUChar(KEY_TZ_MODE, TIMEZONE_MODE_AUTO);
+
+    end();
+    return true;
+}
+
+bool ConfigStore::saveToNVS() {
+    if (!begin(false)) {
+        return false;
+    }
+
+    prefs_.putString(KEY_SSID, ssid_);
+    prefs_.putString(KEY_PASSWORD, password_);
+    prefs_.putString(KEY_LAT, lat_);
+    prefs_.putString(KEY_LON, lon_);
+    prefs_.putString(KEY_CITY, city_);
+    prefs_.putString(KEY_COUNTRY, country_);
+    prefs_.putString(KEY_TZ, timezone_);
+    prefs_.putBool(KEY_AUTO_GEO, autoGeo_);
+    prefs_.putUChar(KEY_TZ_MODE, timezoneMode_);
+
+    end();
+    return true;
+}
+
+void ConfigStore::clear() {
+    if (begin(false)) {
+        prefs_.clear();
+        end();
+    }
+    ssid_[0] = '\0';
+    password_[0] = '\0';
+    lat_[0] = '\0';
+    lon_[0] = '\0';
+    city_[0] = '\0';
+    country_[0] = '\0';
+    timezone_[0] = '\0';
+    autoGeo_ = false;
+    timezoneMode_ = TIMEZONE_MODE_AUTO;
+}
+
+bool ConfigStore::hasValidWifiConfig() const {
+    return (ssid_[0] != '\0');
+}
+
+bool ConfigStore::hasCompleteLocation() const {
+    return (lat_[0] != '\0' && lon_[0] != '\0' &&
+            city_[0] != '\0' && country_[0] != '\0' &&
+            timezone_[0] != '\0');
+}
+
+bool ConfigStore::migrateFromRtcIfNeeded() {
+    if (strlen(ramSSID) == 0) {
+        return false;
+    }
+
+    Serial.println("[MIGRATION] RTC config found, copying to NVS...");
+
+    safeCopy(ramSSID, ssid_, sizeof(ssid_));
+    safeCopy(ramPassword, password_, sizeof(password_));
+    safeCopy(ramLat, lat_, sizeof(lat_));
+    safeCopy(ramLon, lon_, sizeof(lon_));
+    safeCopy(ramCity, city_, sizeof(city_));
+    safeCopy(ramCountry, country_, sizeof(country_));
+    safeCopy(ramTimezone, timezone_, sizeof(timezone_));
+    autoGeo_ = ramAutoGeo;
+    timezoneMode_ = ramTimezoneMode;
+
+    bool ok = saveToNVS();
+    if (ok) {
+        Serial.println("[MIGRATION] RTC config copied to NVS successfully.");
+    } else {
+        Serial.println("[MIGRATION] Failed to save RTC config to NVS.");
+    }
+    return ok;
+}
+
+void ConfigStore::setWifiConfig(const char* ssid, const char* password) {
+    safeCopy(ssid, ssid_, sizeof(ssid_));
+    safeCopy(password, password_, sizeof(password_));
+}
+
+void ConfigStore::setLocation(const char* lat, const char* lon,
+                              const char* city, const char* country,
+                              const char* tz) {
+    safeCopy(lat, lat_, sizeof(lat_));
+    safeCopy(lon, lon_, sizeof(lon_));
+    safeCopy(city, city_, sizeof(city_));
+    safeCopy(country, country_, sizeof(country_));
+    safeCopy(tz, timezone_, sizeof(timezone_));
+}
+
+void ConfigStore::setTimezoneMode(uint8_t mode) {
+    timezoneMode_ = mode;
+}
+
+void ConfigStore::setAutoGeo(bool enabled) {
+    autoGeo_ = enabled;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION BUTTON
+// ═══════════════════════════════════════════════════════════════════════════
+
+bool readConfigButton() {
+    pinMode(CONFIG_BUTTON_PIN, INPUT_PULLUP);
+    delay(500);  // Wait for boot to stabilize before sampling GPIO0
+
+    if (digitalRead(CONFIG_BUTTON_PIN) == HIGH) {
+        return false;
+    }
+
+    Serial.println("[BUTTON] Config button detected, measuring hold time...");
+    unsigned long pressStart = millis();
+    while (digitalRead(CONFIG_BUTTON_PIN) == LOW) {
+        if (millis() - pressStart >= AP_MODE_HOLD_MS) {
+            Serial.println("[BUTTON] AP mode requested.");
+            return true;
+        }
+        delay(50);
+    }
+
+    Serial.println("[BUTTON] Button released before AP mode threshold.");
+    return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FACTORY BOOTSTRAP FROM .ENV
+// ═══════════════════════════════════════════════════════════════════════════
+
+bool bootstrapFromEnv() {
+#if !ALLOW_ENV_BOOTSTRAP_TO_NVS
+    Serial.println("[BOOTSTRAP] .env bootstrap disabled by config.");
+    return false;
+#endif
+
+    if (WIFI_SSID == nullptr || strlen(WIFI_SSID) == 0) {
+        Serial.println("[BOOTSTRAP] .env has no valid WiFi config.");
+        return false;
+    }
+
+    Serial.println("[BOOTSTRAP] Loading factory defaults from .env into NVS...");
+
+    configStore.setWifiConfig(WIFI_SSID, WIFI_PASSWORD);
+    configStore.setLocation(LAT.c_str(), LON.c_str(),
+                            CITY_STRING.c_str(), COUNTRY_STRING.c_str(),
+                            TIMEZONE);
+    configStore.setAutoGeo(false);
+    configStore.setTimezoneMode(TIMEZONE_MODE_AUTO);
+
+    if (!configStore.saveToNVS()) {
+        Serial.println("[BOOTSTRAP] Failed to write .env defaults to NVS.");
+        return false;
+    }
+
+    Serial.println("[BOOTSTRAP] Factory defaults saved to NVS.");
+    return true;
+}
 
 AsyncWebServer server(80);
 DNSServer dnsServer;
@@ -149,9 +369,21 @@ void startAP() {
 }
 
 /// @brief Initialize WiFi manager
-/// @details Sets hostname for network identification
+/// @details Sets hostname, loads configuration from NVS, migrates legacy RTC
+///          config if present, and reads the configuration button.
 void wifiManagerSetup() {
     WiFi.setHostname("weather-eink");
+
+    if (!configStore.loadFromNVS()) {
+        Serial.println("[WiFi] NVS load failed, will attempt bootstrap or AP mode.");
+    }
+
+    if (!configStore.hasValidWifiConfig()) {
+        Serial.println("[WiFi] No valid NVS config found. Attempting RTC migration...");
+        configStore.migrateFromRtcIfNeeded();
+    }
+
+    g_apButtonPressed = readConfigButton();
 }
 
 /// @brief Execute WiFi state machine iteration
@@ -159,14 +391,14 @@ void wifiManagerSetup() {
 void wifiManagerLoop() {
     // 1. GATHER INPUT (Impure environment sensing)
     DecisionInput input = {};
-    input.hasCredentials = (strlen(ramSSID) > 0);
-    input.isFirstBoot = isFirstBoot;
-    
-    // Config limits from config.h or NVS
+    input.nvsValid = configStore.hasValidWifiConfig();
+    input.apButtonPressed = g_apButtonPressed;
+
+    // Config limits from config.h
     input.maxWifiFail = MAX_WIFI_FAIL_CYCLES;
     input.maxNtpFail = MAX_NTP_FAIL_CYCLES;
     input.maxApiFail = MAX_API_FAIL_CYCLES;
-    
+
     // Status counters from RTC memory
     input.wifiFailCycles = connectionFailCycles;
     input.ntpFailCycles = ntpFailCycles;
@@ -175,15 +407,15 @@ void wifiManagerLoop() {
 #if USE_MOCKUP_DATA
     // MOCK MODE: Simulate WiFi feedback
     input.wifiConnected = (millis() - mockWifiStartTime > 2000);
-    input.wifiTimeout = false; 
+    input.wifiTimeout = false;
     input.portalTimeout = false;
-    input.configSaved = (!runtime.portalActive && input.hasCredentials);
+    input.configSaved = (!runtime.portalActive && input.nvsValid);
 #else
     // PRODUCTION MODE: Real hardware feedback
     input.wifiConnected = (WiFi.status() == WL_CONNECTED);
     input.wifiTimeout = (millis() - runtime.wifiStartTime > wifiConfig.wifiConnectTimeout * 1000);
     input.portalTimeout = (millis() - runtime.portalStartTime > wifiConfig.configTimeout * 1000);
-    input.configSaved = (!runtime.portalActive && input.hasCredentials);
+    input.configSaved = (!runtime.portalActive && input.nvsValid);
 #endif
 
     // 2. DECIDE (Pure logic)
@@ -191,49 +423,36 @@ void wifiManagerLoop() {
 
     // 3. EXECUTE SIDE EFFECTS (Impure hardware/UI calls)
     if (output.nextState != currentState) {
-        
-        // Save isFirstBoot before it gets potentially reset for the decision output
-        bool wasFirstBoot = isFirstBoot;
 
         // Apply side effects from decision output
-        if (output.updateFirstBoot) {
-            isFirstBoot = false;
-            Serial.println("[WiFi] First boot flag reset on successful connection");
-        }
         if (output.resetWifiFail) { connectionFailCycles = 0; }
         if (output.incWifiFail) { connectionFailCycles++; }
-        
+
         // Actions on ENTERING a new state
         switch (output.nextState) {
             case STATE_WIFI_CONNECTING:
 #if USE_MOCKUP_DATA
                 mockWifiStartTime = millis();
 #else
-                if (currentState == STATE_BOOT) {
-                    WiFi.begin(ramSSID, ramPassword);
+                if (currentState == STATE_CHECK_CONFIG || currentState == STATE_BOOTSTRAP) {
+                    WiFi.begin(configStore.ssid(), configStore.password());
                     runtime.wifiStartTime = millis();
                 }
 #endif
-                if (isFirstBoot || !SILENT_STATUS) {
-                    const char* ssidToShow = (strlen(ramSSID) > 0) ? ramSSID : "MockNetwork";
+                if (!SILENT_STATUS) {
+                    const char* ssidToShow = input.nvsValid ? configStore.ssid() : "MockNetwork";
                     drawLoading(wifi_196x196, "Connecting to Wi-Fi...", ssidToShow);
                 }
                 break;
 
             case STATE_NORMAL_MODE:
                 runtime.wifiConnected = true;
-                // Show status on first boot (original value before reset) or if not silent
-                if (wasFirstBoot || !SILENT_STATUS) {
+                if (!SILENT_STATUS) {
                     updateEinkStatus("Wi-Fi Connected!");
                 }
                 break;
 
             case STATE_AP_CONFIG_MODE:
-                // If coming from WiFi failure on first boot, show error before AP mode
-                if (currentState == STATE_WIFI_CONNECTING && isFirstBoot) {
-                    drawLoading(wifi_off_196x196, TXT_WIFI_CONNECTION_FAILED);
-                    delay(3000);
-                }
                 startAP();
                 break;
 
@@ -247,18 +466,24 @@ void wifiManagerLoop() {
                 break;
 
             case STATE_SLEEP_PENDING:
-                // If it was a WiFi timeout, we might want to log it
-                if (currentState == STATE_WIFI_CONNECTING && !isFirstBoot) {
-                    Serial.printf("Connection fail cycle #%d/%d. Retrying later...\n", 
+                if (currentState == STATE_WIFI_CONNECTING) {
+                    Serial.printf("Connection fail cycle #%d/%d. Retrying later...\n",
                                   connectionFailCycles + 1, MAX_WIFI_FAIL_CYCLES);
                 }
                 break;
-                
-            default: break;
+
+            case STATE_BOOTSTRAP:
+                if (!configStore.hasValidWifiConfig()) {
+                    bootstrapFromEnv();
+                    configStore.loadFromNVS();  // reload after bootstrap attempt
+                }
+                break;
+
+            case STATE_CHECK_CONFIG:
+                // No side effects needed; pure routing state.
+                break;
         }
 
-        // NOTE: counter side-effects were already applied above (lines 203-204).
-        // Do NOT apply them again here — double-application halved the effective threshold.
         setFirmwareState(output.nextState);
     }
 
@@ -281,33 +506,40 @@ void setFirmwareState(FirmwareState newState) {
 /// @brief Perform IP-based geolocation
 /// @return true if location successfully determined
 /// @details Uses ip-api.com to auto-detect city/coordinates.
-/// Results stored in ramCity, ramLat, ramLon, ramCountry.
+/// Results stored in ConfigStore and persisted to NVS.
 /// @warning Requires active WiFi connection
 bool locateByIpAddress() {
     if (WiFi.status() != WL_CONNECTED) return false;
-    
+
     Serial.println("Performing automatic IP geolocation...");
-    
+
     HTTPClient http;
     http.begin(GEOLOCATION_ENDPOINT);
     int httpCode = http.GET();
-    
+
     bool success = false;
     if (httpCode == HTTP_CODE_OK) {
         String payload = http.getString();
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
-        
+
         if (!error && doc["status"] == "success") {
-            strncpy(ramCity, doc["city"] | "", sizeof(ramCity) - 1);
-            ramCity[sizeof(ramCity) - 1] = '\0';
-            strncpy(ramLat, doc["lat"].as<String>().c_str(), sizeof(ramLat) - 1);
-            ramLat[sizeof(ramLat) - 1] = '\0';
-            strncpy(ramLon, doc["lon"].as<String>().c_str(), sizeof(ramLon) - 1);
-            ramLon[sizeof(ramLon) - 1] = '\0';
-            strncpy(ramCountry, doc["country"] | "", sizeof(ramCountry) - 1);
-            ramCountry[sizeof(ramCountry) - 1] = '\0';
-            Serial.printf("Successfully geolocated to: %s, %s (%s, %s)\n", ramCity, ramCountry, ramLat, ramLon);
+            char city[64] = "";
+            char lat[21] = "";
+            char lon[21] = "";
+            char country[64] = "";
+
+            safeCopy(doc["city"] | "", city, sizeof(city));
+            safeCopy(doc["lat"].as<String>().c_str(), lat, sizeof(lat));
+            safeCopy(doc["lon"].as<String>().c_str(), lon, sizeof(lon));
+            safeCopy(doc["country"] | "", country, sizeof(country));
+
+            configStore.setLocation(lat, lon, city, country, configStore.timezone());
+            configStore.setAutoGeo(false);
+            configStore.saveToNVS();
+
+            Serial.printf("Successfully geolocated to: %s, %s (%s, %s)\n",
+                          city, country, lat, lon);
             success = true;
         } else {
             Serial.println("Geolocation API returned error status.");
@@ -315,7 +547,7 @@ bool locateByIpAddress() {
     } else {
         Serial.printf("Geolocation HTTP Request failed: %d\n", httpCode);
     }
-    
+
     http.end();
     return success;
 }
