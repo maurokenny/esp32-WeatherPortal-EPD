@@ -20,17 +20,7 @@
 #include <cctype>
 #include <ESPAsyncWebServer.h>
 
-// External RTC RAM variables (defined in wifi_manager.cpp)
-// Buffer sizes: Character Limit + 1 for null-terminator
-extern char ramSSID[33];       // Wi-Fi SSID: 32 chars + \0
-extern char ramPassword[64];   // WPA2 password: 63 chars + \0
-extern char ramCity[64];       // City: 63 chars + \0
-extern char ramCountry[64];    // Country: 63 chars + \0
-extern char ramLat[21];        // Latitude: 20 chars + \0
-extern char ramLon[21];        // Longitude: 20 chars + \0
-extern char ramTimezone[64];   // Timezone: 63 chars + \0
-extern bool ramAutoGeo;
-extern uint8_t ramTimezoneMode;
+// External state (defined in wifi_manager.cpp)
 extern RuntimeState runtime;
 
 // Maximum input lengths (buffer size - 1 for null terminator)
@@ -327,6 +317,7 @@ void sendSuccessResponse(AsyncWebServerRequest* request) {
 
     request->send(200, "text/html", htmlResponse);
 
+    Serial.println("[PORTAL] Success response sent, setting portalActive=false");
     // Mark portal as inactive to trigger restart sequence
     runtime.portalActive = false;
 }
@@ -335,14 +326,14 @@ void sendSuccessResponse(AsyncWebServerRequest* request) {
 // Validates all inputs, sanitizes strings, applies timezone
 void handleConfigSave(AsyncWebServerRequest* request) {
     // Temporary buffers for validation (on stack, no dynamic allocation)
-    // Sizes synchronized with RTC RAM variables in wifi_manager.cpp
-    char tempSSID[33] = {0};       // Matches ramSSID[33]
-    char tempPassword[64] = {0};   // Matches ramPassword[64]
-    char tempCity[64] = {0};       // Matches ramCity[64]
-    char tempCountry[64] = {0};    // Matches ramCountry[64]
-    char tempLat[21] = {0};        // Matches ramLat[21]
-    char tempLon[21] = {0};        // Matches ramLon[21]
-    char tempTimezone[64] = {0};   // Matches ramTimezone[64]
+    // Sizes synchronized with ConfigStore buffers in wifi_manager.h
+    char tempSSID[33] = {0};       // Matches ConfigStore ssid buffer
+    char tempPassword[64] = {0};   // Matches ConfigStore password buffer
+    char tempCity[64] = {0};       // Matches ConfigStore city buffer
+    char tempCountry[64] = {0};    // Matches ConfigStore country buffer
+    char tempLat[21] = {0};        // Matches ConfigStore lat buffer
+    char tempLon[21] = {0};        // Matches ConfigStore lon buffer
+    char tempTimezone[64] = {0};   // Matches ConfigStore timezone buffer
     bool tempAutoGeo = false;
 
     // Track validation errors
@@ -469,28 +460,34 @@ void handleConfigSave(AsyncWebServerRequest* request) {
         safeCopy("UTC0", tempTimezone, sizeof(tempTimezone));
     }
 
-    // --- All validations passed - copy to RTC RAM ---
-    safeCopy(tempSSID, ramSSID, sizeof(ramSSID));
-    safeCopy(tempPassword, ramPassword, sizeof(ramPassword));
-    safeCopy(tempCity, ramCity, sizeof(ramCity));
-    safeCopy(tempCountry, ramCountry, sizeof(ramCountry));
-    safeCopy(tempLat, ramLat, sizeof(ramLat));
-    safeCopy(tempLon, ramLon, sizeof(ramLon));
-    safeCopy(tempTimezone, ramTimezone, sizeof(ramTimezone));
-    ramAutoGeo = tempAutoGeo;
-    ramTimezoneMode = tempTimezoneMode;
+    // --- All validations passed - save to NVS via ConfigStore ---
+    configStore.setWifiConfig(tempSSID, tempPassword);
+    configStore.setLocation(tempLat, tempLon, tempCity, tempCountry, tempTimezone);
+    configStore.setAutoGeo(tempAutoGeo);
+    configStore.setTimezoneMode(tempTimezoneMode);
+
+    // Reset provisioned flag so loading screens appear on next connection
+    configStore.setProvisioned(false);
+
+    if (!configStore.saveToNVS()) {
+        Serial.println("[ERROR] Failed to save configuration to NVS!");
+        sendErrorResponse(request, "Failed to save configuration. Please try again.");
+        return;
+    }
 
     // Log configuration (password masked for security)
-    Serial.println("Configuration saved:");
-    Serial.printf("  SSID: %s\n", ramSSID);
-    Serial.printf("  Password: %s\n", (ramPassword[0] != '\0') ? "[SET]" : "[EMPTY]");
-    Serial.printf("  City: %s\n", ramCity);
-    Serial.printf("  Country: %s\n", ramCountry);
-    Serial.printf("  Lat: %s\n", ramLat);
-    Serial.printf("  Lon: %s\n", ramLon);
-    Serial.printf("  Timezone: %s%s\n", ramTimezone, tzApplied ? "" : " (fallback from invalid)");
-    Serial.printf("  AutoGeo: %s\n", ramAutoGeo ? "true" : "false");
-    Serial.printf("  TimezoneMode: %s\n", (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? "AUTO" : "MANUAL");
+    Serial.println("Configuration saved to NVS:");
+    Serial.printf("  SSID: %s\n", tempSSID);
+    Serial.printf("  Password: %s\n", (tempPassword[0] != '\0') ? "[SET]" : "[EMPTY]");
+    Serial.printf("  City: %s\n", tempCity);
+    Serial.printf("  Country: %s\n", tempCountry);
+    Serial.printf("  Lat: %s\n", tempLat);
+    Serial.printf("  Lon: %s\n", tempLon);
+    Serial.printf("  Timezone: %s%s\n", tempTimezone, tzApplied ? "" : " (fallback from invalid)");
+    Serial.printf("  AutoGeo: %s\n", tempAutoGeo ? "true" : "false");
+    Serial.printf("  TimezoneMode: %s\n", (tempTimezoneMode == TIMEZONE_MODE_AUTO) ? "AUTO" : "MANUAL");
+
+    Serial.println("[PROVISION] Config saved by user, provisioned flag reset for next connection.");
 
     // Send success response
     // Only show error if timezone failed in MANUAL mode

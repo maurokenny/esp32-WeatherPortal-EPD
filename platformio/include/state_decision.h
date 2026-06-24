@@ -10,7 +10,8 @@
 
 /// @brief Firmware operational states (Reused from wifi_manager.h)
 enum State {
-    STATE_BOOT,
+    STATE_CHECK_CONFIG,        // Check NVS, button, and decide next step
+    STATE_BOOTSTRAP,           // Load factory defaults from .env into NVS
     STATE_WIFI_CONNECTING,
     STATE_AP_CONFIG_MODE,
     STATE_NORMAL_MODE,
@@ -20,14 +21,14 @@ enum State {
 
 /// @brief Input variables for the state transition decision
 struct DecisionInput {
-    bool hasCredentials;      // Credentials exist in RTC RAM
-    bool isFirstBoot;         // Device has never successfully completed a cycle
+    bool nvsValid;            // NVS contains valid WiFi configuration
     bool wifiConnected;       // result of WiFi.status() == WL_CONNECTED
     bool wifiTimeout;         // result of timer comparison
     bool ntpSuccess;          // result of NTP sync attempt
     bool apiSuccess;          // result of API fetch attempt
     bool configSaved;         // result of web portal /save action
     bool portalTimeout;       // result of AP mode timer comparison
+    bool apButtonPressed;     // config button held after boot
 
     uint8_t wifiFailCycles;   // connectionFailCycles
     uint8_t ntpFailCycles;    // ntpFailCycles
@@ -50,7 +51,6 @@ struct DecisionOutput {
     bool resetApiFail;         // Set apiFailCycles = 0
     bool incApiFail;           // Increment apiFailCycles
     bool setErrorFlag;         // Set isErrorState = true (and sleep forever)
-    bool updateFirstBoot;      // Set isFirstBoot = false
 };
 
 DecisionOutput decideTransition(State current, const DecisionInput& input);

@@ -51,10 +51,10 @@ wl_status_t startWiFi(int &wifiRSSI)
 {
   WiFi.mode(WIFI_STA);
 #if DEBUG_LEVEL >= 2
-  Serial.printf("[WiFi] Connecting to ESSID: '%s'\n", WIFI_SSID);
+  Serial.printf("[WiFi] Connecting to ESSID: '%s'\n", configStore.ssid());
 #endif
-  Serial.printf("%s '%s'", TXT_CONNECTING_TO, WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.printf("%s '%s'", TXT_CONNECTING_TO, configStore.ssid());
+  WiFi.begin(configStore.ssid(), configStore.password());
 
   // timeout if WiFi does not connect in WIFI_TIMEOUT ms from now
   unsigned long timeout = millis() + WIFI_TIMEOUT;
@@ -72,13 +72,13 @@ wl_status_t startWiFi(int &wifiRSSI)
   {
     wifiRSSI = WiFi.RSSI(); // get WiFi signal strength now, because the WiFi
                             // will be turned off to save power!
-    Serial.printf("[WiFi] Connected to ESSID: '%s'\n", WIFI_SSID);
+    Serial.printf("[WiFi] Connected to ESSID: '%s'\n", configStore.ssid());
     Serial.println("IP: " + WiFi.localIP().toString());
   }
   else
   {
-    Serial.printf("[WiFi] Failed to connect to ESSID: '%s'\n", WIFI_SSID);
-    Serial.printf("%s '%s'\n", TXT_COULD_NOT_CONNECT_TO, WIFI_SSID);
+    Serial.printf("[WiFi] Failed to connect to ESSID: '%s'\n", configStore.ssid());
+    Serial.printf("%s '%s'\n", TXT_COULD_NOT_CONNECT_TO, configStore.ssid());
   }
   return connection_status;
 } // startWiFi
@@ -149,8 +149,8 @@ bool waitForSNTPSync(tm *timeInfo)
   
   // Open-Meteo API endpoint
   String uri = "/v1/forecast"
-               "?latitude=" + String(ramLat) + 
-               "&longitude=" + String(ramLon) +
+               "?latitude=" + String(configStore.lat()) + 
+               "&longitude=" + String(configStore.lon()) +
                "&current=temperature_2m,apparent_temperature,is_day,weather_code,"
                "precipitation,rain,showers,snowfall";
 
@@ -186,8 +186,8 @@ bool waitForSNTPSync(tm *timeInfo)
 
   // Determine timezone parameter based on user configuration
   // TIMEZONE_MODE_AUTO: API detects timezone from lat/lon
-  // TIMEZONE_MODE_MANUAL: API returns UTC (GMT), converted locally using ramTimezone
-  const char *openMeteoTimezoneQuery = (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? "auto" : "GMT";
+  // TIMEZONE_MODE_MANUAL: API returns UTC (GMT), converted locally using configStore.timezone()
+  const char *openMeteoTimezoneQuery = (configStore.timezoneMode() == TIMEZONE_MODE_AUTO) ? "auto" : "GMT";
 
   uri += String("&timezone=") + String(openMeteoTimezoneQuery)
          + String("&forecast_days=8");
@@ -272,11 +272,11 @@ bool waitForSNTPSync(tm *timeInfo)
 
   // Open-Meteo Air Quality API endpoint
   // When timezone mode is MANUAL, request UTC times; otherwise use API auto-detection
-  const char *openMeteoTimezoneQuery = (ramTimezoneMode == TIMEZONE_MODE_MANUAL) ? "GMT" : "auto";
+  const char *openMeteoTimezoneQuery = (configStore.timezoneMode() == TIMEZONE_MODE_MANUAL) ? "GMT" : "auto";
 
   String uri = "/v1/air-quality"
-               "?latitude=" + String(ramLat) + 
-               "&longitude=" + String(ramLon) +
+               "?latitude=" + String(configStore.lat()) + 
+               "&longitude=" + String(configStore.lon()) +
                "&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,"
                "sulphur_dioxide,ozone"
                + String("&timezone=") + String(openMeteoTimezoneQuery);

@@ -22,9 +22,9 @@
 RTC_DATA_ATTR bool TimeCoordinator::rtcSynced_ = false;
 
 /// @brief Initialize TimeCoordinator
-/// @details Detects mode from ramTimezoneMode and configures system timezone
+/// @details Detects mode from configStore.timezoneMode() and configures system timezone
 void TimeCoordinator::begin() {
-    mode_ = (ramTimezoneMode == TIMEZONE_MODE_AUTO) ? 
+    mode_ = (configStore.timezoneMode() == TIMEZONE_MODE_AUTO) ? 
             TIME_MODE_AUTO : TIME_MODE_MANUAL;
     apiOffsetSeconds_ = 0;
     
@@ -51,7 +51,7 @@ TimeDisplayData TimeCoordinator::process(const owm_resp_onecall_t& apiData,
         configureTimezoneFromOffset_(norm.apiOffsetSeconds);
         syncRtcIfNeeded_(norm.apiOffsetSeconds);
     } else {
-        const char *tzString = (ramTimezone[0] != '\0') ? ramTimezone : TIMEZONE;
+        const char *tzString = (configStore.timezone()[0] != '\0') ? configStore.timezone() : TIMEZONE;
         configureTimezoneFromString_(tzString);
     }
     

@@ -32,7 +32,7 @@
 /// @brief Power on and connect to WiFi network
 /// @param wifiRSSI Output parameter for signal strength (dBm)
 /// @return WiFi connection status
-/// @details Uses credentials from ramSSID/ramPassword (RTC RAM).
+/// @details Uses credentials from ConfigStore (NVS).
 /// Blocks until connected or WIFI_TIMEOUT expires.
 /// @note WiFi is powered off after use to save power; RSSI must be read now
 wl_status_t startWiFi(int &wifiRSSI);

@@ -663,7 +663,7 @@ DeserializationError deserializeOpenMeteo(WiFiClient &json,
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
   // When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
   // When AUTO, API returns times in local timezone
-  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
+  const bool openMeteoTimeStringsAreUtc = (configStore.timezoneMode() == TIMEZONE_MODE_MANUAL);
 
   // Parse current weather
   JsonObject current = doc["current"];
@@ -893,7 +893,7 @@ DeserializationError deserializeOpenMeteoAirQuality(WiFiClient &json,
   r.coord.lon = doc["longitude"].as<float>();
 // When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
   // When AUTO, API returns times in local timezone
-  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
+  const bool openMeteoTimeStringsAreUtc = (configStore.timezoneMode() == TIMEZONE_MODE_MANUAL);
 
   
   // Parse hourly air quality data
@@ -975,7 +975,7 @@ DeserializationError loadOpenMeteoFromHeader(owm_resp_onecall_t &r)
   r.timezone_offset = doc["utc_offset_seconds"].as<int>();
   // When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
   // When AUTO, API returns times in local timezone
-  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
+  const bool openMeteoTimeStringsAreUtc = (configStore.timezoneMode() == TIMEZONE_MODE_MANUAL);
 
   
   // Parse current weather
@@ -1159,7 +1159,7 @@ DeserializationError loadOpenMeteoAirQualityFromHeader(owm_resp_air_pollution_t 
   r.coord.lon = doc["longitude"].as<float>();
 // When timezone mode is MANUAL, API returns times in UTC (we use timezone=GMT)
   // When AUTO, API returns times in local timezone
-  const bool openMeteoTimeStringsAreUtc = (ramTimezoneMode == TIMEZONE_MODE_MANUAL);
+  const bool openMeteoTimeStringsAreUtc = (configStore.timezoneMode() == TIMEZONE_MODE_MANUAL);
 
   
   // Parse hourly air quality data
